@@ -16,3 +16,16 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 Route::prefix('api/v3')->group(function () {
 
 });
+
+//social login
+//google
+Route::prefix('google')->group(function () {
+    Route::get('loginUsingGoogle', [socialLogin::class, 'toGoogle']);
+    Route::any('callback', [socialLogin::class, 'googleCallBack']);
+});
+
+//linkedin
+Route::prefix('linkedin')->group(function () {
+    Route::get('loginUsingLinkedin', [socialLogin::class, 'toLinkedin']);
+    Route::any('callback', [socialLogin::class, 'linkedinCallBack']);
+});

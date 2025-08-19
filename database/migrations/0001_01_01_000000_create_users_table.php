@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id()->primary();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('phone_num');
-            $table->string('state');
-            $table->string('country');
+            $table->string('phone_num')->nullable();
+            $table->string('state')->nullable();
+            $table->string('country')->nullable();
             $table->string('password');
             $table->bigInteger('old_id')->nullable();
 
