@@ -30,6 +30,11 @@ class User extends Authenticatable
         'state',
         'country',
         'password',
+        'password_algorithm',
+        'provider',
+        'provider_id',
+        'old_id',
+        'old_table'
     ];
 
     /**

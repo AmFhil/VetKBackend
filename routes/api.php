@@ -1,4 +1,6 @@
 <?php
+
+use App\Http\Controllers\SocialLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -20,12 +22,12 @@ Route::prefix('api/v3')->group(function () {
 //social login
 //google
 Route::prefix('google')->group(function () {
-    Route::get('loginUsingGoogle', [socialLogin::class, 'toGoogle']);
-    Route::any('callback', [socialLogin::class, 'googleCallBack']);
+    Route::get('loginUsingGoogle', [SocialLogin::class, 'redirectToGoogle']);
+    Route::any('callback', [socialLogin::class, 'handleGoogleCallback']);
 });
 
 //linkedin
 Route::prefix('linkedin')->group(function () {
-    Route::get('loginUsingLinkedin', [socialLogin::class, 'toLinkedin']);
-    Route::any('callback', [socialLogin::class, 'linkedinCallBack']);
+    Route::get('loginUsingLinkedin', [socialLogin::class, 'redirectToLinkedin']);
+    Route::any('callback', [socialLogin::class, 'handleLinkedinCallback']);
 });
