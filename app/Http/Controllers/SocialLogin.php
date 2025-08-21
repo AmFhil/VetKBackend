@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
 
-class SocialLogin extends Controller
+class SocialLogin extends AuthController
 {
     //
     public function redirectToGoogle()
