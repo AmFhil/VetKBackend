@@ -60,6 +60,9 @@ class ResetPasswordLink extends Notification implements ShouldQueue
     {
         return [
             //
+            'resetUrl' => $this->resetUrl,
+            'name' => $this->name,
+            'email' => $this->email
         ];
     }
 }
