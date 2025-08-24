@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Notifications\CompleteProfileLoginLink;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -22,10 +24,13 @@ class AuthController extends Controller
         $user = User::create([
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']), // Hash the password
+            'password_algorithm' => 'bcrypt',
+            'created_at' => Carbon::now(),
         ]);
 
         // send verification mail with login link and activation mail
         try {
+            $token = Str::random(60);
             $user->notify(new CompleteProfileLoginLink('/complete-profile'));
         } catch (\Exception $e) {
             // fallback
@@ -74,13 +79,23 @@ class AuthController extends Controller
         // update profile if empty or null
         if (empty($user->phone_num) || empty($user->state) || empty($user->country)) {
             $profileData = $request->validate([
+                'first_name' => 'required|string|max:50|min:3',
+                'last_name' => 'required|string|max:50|min:3',
                 'phone_num' => 'required|string|max:15',
                 'state' => 'required|string|max:50',
                 'country' => 'required|string|max:50',
             ]);
 
             // update user profile
-            $user->update($profileData);
+            $user->update([
+                'email_verified_at' => Carbon::now(),
+                'first_name' => $profileData['first_name'],
+                'last_name' => $profileData['last_name'],
+                'phone_num' => $profileData['phone_num'],
+                'state' => $profileData['state'],
+                'country' => $profileData['country'],
+                'update_at' => Carbon::now(),
+            ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

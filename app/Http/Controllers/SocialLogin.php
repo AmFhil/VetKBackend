@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -44,6 +45,7 @@ class SocialLogin extends AuthController
                     'provider' => 'google',
                     'provider_id' => $googleUser->getId(),
                     'password' => null, // no password for social login
+                    'created_at' => Carbon::now(),
                 ]);
 
                 $token = $newUser->createToken('auth_token')->plainTextToKen;
@@ -86,6 +88,7 @@ class SocialLogin extends AuthController
                     'provider' => 'google',
                     'provider_id' => $linkedInUser->getId(),
                     'password' => null, // no password for social login
+                    'created_at' => Carbon::now(),
                 ]);
 
                 $token = $newUser->createToken('auth_token')->plainTextToKen;
@@ -99,13 +102,23 @@ class SocialLogin extends AuthController
     public function completeProfile(Request $request)
         {
             $validated = $request->validate([
+                'first_name' => 'required|string|max:50|min:3',
+                'last_name' => 'required|string|max:50|min:3',
                 'phone_num' => 'required|string|max:15',
                 'state' => 'required|string|max:50',
                 'country' => 'required|string|max:50',
             ]);
 
             $user = $request->user();
-            $user->update($validated);
+            $user->update([
+                'email_verified_at' => Carbon::now(),
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'phone_num' => $validated['phone_num'],
+                'state' => $validated['state'],
+                'country' => $validated['country'],
+                'update_at' => Carbon::now(),
+            ]);
 
             return response()->json([
                 'message' => 'Profile updated successfully',
