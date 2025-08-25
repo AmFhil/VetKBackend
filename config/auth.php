@@ -53,11 +53,11 @@ return [
             'hash' => true, // Enable hashing for API tokens
         ],
 
-        // 'admin' => [
-        //     'driver' => 'sanctum',
-        //     'provider' => 'admin',
-        //     'hash' => true, // Enable hashing for API tokens
-        // ],
+        'admin' => [
+            'driver' => 'sanctum',
+            'provider' => 'admin',
+            'hash' => true, // Enable hashing for API tokens
+        ],
     ],
 
     /*
@@ -93,10 +93,10 @@ return [
             'model' => App\Models\User::class,
         ],
 
-        // 'admin' => [
-        //     'driver' => 'eloquent',
-        //     'model' => App\Models\Admin::class, // Admin model
-        // ]
+        'admin' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Admin::class, // Admin model
+        ]
     ],
 
     /*
