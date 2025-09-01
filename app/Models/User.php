@@ -61,4 +61,39 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function veterinaryDoctor()
+    {
+        return $this->hasOne(VeterinaryDoctor::class, 'user_id');
+    }
+
+    public function veterinaryParaprofessional()
+    {
+        return $this->hasOne(VeterinaryParaprofessional::class, 'user_id');
+    }
+
+    public function veterinaryClinic()
+    {
+        return $this->hasOne(VeterinaryClinic::class, 'user_id');
+    }
+
+    public function petOwner()
+    {
+        return $this->hasOne(Pet_Owner::class, 'user_id');
+    }
+
+    public function livestockFarmer()
+    {
+        return $this->hasOne(livestock_farmer::class, 'user_id');
+    }
+
+    public function others()
+    {
+        return $this->hasOne(Others::class, 'user_id');
+    }
+
+    public function vendor()
+    {
+        return $this->hasOne(Vendor::class, 'user_id');
+    }
 }
