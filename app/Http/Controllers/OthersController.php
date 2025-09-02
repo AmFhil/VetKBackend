@@ -22,7 +22,7 @@ class OthersController extends Controller
         // create livestock farmer profile
         $others = Others::create([
             'user_id' => $validated['user_id'],
-            'role' => 'others',
+            'role' => 'Others',
         ]);
 
         // return response

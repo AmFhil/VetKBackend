@@ -22,7 +22,7 @@ class VendorController extends Controller
         // create vendor profile
         $vendor = Vendor::create([
             'user_id' => $validated['user_id'],
-            'role' => 'vendor',
+            'role' => 'Vendor',
         ]);
 
         // return response

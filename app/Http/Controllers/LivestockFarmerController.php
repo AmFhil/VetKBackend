@@ -22,7 +22,7 @@ class LivestockFarmerController extends Controller
         // create livestock farmer profile
         $livestockFarmer = livestock_farmer::create([
             'user_id' => $validated['user_id'],
-            'role' => 'livestock_farmer',
+            'role' => 'Livestock Farmer',
         ]);
 
         // return response

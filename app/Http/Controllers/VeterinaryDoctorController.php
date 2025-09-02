@@ -37,7 +37,7 @@ class VeterinaryDoctorController extends Controller
             'address' => $validated['address'],
             'longitude' => $validated['longitude'],
             'latitude' => $validated['latitude'],
-            'role' => 'veterinarian',
+            'role' => 'Veterinarian',
             'is_approved' => 0, // default to pending
             'created_at' => Carbon::now(),
         ]);
@@ -49,9 +49,15 @@ class VeterinaryDoctorController extends Controller
     // get all veterinary doctors
     public function getAllVeterinaryDoctors()
     {
-        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country'])
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'created_at')
+        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
+
+            // add average rating to each veterinary doctor
+            $veterinaryDoctors->getCollection()->transform(function ($doctor){
+                $doctor->average_rating = $doctor->ratings->avg('rating');
+                return $doctor;
+            });
 
         return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
     }
@@ -67,9 +73,15 @@ class VeterinaryDoctorController extends Controller
         $veterinaryDoctors = VeterinaryDoctor::where('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country'])
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'is_approved')
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rated_user_id,rating,comment'])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
+
+            // add average rating to each veterinary doctor
+            $veterinaryDoctors->getCollection()->transform(function ($doctor){
+                $doctor->average_rating = $doctor->ratings->avg('rating');
+                return $doctor;
+            });
 
         return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
     }
@@ -88,6 +100,7 @@ class VeterinaryDoctorController extends Controller
 
         $veterinaryDoctors = DB::table('veterinary_doctor')
             ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
+            ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rated_user_id')
             ->select(
                 'veterinary_doctor.id',
                 'veterinary_doctor.user_id',
@@ -97,13 +110,14 @@ class VeterinaryDoctorController extends Controller
                 'veterinary_doctor.longitude',
                 'veterinary_doctor.latitude',
                 'veterinary_doctor.role',
-                'veterinary_doctor.is_approved',
+                'veterinary_doctor.availability',
                 'users_registration.email',
                 'users_registration.first_name',
                 'users_registration.last_name',
                 'users_registration.phone_num',
                 'users_registration.state',
                 'users_registration.country',
+                DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
             ->whereNotNull('veterinary_doctor.latitude')
@@ -117,13 +131,16 @@ class VeterinaryDoctorController extends Controller
 
     // get veterinary doctor by id
     public function getVeterinaryDoctorById($id){
-        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country'])
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'is_approved', 'role', 'created_at')
+        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'created_at')
             ->where('id', $id)
             ->first();
 
-            if(!$veterinaryDoctor){
-                return response()->json(['message' => 'Veterinary doctor not found.'], 404);
+            // get average rating 
+            if($veterinaryDoctor){
+                $veterinaryDoctor->average_rating = $veterinaryDoctor->ratings->avg('rating');
+            }else{
+                 return response()->json(['message' => 'Veterinary doctor not found.'], 404);
             }
 
             // return veterinary doctor

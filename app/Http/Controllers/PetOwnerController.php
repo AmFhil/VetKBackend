@@ -22,7 +22,7 @@ class PetOwnerController extends Controller
         // create pet owner profile
         $petOwner = Pet_Owner::create([
             'user_id' => $validated['user_id'],
-            'role' => 'pet_owner',
+            'role' => 'Pet Owner',
         ]);
 
         // return response

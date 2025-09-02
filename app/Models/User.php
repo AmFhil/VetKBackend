@@ -96,4 +96,14 @@ class User extends Authenticatable
     {
         return $this->hasOne(Vendor::class, 'user_id');
     }
+
+    public function ratingsGiven()
+    {
+        return $this->hasMany(Rate::class, 'user_id');
+    }
+
+    public function ratingsReceived()
+    {
+        return $this->hasMany(Rate::class, 'rated_user_id');
+    }
 }

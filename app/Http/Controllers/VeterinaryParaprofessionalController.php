@@ -43,7 +43,7 @@ class VeterinaryParaprofessionalController extends Controller
             'address' => $validated['address'],
             'longitude' => $validated['longitude'],
             'latitude' => $validated['latitude'],
-            'role' => 'veterinarian_paraprofessional',
+            'role' => 'Veterinary Paraprofessional',
             'is_approved' => 0, // default to pending
             'created_at' => Carbon::now(),
         ]);
@@ -55,9 +55,15 @@ class VeterinaryParaprofessionalController extends Controller
     // get all veterinary paraprofessionals
    public function getAllVeterinaryParaprofessionals()
     {
-        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country'])
-            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'created_at')
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rated_user_id,rating,comment'])
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
+
+            // add average rating to each veterinary paraprofessional
+            $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional){
+                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->ratings->avg('rating');
+                return $veterinaryParaprofessional;
+            });
 
         return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
     }
@@ -73,9 +79,15 @@ class VeterinaryParaprofessionalController extends Controller
         $veterinaryParaprofessionals = VeterinaryParaprofessional::where('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country'])
-            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'is_approved')
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rated_user_id,rating,comment'])
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
+
+            // add average rating to each veterinary paraprofessional
+            $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional){
+                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->ratings->avg('rating');
+                return $veterinaryParaprofessional;
+            });
 
         return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
     }
@@ -93,6 +105,7 @@ class VeterinaryParaprofessionalController extends Controller
         $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_paraprofessional.latitude)) * cos(radians(veterinary_paraprofessional.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_paraprofessional.latitude))))";
 
         $veterinaryParaprofessionals = VeterinaryParaprofessional::join('users_registration', 'veterinary_paraprofessional.user_id', '=', 'users_registration.id')
+            ->leftJoin('rating', 'veterinary_paraprofessional.user_id', '=', 'rating.rated_user_id')
             ->select(
                 'veterinary_paraprofessional.id',
                 'veterinary_paraprofessional.user_id',
@@ -104,13 +117,14 @@ class VeterinaryParaprofessionalController extends Controller
                 'veterinary_paraprofessional.longitude',
                 'veterinary_paraprofessional.latitude',
                 'veterinary_paraprofessional.role',
-                'veterinary_paraprofessional.is_approved',
+                'veterinary_paraprofessional.availability',
                 'users_registration.email',
                 'users_registration.first_name',
                 'users_registration.last_name',
                 'users_registration.phone_num',
                 'users_registration.state',
                 'users_registration.country',
+                DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
             ->whereNotNull('veterinary_paraprofessional.latitude')
@@ -125,13 +139,16 @@ class VeterinaryParaprofessionalController extends Controller
     // get veterinary paraprofessional by id
     public function getVeterinaryParaprofessionalById($id)
     {
-        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country'])
-            ->select('id','user_id','name_of_institution','specialty','list_them','contact_num','address','longitude','latitude','role','is_approved')
+        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rated_user_id,rating,comment'])
+            ->select('id','user_id','name_of_institution','specialty','list_them','contact_num','address','longitude','latitude','role','availability')
             ->where('id', $id)
             ->first();
 
-            if(!$veterinaryParaprofessional){
-                return response()->json(['message' => 'User not found.'], 404);
+            // get average rating 
+            if($veterinaryParaprofessional){
+                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->ratings->avg('rating');
+            }else{
+                 return response()->json(['message' => 'Veterinary paraprofessional not found.'], 404);
             }
 
             // return veterinary paraprofessional
