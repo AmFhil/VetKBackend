@@ -85,7 +85,7 @@ class SocialLogin extends AuthController
                 // if user does not exit -> create with social data
                 $newUser = User::create([
                     'email' => $linkedInUser->getEmail(),
-                    'provider' => 'google',
+                    'provider' => 'linkedin',
                     'provider_id' => $linkedInUser->getId(),
                     'password' => null, // no password for social login
                     'created_at' => Carbon::now(),
@@ -99,8 +99,13 @@ class SocialLogin extends AuthController
         };
     }
 
-    public function completeProfile(Request $request)
+    public function completeUserRegistration(Request $request)
         {
+            $user = auth()->user();
+            if(!$user){
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
             $validated = $request->validate([
                 'first_name' => 'required|string|max:50|min:3',
                 'last_name' => 'required|string|max:50|min:3',

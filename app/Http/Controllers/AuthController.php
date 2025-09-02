@@ -30,15 +30,16 @@ class AuthController extends Controller
 
         // send verification mail with login link and activation mail
         try {
-            $token = Str::random(60);
-            $user->notify(new CompleteProfileLoginLink('/complete-profile'));
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            $user->notify(new CompleteProfileLoginLink('/login-verification-link?token=' . $token));
         } catch (\Exception $e) {
             // fallback
-            \Illuminate\Support\Facades\Notification::route('mail', $user->email)->notifyNow(new CompleteProfileLoginLink('/complete-profile'));
+            \Illuminate\Support\Facades\Notification::route('mail', $user->email)->notifyNow(new CompleteProfileLoginLink('/login-verification-link?token=' . $token));
         }
 
         // return a response as JSON
-        return response()->json(['message' => 'User registered successfully'], 200);
+        return response()->json(['message' => 'Registration Link Have Been Sent to Your Mail'], 200);
     }
 
     public function login(Request $request)
@@ -77,26 +78,26 @@ class AuthController extends Controller
         };
 
         // update profile if empty or null
-        if (empty($user->phone_num) || empty($user->state) || empty($user->country)) {
-            $profileData = $request->validate([
-                'first_name' => 'required|string|max:50|min:3',
-                'last_name' => 'required|string|max:50|min:3',
-                'phone_num' => 'required|string|max:15',
-                'state' => 'required|string|max:50',
-                'country' => 'required|string|max:50',
-            ]);
+        // if (empty($user->first_name) || empty($user->last_name) || empty($user->phone_num) || empty($user->country) || empty($user->state)) {
+        //     $profileData = $request->validate([
+        //         'first_name' => 'required|string|max:50|min:3',
+        //         'last_name' => 'required|string|max:50|min:3',
+        //         'phone_num' => 'required|string|max:15',
+        //         'state' => 'required|string|max:50',
+        //         'country' => 'required|string|max:50',
+        //     ]);
 
-            // update user profile
-            $user->update([
-                'email_verified_at' => Carbon::now(),
-                'first_name' => $profileData['first_name'],
-                'last_name' => $profileData['last_name'],
-                'phone_num' => $profileData['phone_num'],
-                'state' => $profileData['state'],
-                'country' => $profileData['country'],
-                'update_at' => Carbon::now(),
-            ]);
-        }
+        //     // update user profile
+        //     $user->update([
+        //         'email_verified_at' => Carbon::now(),
+        //         'first_name' => $profileData['first_name'],
+        //         'last_name' => $profileData['last_name'],
+        //         'phone_num' => $profileData['phone_num'],
+        //         'state' => $profileData['state'],
+        //         'country' => $profileData['country'],
+        //         'update_at' => Carbon::now(),
+        //     ]);
+        // }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 

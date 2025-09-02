@@ -166,18 +166,41 @@ class UserController extends Controller
 
     // use long and lati to get nearest veterinary doctor
     public function getNearestVeterinaryDoctor(Request $request){
-        $latitude = $request->latitude;
-        $longitude = $request->longitude;
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        if (!$latitude || !$longitude) {
+            return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
+        }
 
         // Haversine formula to calculate distance
-        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(latitude)) * cos(radians(longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(latitude))))";
+        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_doctor.latitude)) * cos(radians(veterinary_doctor.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_doctor.latitude))))";
 
-        $nearestDoctors = DB::table('veterinary_doctor') or DB::table('veterinary_paraprofessional')
-            ->select('id', 'first_name', 'last_name', 'phone_num', 'address', DB::raw("$haversine AS distance"))
+        $veterinaryDoctors = DB::table('veterinary_doctor')
+            ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
+            ->select(
+                'veterinary_doctor.id',
+                'veterinary_doctor.user_id',
+                'veterinary_doctor.specialty',
+                'veterinary_doctor.list_them',
+                'veterinary_doctor.address',
+                'veterinary_doctor.longitude',
+                'veterinary_doctor.latitude',
+                'veterinary_doctor.role',
+                'veterinary_doctor.is_approved',
+                'users_registration.email',
+                'users_registration.first_name',
+                'users_registration.last_name',
+                'users_registration.phone_num',
+                'users_registration.state',
+                'users_registration.country',
+                DB::raw("$haversine AS distance")
+            )
+            ->whereNotNull('veterinary_doctor.latitude')
+            ->whereNotNull('veterinary_doctor.longitude')
             ->orderBy('distance', 'asc')
             ->limit(10)
             ->get();
 
-        return response()->json(['nearest_doctors' => $nearestDoctors], 200);
+        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
     }
 }
