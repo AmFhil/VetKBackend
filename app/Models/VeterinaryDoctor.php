@@ -11,7 +11,7 @@ class VeterinaryDoctor extends Model
     protected $primaryKey = 'id';
     protected $keyType = 'int';
     public $incrementing = true;
-    
+
     protected $fillable = [
         'user_id',
         'practice_license_num',
