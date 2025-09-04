@@ -61,7 +61,7 @@ class VeterinaryParaprofessionalController extends Controller
 
             // add average rating to each veterinary paraprofessional
             $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional){
-                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->ratings->avg('rating');
+                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
                 return $veterinaryParaprofessional;
             });
 
@@ -85,7 +85,7 @@ class VeterinaryParaprofessionalController extends Controller
 
             // add average rating to each veterinary paraprofessional
             $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional){
-                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->ratings->avg('rating');
+                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
                 return $veterinaryParaprofessional;
             });
 
@@ -144,9 +144,9 @@ class VeterinaryParaprofessionalController extends Controller
             ->where('id', $id)
             ->first();
 
-            // get average rating 
+            // get average rating
             if($veterinaryParaprofessional){
-                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->ratings->avg('rating');
+                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
             }else{
                  return response()->json(['message' => 'Veterinary paraprofessional not found.'], 404);
             }

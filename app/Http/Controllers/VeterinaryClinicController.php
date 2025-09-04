@@ -56,7 +56,7 @@ class VeterinaryClinicController extends Controller
 
             // add average rating to each veterinary clinic
             $clinics->getCollection()->transform(function ($clinic){
-                $clinic->average_rating = $clinic->ratings->avg('rating');
+                $clinic->average_rating = $clinic->averageRating();
                 return $clinic;
             });
 
@@ -77,7 +77,7 @@ class VeterinaryClinicController extends Controller
 
             // add average rating to each veterinary clinic
             $clinics->getCollection()->transform(function ($clinic){
-                $clinic->average_rating = $clinic->ratings->avg('rating');
+                $clinic->average_rating = $clinic->averageRating();
                 return $clinic;
             });
 
@@ -141,7 +141,7 @@ class VeterinaryClinicController extends Controller
             ->first();
 
         if ($clinic) {
-            $clinic->average_rating = $clinic->ratings->avg('rating');
+            $clinic->average_rating = $clinic->averageRating();
         }else{
             return response()->json(['message' => 'Veterinary clinic not found.'], 404);
         }

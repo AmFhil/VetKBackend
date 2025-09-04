@@ -20,15 +20,53 @@ class RateController extends Controller
             // check if user have already rated this user
             // validate the request
             $validated = $request->validate([
-                'rated_user_id' => 'required|exists:users_registration,id',
+                'rateable_id' => 'required|integer',
+                'rateable_type' => 'required|string|in:App\Models\VeterinaryDoctor,App\Models\VeterinaryParaprofessional,App\Models\VeterinaryClinic,App\Models\Store,App\Models\Product',
                 'user_role' => 'required|string|in:Veterinarian,Veterinary Paraprofessional,Veterinary Clinic,Pet Owner,Livestock Farmer,Vendor,Others',
-                'type' => 'required|string|in:vet,store,paraprofessional,clinic',
+                'type' => 'required|string|in:veterinary_doctor,veterinary_paraprofessional,veterinary_clinic,store,product',
                 'rating' => 'required|integer|min:1|max:5',
                 'comment' => 'nullable|string|max:1000',
             ]);
 
+            // validate the rateable entity
+            $rateable = null;
+
+            switch ($validated['rateable_type']){
+                case 'App\Models\VeterinaryDoctor':
+                    $rateable = \App\Models\VeterinaryDoctor::find($validated['rateable_id']);
+                    break;
+                case 'App\Models\VeterinaryParaprofessional':
+                    $rateable = \App\Models\VeterinaryParaprofessional::find($validated['rateable_id']);
+                    break;
+                case 'App\Models\VeterinaryClinic':
+                    $rateable = \App\Models\VeterinaryClinic::find($validated['rateable_id']);
+                    break;
+                case 'App\Models\Store':
+                    $rateable = \App\Models\Store::find($validated['rateable_id']);
+                    break;
+                // case 'App\Models\Product':
+                //     $rateable = \App\Models\Product::find($validated['rateable_id']);
+                //     break;
+                default:
+                    return response()->json(['message' => 'Invalid rateable type.'], 400);
+            };
+
+            if (!$rateable) {
+                return response()->json(['message' => 'Rateable entity not found.'], 404);
+            }
+
+            // check if user is rating themselves
+            if ($rateable->user_id === $user->id) {
+                return response()->json(['message' => 'You cannot rate yourself.'], 400);
+            }
+
+            // check if user has already rated this user
+
+
+
             $existingRate = Rate::where('user_id', $user->id)
-                ->where('rated_user_id', $validated['rated_user_id'])
+                ->where('rateable_id', $validated['rateable_id'])
+                ->where('rateable_type', $validated['rateable_type'])
                 ->where('user_role', $validated['user_role'])
                 ->where('type', $validated['type'])
                 ->get()
@@ -47,7 +85,8 @@ class RateController extends Controller
             // create a new rate
             $rate = Rate::create([
                 'user_id' => $user->id,
-                'rated_user_id' => $validated['rated_user_id'],
+                'rateable_id' => $validated['rateable_id'],
+                'rateable_type' => $validated['rateable_type'],
                 'user_role' => $validated['user_role'],
                 'type' => $validated['type'],
                 'rating' => $validated['rating'],
@@ -55,7 +94,7 @@ class RateController extends Controller
             ]);
 
             // return response
-            return response()->json(['message' => 'User rated successfully.', 'rate' => $rate], 201);
+            return response()->json(['message' => 'Entity rated successfully.', 'rate' => $rate], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
         }

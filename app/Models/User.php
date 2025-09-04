@@ -104,6 +104,11 @@ class User extends Authenticatable
 
     public function ratingsReceived()
     {
-        return $this->hasMany(Rate::class, 'rated_user_id');
+        return $this->morphMany(Rate::class, 'rateable');
+    }
+
+    public function store()
+    {
+        return $this->hasMany(Store::class, 'user_id');
     }
 }

@@ -55,7 +55,7 @@ class VeterinaryDoctorController extends Controller
 
             // add average rating to each veterinary doctor
             $veterinaryDoctors->getCollection()->transform(function ($doctor){
-                $doctor->average_rating = $doctor->ratings->avg('rating');
+                $doctor->average_rating = $doctor->averageRating();
                 return $doctor;
             });
 
@@ -79,7 +79,7 @@ class VeterinaryDoctorController extends Controller
 
             // add average rating to each veterinary doctor
             $veterinaryDoctors->getCollection()->transform(function ($doctor){
-                $doctor->average_rating = $doctor->ratings->avg('rating');
+                $doctor->average_rating = $doctor->averageRating();
                 return $doctor;
             });
 
@@ -136,9 +136,9 @@ class VeterinaryDoctorController extends Controller
             ->where('id', $id)
             ->first();
 
-            // get average rating 
+            // get average rating
             if($veterinaryDoctor){
-                $veterinaryDoctor->average_rating = $veterinaryDoctor->ratings->avg('rating');
+                $veterinaryDoctor->average_rating = $veterinaryDoctor->averageRating();
             }else{
                  return response()->json(['message' => 'Veterinary doctor not found.'], 404);
             }

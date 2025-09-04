@@ -35,7 +35,12 @@ class VeterinaryClinic extends Model
 
     public function ratings()
     {
-        return $this->hasMany(Rate::class, 'rated_user_id');
+        return $this->morphMany(Rate::class, 'rateable');
+    }
+
+    public function averageRating()
+    {
+        return $this->ratings()->avg('rating') ?: 0;
     }
 
 

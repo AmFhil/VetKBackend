@@ -14,7 +14,8 @@ class Rate extends Model
 
     protected $fillable = [
         'user_id',
-        'rated_user_id',
+        'rateable_id',
+        'rateable_type',
         'user_role',
         'type',
         'rating',
@@ -26,10 +27,10 @@ class Rate extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function ratedUser()
+    public function rateable()
     {
-        return $this->belongsTo(User::class, 'rated_user_id');
+        return $this->morphTo();
     }
 
-    // 
+    //
 }

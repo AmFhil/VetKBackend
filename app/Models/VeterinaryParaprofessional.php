@@ -11,7 +11,7 @@ class VeterinaryParaprofessional extends Model
     protected $primaryKey = 'id';
     public $incrementing = true;
     protected $keyType = 'int';
-    
+
     protected $fillable = [
         'user_id',
         'name_of_institution',
@@ -36,7 +36,12 @@ class VeterinaryParaprofessional extends Model
 
     public function ratings()
     {
-        return $this->hasMany(Rate::class, 'rated_user_id');
+        return $this->morphMany(Rate::class, 'rateable');
+    }
+
+    public function averageRating()
+    {
+        return $this->ratings()->avg('rating') ?: 0;
     }
 
 
