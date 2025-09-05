@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Store;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 
 class StoreController extends Controller
 {
@@ -52,6 +53,84 @@ class StoreController extends Controller
         // return response
         return response()->json(['message' => 'Store created successfully.', 'store' => $store], 200);
 
+    }
+
+    public function updateStore(Request $request, $id){
+        // validate the request
+        $request->validate([
+            'store_name' => 'sometimes|string|unique:store,store_name,'.$id.'|max:100',
+            'email' => 'sometimes|email|unique:store,email,'.$id.'|max:100',
+            'phone_number' => 'sometimes|string',
+            'location' => 'sometimes|string|max:255',
+            'picture' => 'sometimes|image|mimes:jpeg,png,jpg,svg|max:1048',
+            'availability' => 'sometimes|in:true,false',
+            'longitude' => 'sometimes|string|max:50',
+            'latitude' => 'sometimes|string|max:50',
+        ]);
+
+        // check if user is authenticated
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        // find store
+        $store = Store::find($id);
+        if(!$store){
+            return response()->json(['message' => 'Store not found.'], 404);
+        };
+
+        // check if the authenticated user is the owner of the store
+        if($store->user_id !== $user->id){
+            return response()->json(['message' => 'You are not authorized to update this store.'], 403);
+        };
+
+        // upload picture if exists
+        if($request->hasFile('picture')){
+            // delete old picture
+            if($store->picture){
+                File::delete(public_path('storage/'.$store->picture));
+            }
+            $imageName = $request->file('picture')->store('store_pictures', 'public');
+            $store->picture = $imageName;
+        }
+
+        // update store
+        if($request->has('store_name')) $store->store_name = $request->store_name;
+        if($request->has('email')) $store->email = $request->email;
+        if($request->has('phone_number')) $store->phone_number = $request->phone_number;
+        if($request->has('location')) $store->location = $request->location;
+        if($request->has('availability')) $store->availability = $request->availability;
+        if($request->has('longitude')) $store->longitude = $request->longitude;
+        if($request->has('latitude')) $store->latitude = $request->latitude;
+        $store->updated_at = Carbon::now();
+        $store->save();
+
+        // return response
+        return response()->json(['message' => 'Store updated successfully.', 'store' => $store]);
+    }
+
+    // get vendor stores
+    public function getVendorStores(){
+        // check if user is authenticated
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        //get stores
+        $stores = Store::with('ratings:id,rating,comment,rateable_id')
+            ->where('role', 'Vendor')
+            ->paginate(10);
+
+        // get average rating for each store
+        $stores->getCollection()->transform(function ($store){
+            $store->average_rating = $store->averageRating();
+            // $store->average_rating = $average ? number_format($average, 1) . ' of 5' : '0 of 5';
+            return $store;
+        });
+
+        return response()->json(['stores' => $stores], 200);
     }
 
     // get store by user id

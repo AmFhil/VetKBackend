@@ -100,7 +100,7 @@ class VeterinaryDoctorController extends Controller
 
         $veterinaryDoctors = DB::table('veterinary_doctor')
             ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rated_user_id')
+            ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rateable_id')
             ->select(
                 'veterinary_doctor.id',
                 'veterinary_doctor.user_id',

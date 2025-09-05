@@ -8,24 +8,30 @@ use Illuminate\Http\Request;
 class LivestockFarmerController extends Controller
 {
     //
-    public function AddLivestockFarmer(Request $request){
+    public function AddLivestockFarmer(Request $request)
+    {
         $user = auth()->user();
-        if (!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        // validate request
-        $validated = $request->validate([
-            'user_id' => 'required|integer|unique:livestock_farmer,user_id',
-        ]);
+        // validate request (no need for user_id anymore)
+        $validated = $request->validate([]);
+
+        // check if already has profile
+        if (livestock_farmer::where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'Profile already exists.'], 409);
+        }
 
         // create livestock farmer profile
         $livestockFarmer = livestock_farmer::create([
-            'user_id' => $validated['user_id'],
+            'user_id' => $user->id,
             'role' => 'Livestock Farmer',
         ]);
 
-        // return response
-        return response()->json(['message' => 'Livestock Farmer profile created successfully.', 'data' => $livestockFarmer], 200);
+        return response()->json([
+            'message' => 'Livestock Farmer profile created successfully.',
+            'data' => $livestockFarmer
+        ], 200);
     }
 }

@@ -39,4 +39,9 @@ class Store extends Model
     {
         return $this->ratings()->avg('rating') ?: 0;
     }
+
+    public function products()
+    {
+        return $this->hasMany(Products::class, 'store_id');
+    }
 }

@@ -134,9 +134,9 @@ class UserController extends Controller
     {
         $counter = 0;
         $livestock_category = strtolower($request->livestock_category) . '_disease';
-        $diseaseSentence='';
-        for($l = 0; $l < count($request->diseases); $l++){
-             $diseaseSentence=$diseaseSentence.', '.$request->diseases[$l];
+        $diseaseSentence = '';
+        for ($l = 0; $l < count($request->diseases); $l++) {
+            $diseaseSentence = $diseaseSentence . ', ' . $request->diseases[$l];
         }
         for ($k = 0; $k < count($request->diseases); $k++) {
             for ($i = 0; $i < count($this->$livestock_category); $i++) {
@@ -146,7 +146,7 @@ class UserController extends Controller
                             $counter = $counter + 1;
                         }
                         if (($counter)) {
-                            return 'Based on the signs and symptoms you have selected, the suspected condition is <p style="color:red">'.$this->$livestock_category[$i]['array'][$j]['disease_name'];
+                            return 'Based on the signs and symptoms you have selected, the suspected condition is <p style="color:red">' . $this->$livestock_category[$i]['array'][$j]['disease_name'];
                         }
                     }
                 }
@@ -165,7 +165,8 @@ class UserController extends Controller
     }
 
     // use long and lati to get nearest veterinary doctor
-    public function getNearestVeterinaryDoctor(Request $request){
+    public function getNearestVeterinaryDoctor(Request $request)
+    {
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
         if (!$latitude || !$longitude) {
@@ -177,6 +178,7 @@ class UserController extends Controller
 
         $veterinaryDoctors = DB::table('veterinary_doctor')
             ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
+            ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rateable_id')
             ->select(
                 'veterinary_doctor.id',
                 'veterinary_doctor.user_id',
@@ -186,13 +188,14 @@ class UserController extends Controller
                 'veterinary_doctor.longitude',
                 'veterinary_doctor.latitude',
                 'veterinary_doctor.role',
-                'veterinary_doctor.is_approved',
+                'veterinary_doctor.availability',
                 'users_registration.email',
                 'users_registration.first_name',
                 'users_registration.last_name',
                 'users_registration.phone_num',
                 'users_registration.state',
                 'users_registration.country',
+                DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
             ->whereNotNull('veterinary_doctor.latitude')

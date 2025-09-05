@@ -105,7 +105,7 @@ class VeterinaryParaprofessionalController extends Controller
         $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_paraprofessional.latitude)) * cos(radians(veterinary_paraprofessional.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_paraprofessional.latitude))))";
 
         $veterinaryParaprofessionals = VeterinaryParaprofessional::join('users_registration', 'veterinary_paraprofessional.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'veterinary_paraprofessional.user_id', '=', 'rating.rated_user_id')
+            ->leftJoin('rating', 'veterinary_paraprofessional.user_id', '=', 'rating.rateable_id')
             ->select(
                 'veterinary_paraprofessional.id',
                 'veterinary_paraprofessional.user_id',

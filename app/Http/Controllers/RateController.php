@@ -44,9 +44,9 @@ class RateController extends Controller
                 case 'App\Models\Store':
                     $rateable = \App\Models\Store::find($validated['rateable_id']);
                     break;
-                // case 'App\Models\Product':
-                //     $rateable = \App\Models\Product::find($validated['rateable_id']);
-                //     break;
+                case 'App\Models\Product':
+                    $rateable = \App\Models\Products::find($validated['rateable_id']);
+                    break;
                 default:
                     return response()->json(['message' => 'Invalid rateable type.'], 400);
             };

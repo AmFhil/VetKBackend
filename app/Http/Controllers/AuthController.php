@@ -30,11 +30,13 @@ class AuthController extends Controller
 
         // send verification mail with login link and activation mail
         try {
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('user_token', ['user'])->plainTextToken;
 
             $user->notify(new CompleteProfileLoginLink('/login-verification-link?token=' . $token));
         } catch (\Exception $e) {
             // fallback
+            $token = $user->createToken('user_token', ['user'])->plainTextToken;
+
             \Illuminate\Support\Facades\Notification::route('mail', $user->email)->notifyNow(new CompleteProfileLoginLink('/login-verification-link?token=' . $token));
         }
 
@@ -99,7 +101,7 @@ class AuthController extends Controller
         //     ]);
         // }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('user_token', ['user'])->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
@@ -111,13 +113,17 @@ class AuthController extends Controller
     // logout function
     public function logout(Request $request)
     {
-        $user = $request->user();
+        $request->validate([
+            'userEmail' => 'Required|email|exists:users_registration,email'
+        ]);
+
+        $user = User::where('email', $request->userEmail)->first();
 
         if ($user) {
             $user->tokens()->delete(); // delete all tokens from the user
             return response()->json(['message' => 'Logged out successfully'], 200);
         } else {
-            return response()->json(['error' => 'User not authenticated'], 401);
+            return response()->json(['error' => 'User not found'], 401);
         }
     }
 }

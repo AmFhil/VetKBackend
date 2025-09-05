@@ -44,19 +44,16 @@ return [
         'api' => [
             'driver' => 'sanctum',
             'provider' => 'users',
-            'hash' => true, // Enable hashing for API tokens
         ],
 
         'user' => [
             'driver' => 'sanctum',
-            'provider' => 'user',
-            'hash' => true, // Enable hashing for API tokens
+            'provider' => 'users', // normal users
         ],
 
         'admin' => [
             'driver' => 'sanctum',
-            'provider' => 'admin',
-            'hash' => true, // Enable hashing for API tokens
+            'provider' => 'admin', // admin
         ],
     ],
 
@@ -80,18 +77,13 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model' => App\Models\User::class,
         ],
 
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
-
-        'user' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\User::class,
-        ],
 
         'admin' => [
             'driver' => 'eloquent',

@@ -6,11 +6,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $table = 'users_registration';
 
@@ -110,5 +111,10 @@ class User extends Authenticatable
     public function store()
     {
         return $this->hasMany(Store::class, 'user_id');
+    }
+
+    public function products()
+    {
+        return $this->hasMany(Products::class, 'user_id');
     }
 }
