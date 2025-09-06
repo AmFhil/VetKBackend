@@ -16,12 +16,16 @@ class OthersController extends Controller
 
         // validate request
         $validated = $request->validate([
-            'user_id' => 'required|integer|unique:others,user_id',
         ]);
+
+        // check if already has profile
+        if (Others::where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'Profile already exists.'], 409);
+        }
 
         // create livestock farmer profile
         $others = Others::create([
-            'user_id' => $validated['user_id'],
+            'user_id' => $user->id,
             'role' => 'Others',
         ]);
 

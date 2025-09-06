@@ -22,8 +22,6 @@ class RateController extends Controller
             $validated = $request->validate([
                 'rateable_id' => 'required|integer',
                 'rateable_type' => 'required|string|in:App\Models\VeterinaryDoctor,App\Models\VeterinaryParaprofessional,App\Models\VeterinaryClinic,App\Models\Store,App\Models\Product',
-                'user_role' => 'required|string|in:Veterinarian,Veterinary Paraprofessional,Veterinary Clinic,Pet Owner,Livestock Farmer,Vendor,Others',
-                'type' => 'required|string|in:veterinary_doctor,veterinary_paraprofessional,veterinary_clinic,store,product',
                 'rating' => 'required|integer|min:1|max:5',
                 'comment' => 'nullable|string|max:1000',
             ]);
@@ -56,9 +54,9 @@ class RateController extends Controller
             }
 
             // check if user is rating themselves
-            if ($rateable->user_id === $user->id) {
-                return response()->json(['message' => 'You cannot rate yourself.'], 400);
-            }
+            if (isset($rateable->user_id) && $rateable->user_id === $user->id) {
+            return response()->json(['message' => 'You cannot rate yourself.'], 400);
+        }
 
             // check if user has already rated this user
 
@@ -67,8 +65,6 @@ class RateController extends Controller
             $existingRate = Rate::where('user_id', $user->id)
                 ->where('rateable_id', $validated['rateable_id'])
                 ->where('rateable_type', $validated['rateable_type'])
-                ->where('user_role', $validated['user_role'])
-                ->where('type', $validated['type'])
                 ->get()
                 ->first();
 
@@ -87,8 +83,6 @@ class RateController extends Controller
                 'user_id' => $user->id,
                 'rateable_id' => $validated['rateable_id'],
                 'rateable_type' => $validated['rateable_type'],
-                'user_role' => $validated['user_role'],
-                'type' => $validated['type'],
                 'rating' => $validated['rating'],
                 'comment' => $validated['comment'] ?? null,
             ]);

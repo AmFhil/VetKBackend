@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\DB;
 class VeterinaryClinicController extends Controller
 {
     //
-    public function addVeterinaryClinic(Request $request){
+    public function addVeterinaryClinic(Request $request)
+    {
         $user = auth()->user();
-        if(!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -48,44 +49,51 @@ class VeterinaryClinicController extends Controller
     }
 
     // get all veterinary clinics
-    public function getAllVeterinaryClinics(){
-        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+    public function getAllVeterinaryClinics()
+    {
+        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
 
-            // add average rating to each veterinary clinic
-            $clinics->getCollection()->transform(function ($clinic){
-                $clinic->average_rating = $clinic->averageRating();
-                return $clinic;
-            });
+        // add average rating to each veterinary clinic
+        $clinics->getCollection()->transform(function ($clinic) {
+            $clinic->average_rating = $clinic->averageRating();
+            return $clinic;
+        });
 
         return response()->json(['clinics' => $clinics], 200);
     }
 
     // get veterinary clinics base on search query
-    public function searchVeterinaryClinics(Request $request){
+    public function searchVeterinaryClinics(Request $request)
+    {
         $query = $request->input('query', '');
+
+        if (!$query) {
+            return response()->json(['clinics' => []], 200);
+        }
 
         $clinics = VeterinaryClinic::where('name_of_clinic', 'like', "%$query%")
             ->orWhere('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
-            // add average rating to each veterinary clinic
-            $clinics->getCollection()->transform(function ($clinic){
-                $clinic->average_rating = $clinic->averageRating();
-                return $clinic;
-            });
+        // add average rating to each veterinary clinic
+        $clinics->getCollection()->transform(function ($clinic) {
+            $clinic->average_rating = $clinic->averageRating();
+            return $clinic;
+        });
 
         return response()->json(['clinics' => $clinics], 200);
     }
 
     // get veterinary clinics near a location
-    public function getNearbyVeterinaryClinics(Request $request){
+    public function getNearbyVeterinaryClinics(Request $request)
+    {
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
         $radius = $request->input('radius', 10); // default to 10 km if not provided
@@ -98,7 +106,7 @@ class VeterinaryClinicController extends Controller
         $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_clinic.latitude)) * cos(radians(veterinary_clinic.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_clinic.latitude))))";
 
         $veterinaryClinics = VeterinaryClinic::join('users_registration', 'veterinary_clinic.user_id', '=', 'users_registration.id')
-        ->leftJoin('rating', 'veterinary_clinic.user_id', '=', 'rating.rateable_id')
+            ->leftJoin('rating', 'veterinary_clinic.user_id', '=', 'rating.rateable_id')
             ->select(
                 'veterinary_clinic.id',
                 'veterinary_clinic.user_id',
@@ -126,23 +134,24 @@ class VeterinaryClinicController extends Controller
             ->orderBy('distance', 'asc')
             ->paginate(10);
 
-            if($veterinaryClinics === 0){
-                return response()->json(['message' => 'No veterinary clinics found within the specified radius.'], 200);
-            }
+        if ($veterinaryClinics === 0) {
+            return response()->json(['message' => 'No veterinary clinics found within the specified radius.'], 200);
+        }
 
         return response()->json(['veterinary_clinics' => $veterinaryClinics], 200);
     }
 
     // get veterinary clinic by id
-    public function getVeterinaryClinicById($id){
-        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+    public function getVeterinaryClinicById($id)
+    {
+        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->where('id', $id)
             ->first();
 
         if ($clinic) {
             $clinic->average_rating = $clinic->averageRating();
-        }else{
+        } else {
             return response()->json(['message' => 'Veterinary clinic not found.'], 404);
         }
 

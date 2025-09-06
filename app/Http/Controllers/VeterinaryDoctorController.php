@@ -49,7 +49,7 @@ class VeterinaryDoctorController extends Controller
     // get all veterinary doctors
     public function getAllVeterinaryDoctors()
     {
-        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
 
@@ -67,13 +67,13 @@ class VeterinaryDoctorController extends Controller
     {
         $query = $request->input('query');
         if (!$query) {
-            return response()->json(['message' => 'Query parameter is required.'], 400);
+            return response()->json(['veterinary_doctors' => []], 200);
         }
 
         $veterinaryDoctors = VeterinaryDoctor::where('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rated_user_id,rating,comment'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -131,7 +131,7 @@ class VeterinaryDoctorController extends Controller
 
     // get veterinary doctor by id
     public function getVeterinaryDoctorById($id){
-        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rated_user_id,rating,comment'])
+        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'created_at')
             ->where('id', $id)
             ->first();

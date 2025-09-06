@@ -44,7 +44,7 @@ class AdminAuthController extends Controller
                 return response()->json(['error' => 'invalid credentials'], 401);
             }
 
-            $token = $admin->createToken('admin_token', ['admin'])->plainTextToken;
+            $token = $admin->createToken('admin_token')->plainTextToken;
             $admin->role = 'Admin';
             $admin->profile_picture = ('https://vetkonect.com/backend/storage/app/public/admin_pic/' . $admin->profile_picture);
             return response()->json(['message' => 'Login successful', 'admin' => $admin, 'token' => $token], 200);

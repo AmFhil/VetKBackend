@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\VeterinaryDoctor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -203,6 +204,28 @@ class UserController extends Controller
             ->orderBy('distance', 'asc')
             ->limit(10)
             ->get();
+
+        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+    }
+
+    // get nearest location by search
+    public function searchLocation(Request $request){
+        $query = $request->input('query');
+
+        if (!$query) {
+            return response()->json(['veterinary_doctors' => []], 200);
+        }
+
+        $veterinaryDoctors = VeterinaryDoctor::where('address', 'like', "%$query%")
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment'])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->limit(5);
+
+            // add average rating to each veterinary doctor
+            $veterinaryDoctors->getCollection()->transform(function ($doctor){
+                $doctor->average_rating = $doctor->averageRating();
+                return $doctor;
+            });
 
         return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
     }

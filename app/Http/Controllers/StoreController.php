@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Products;
 use App\Models\Store;
+use App\Models\Vendor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class StoreController extends Controller
 {
     //
-    public function addNewStore(Request $request){
+    public function addNewStore(Request $request)
+    {
         // validate the request
         $request->validate([
             'user_id' => 'required|exists:users_registration,id',
-            'role' => 'required|string|in:Veterinarian,Veterinary Paraprofessional,Veterinary Clinic,Pet Owner,Livestock Farmer,Vendor,Others',
+            'role' => 'required|string|in:Vendor',
             'store_name' => 'required|string|unique:store,store_name|max:100',
             'email' => 'required|email|unique:store,email|max:100',
             'phone_number' => 'required|string',
@@ -31,13 +35,19 @@ class StoreController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         };
 
+        // check if role is vendor
+        $vendor = Vendor::where('user_id', $user->id);
+
+        if(!$vendor){
+            return response()->json(['message' => 'You can not create a store'], 403);
+        }
+
         // upload picture
         $imageName = $request->file('picture')->store('store_pictures', 'public');
 
-
         // create new store
         $store = Store::create([
-            'user_id' => $request->user_id,
+            'user_id' => $user->id,
             'role' => $request->role,
             'store_name' => $request->store_name,
             'email' => $request->email,
@@ -52,14 +62,14 @@ class StoreController extends Controller
 
         // return response
         return response()->json(['message' => 'Store created successfully.', 'store' => $store], 200);
-
     }
 
-    public function updateStore(Request $request, $id){
+    public function updateStore(Request $request, $id)
+    {
         // validate the request
         $request->validate([
-            'store_name' => 'sometimes|string|unique:store,store_name,'.$id.'|max:100',
-            'email' => 'sometimes|email|unique:store,email,'.$id.'|max:100',
+            'store_name' => 'sometimes|string|unique:store,store_name,' . $id . '|max:100',
+            'email' => 'sometimes|email|unique:store,email,' . $id . '|max:100',
             'phone_number' => 'sometimes|string',
             'location' => 'sometimes|string|max:255',
             'picture' => 'sometimes|image|mimes:jpeg,png,jpg,svg|max:1048',
@@ -76,33 +86,33 @@ class StoreController extends Controller
 
         // find store
         $store = Store::find($id);
-        if(!$store){
+        if (!$store) {
             return response()->json(['message' => 'Store not found.'], 404);
         };
 
-        // check if the authenticated user is the owner of the store
-        if($store->user_id !== $user->id){
+        // check if the authenticated user is not the owner of the store
+        if ($store->user_id !== $user->id) {
             return response()->json(['message' => 'You are not authorized to update this store.'], 403);
         };
 
         // upload picture if exists
-        if($request->hasFile('picture')){
+        if ($request->hasFile('picture')) {
             // delete old picture
-            if($store->picture){
-                File::delete(public_path('storage/'.$store->picture));
+            if ($store->picture) {
+                Storage::disk('public')->delete($store->picture);
             }
             $imageName = $request->file('picture')->store('store_pictures', 'public');
             $store->picture = $imageName;
         }
 
         // update store
-        if($request->has('store_name')) $store->store_name = $request->store_name;
-        if($request->has('email')) $store->email = $request->email;
-        if($request->has('phone_number')) $store->phone_number = $request->phone_number;
-        if($request->has('location')) $store->location = $request->location;
-        if($request->has('availability')) $store->availability = $request->availability;
-        if($request->has('longitude')) $store->longitude = $request->longitude;
-        if($request->has('latitude')) $store->latitude = $request->latitude;
+        if ($request->has('store_name')) $store->store_name = $request->store_name;
+        if ($request->has('email')) $store->email = $request->email;
+        if ($request->has('phone_number')) $store->phone_number = $request->phone_number;
+        if ($request->has('location')) $store->location = $request->location;
+        if ($request->has('availability')) $store->availability = $request->availability;
+        if ($request->has('longitude')) $store->longitude = $request->longitude;
+        if ($request->has('latitude')) $store->latitude = $request->latitude;
         $store->updated_at = Carbon::now();
         $store->save();
 
@@ -111,7 +121,8 @@ class StoreController extends Controller
     }
 
     // get vendor stores
-    public function getVendorStores(){
+    public function getVendorStores()
+    {
         // check if user is authenticated
         $user = auth()->user();
         if (!$user) {
@@ -124,7 +135,7 @@ class StoreController extends Controller
             ->paginate(10);
 
         // get average rating for each store
-        $stores->getCollection()->transform(function ($store){
+        $stores->getCollection()->transform(function ($store) {
             $store->average_rating = $store->averageRating();
             // $store->average_rating = $average ? number_format($average, 1) . ' of 5' : '0 of 5';
             return $store;
@@ -134,7 +145,8 @@ class StoreController extends Controller
     }
 
     // get store by user id
-    public function getStoreByUserId($user_id){
+    public function getStoreByUserId($user_id)
+    {
         // check if user is authenticated
         $user = auth()->user();
         if (!$user) {
@@ -147,12 +159,12 @@ class StoreController extends Controller
             ->paginate(10);
 
 
-        if(!$store){
+        if (!$store) {
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
         // get average rating
-        $store->getCollection()->transform(function ($store){
+        $store->getCollection()->transform(function ($store) {
             $store->average_rating = $store->averageRating();
             // $store->average_rating = $average ? number_format($average, 1) . ' of 5' : '0 of 5';
             return $store;
@@ -162,7 +174,8 @@ class StoreController extends Controller
     }
 
     // get store by store id
-    public function getStoreById($id){
+    public function getStoreById($id)
+    {
         // check if user is authenticated
         $user = auth()->user();
         if (!$user) {
@@ -174,7 +187,7 @@ class StoreController extends Controller
             ->where('id', $id)
             ->first();
 
-        if(!$store){
+        if (!$store) {
             return response()->json(['message' => 'Store not found.'], 404);
         };
 
@@ -182,5 +195,66 @@ class StoreController extends Controller
         $store->average_rating = $store->averageRating();
 
         return response()->json(['store' => $store], 200);
+    }
+
+    // delete store
+    public function deleteStore($id)
+    {
+        try {
+            // check if user is authenticated
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            // find the store
+            $store = Store::find($id);
+            if (!$store) {
+                return response()->json(['message' => 'Store not found.'], 404);
+            }
+
+            // check if the authenticated user is the owner of the store
+            if ($store->user_id !== $user->id) {
+                return response()->json(['message' => 'You are not authorized to delete this store.'], 403);
+            }
+
+            // delete store picture
+            if ($store->picture) {
+                Storage::disk('public')->delete($store->picture);
+            }
+
+            // get all products related to this store
+            $products = Products::where('store_id', $store->id)->get();
+
+            foreach ($products as $product) {
+                // delete product images
+                if ($product->image1) {
+                    Storage::disk('public')->delete($product->image1);
+                }
+                if ($product->image2) {
+                    Storage::disk('public')->delete($product->image2);
+                }
+                if ($product->image3) {
+                    Storage::disk('public')->delete($product->image3);
+                }
+                if ($product->image4) {
+                    Storage::disk('public')->delete($product->image4);
+                }
+
+                // delete the product
+                $product->delete();
+            }
+
+            // delete the store itself
+            $store->delete();
+
+            // return response
+            return response()->json(['message' => 'Store and all related products deleted successfully.'], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'An error occurred while deleting the store.',
+                'error' => $th->getMessage()
+            ], 500);
+        }
     }
 }

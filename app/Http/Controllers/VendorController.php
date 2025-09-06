@@ -16,12 +16,16 @@ class VendorController extends Controller
 
         // validate request
         $validated = $request->validate([
-            'user_id' => 'required|integer|unique:vendor,user_id',
         ]);
+
+        // check if already has profile
+        if (Vendor::where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'Profile already exists.'], 409);
+        }
 
         // create vendor profile
         $vendor = Vendor::create([
-            'user_id' => $validated['user_id'],
+            'user_id' => $user->id,
             'role' => 'Vendor',
         ]);
 

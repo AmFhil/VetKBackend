@@ -16,12 +16,16 @@ class PetOwnerController extends Controller
 
         // validate request
         $validated = $request->validate([
-            'user_id' => 'required|integer|unique:pet_owner,user_id',
         ]);
+
+        // check if already has profile
+        if (Pet_Owner::where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'Profile already exists.'], 409);
+        }
 
         // create pet owner profile
         $petOwner = Pet_Owner::create([
-            'user_id' => $validated['user_id'],
+            'user_id' => $user->id,
             'role' => 'Pet Owner',
         ]);
 

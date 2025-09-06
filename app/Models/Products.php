@@ -6,15 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Products extends Model
 {
-    //
     protected $table = 'products';
+
     protected $fillable = [
         'user_id',
         'store_id',
         'product_name',
         'category',
         'description',
-        'tags',
         'location',
         'price',
         'image1',
@@ -24,7 +23,15 @@ class Products extends Model
         'availability',
         'available_unit',
         'is_featured',
-        'is_verified'
+        'is_verified',
+        'product_type'
+    ];
+
+    protected $casts = [
+        'availability' => 'boolean',
+        'is_featured' => 'boolean',
+        'is_verified' => 'boolean',
+        'price' => 'decimal:2',
     ];
 
     public function store()
@@ -45,5 +52,11 @@ class Products extends Model
     public function averageRating()
     {
         return $this->ratings()->avg('rating');
+    }
+
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class, 'product_tag')
+            ->withTimestamps();
     }
 }
