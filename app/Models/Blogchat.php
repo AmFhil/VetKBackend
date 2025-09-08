@@ -26,4 +26,25 @@ class BlogChat extends Model
     {
         return $this->morphTo();
     }
+
+    public function blogChatComment()
+    {
+        return $this->hasMany(BlogChatComment::class, 'blog_chat_id');
+    }
+
+    public function blogChatLike()
+    {
+        return $this->hasMany(BlogChatLike::class, 'blog_chat_id');
+    }
+
+    protected static function booted()
+    {
+        static::created(function ($comment) {
+            $comment->blog->increment('comments_count');
+        });
+
+        static::deleted(function ($comment) {
+            $comment->blog->decrement('comments_count');
+        });
+    }
 }
