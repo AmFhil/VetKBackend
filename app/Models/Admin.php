@@ -39,4 +39,20 @@ class Admin extends Model
         ];
     }
 
+     protected static function boot()
+    {
+        parent::boot();
+
+        // Register the deleting event
+        static::deleting(function ($admin) {
+            // Delete all related blog_chats
+            $admin->blogChats()->delete();
+        });
+    }
+
+    public function blogChats()
+    {
+        return $this->morphMany(BlogChat::class, 'user');
+    }
+
 }

@@ -98,6 +98,11 @@ class User extends Authenticatable
         return $this->hasOne(Vendor::class, 'user_id');
     }
 
+    public function profile()
+    {
+        return $this->hasOne(Profiles::class, 'user_id');
+    }
+
     public function ratingsGiven()
     {
         return $this->hasMany(Rate::class, 'user_id');
@@ -116,5 +121,21 @@ class User extends Authenticatable
     public function products()
     {
         return $this->hasMany(Products::class, 'user_id');
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Register the deleting event
+        static::deleting(function ($user) {
+            // Delete all related blog_chats
+            $user->blogChats()->delete();
+        });
+    }
+
+    public function blogChats()
+    {
+        return $this->morphMany(BlogChat::class, 'user');
     }
 }
