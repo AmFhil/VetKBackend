@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\BlogChat;
@@ -8,7 +7,6 @@ use Illuminate\Http\Request;
 
 class BlogChatLikeController extends Controller
 {
-    //
     public function toggleLike($blogId)
     {
         $user = auth()->user();
@@ -21,21 +19,19 @@ class BlogChatLikeController extends Controller
 
         $like = BlogChatLike::where('blog_chat_id', $blog->id)
             ->where('user_id', $user->id)
+            ->where('user_type', get_class($user))
             ->first();
 
-            if($like){
-                $like->delete();
-                $blog->decrement('likes_count');
-                return response()->json(['message' => 'unlike']);
-            }else{
-                BlogChatLike::create([
-                    'blog_chat_id' => $blog->id,
-                    'user_id' => $user->id,
-                    'user_type' => get_class($user)
-                ]);
-                $blog->increment('likes_count');
-                return response()->json(['message' => 'liked']);
-            }
-
+        if ($like) {
+            $like->delete();
+            return response()->json(['message' => 'unliked']);
+        } else {
+            BlogChatLike::create([
+                'blog_chat_id' => $blog->id,
+                'user_id' => $user->id,
+                'user_type' => get_class($user),
+            ]);
+            return response()->json(['message' => 'liked']);
+        }
     }
 }

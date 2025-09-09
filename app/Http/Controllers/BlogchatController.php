@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BlogChat;
 use App\Models\BlogChatComment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -162,42 +163,24 @@ class BlogChatController extends Controller
         return response()->json(['message' => 'Blog updated successfully', 'blog' => $blog]);
     }
 
-    // display blog for view
-    public function show($id, Request $request)
+    private function loadBlog($query, Request $request)
     {
-        $blog = BlogChat::where('id', $id)
-            ->where('status', 'published')
-            ->with(['blogChatComment' => function ($query) {
-                $query->whereNull('parent_id')
-                    ->with('replies');
-            }])
-            ->firstOrFail();
-
         $user = auth()->user();
-        $cacheKey = $user
-            ? "blog_view_{$id}_user_{$user->id}"
-            : "blog_view_{$id}_ip_{$request->ip()}";
 
-        if (!cache()->has($cacheKey)) {
-            $blog->increment('views_count');
-            cache()->put($cacheKey, true, now()->addDay());
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return response()->json($blog);
-    }
-
-    // display using slug
-    public function showWithSlug($slug, Request $request)
-    {
-        $blog = BlogChat::where('slug', $slug)
-            ->where('status', 'published')
-            ->with(['blogChatComment' => function ($query) {
-                $query->whereNull('parent_id')
-                    ->with('replies');
+        $blog = $query->where('status', 'published')
+            ->with(['comments' => function ($q) {
+                $q->whereNull('parent_id')
+                    ->where('flag', '!=', 'hidden') // hide flagged comments
+                    ->with(['replies' => function ($r) {
+                        $r->where('flag', '!=', 'hidden');
+                    }]);
             }])
             ->firstOrFail();
 
-        // Track unique views
         $user = auth()->user();
         $cacheKey = $user
             ? "blog_view_{$blog->id}_user_{$user->id}"
@@ -205,10 +188,27 @@ class BlogChatController extends Controller
 
         if (!cache()->has($cacheKey)) {
             $blog->increment('views_count');
-            cache()->put($cacheKey, true, now()->addDay()); // prevent duplicate views in 24h
+            cache()->put($cacheKey, true, now()->addDay());
         }
 
-        return response()->json($blog);
+        return $blog;
+    }
+
+
+    // display blog for view
+    public function show($id, Request $request)
+    {
+        return response()->json(
+            $this->loadBlog(BlogChat::where('id', $id), $request)
+        );
+    }
+
+    // display using slug
+    public function showWithSlug($slug, Request $request)
+    {
+        return response()->json(
+            $this->loadBlog(BlogChat::where('slug', $slug), $request)
+        );
     }
 
 
@@ -230,41 +230,31 @@ class BlogChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $trending = BlogChat::select('*')
-            ->selectRaw('
+        $trending = Cache::remember('trending_blogs', now()->addMinutes(10), function () {
+            return BlogChat::where('status', 'published')
+                ->withCount(['blogChatComment', 'blogChatLike'])
+                ->with(['comments' => function ($q) {
+                    $q->whereNull('parent_id')
+                        ->where('flag', '!=', 'hidden') // hide flagged comments
+                        ->with(['replies' => function ($r) {
+                            $r->where('flag', '!=', 'hidden');
+                        }]);
+                }])
+                ->selectRaw('
             (views_count * 0.3) +
             (likes_count * 0.5) +
             (comments_count * 0.7) +
             (shares_count * 1) as score
-        ')
-            ->orderByDesc('score')
-            ->take(10)
-            ->get();
+                                    ')
+                ->orderByDesc('score')
+                ->take(10)
+                ->get();
+        });
 
         return response()->json($trending);
     }
 
-    // admin flag
-    public function updateFlag(Request $request, $id)
-    {
-        $admin = auth('admin')->user();
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
 
-        $request->validate([
-            'flag' => 'required|in:none,spam,abuse,hidden',
-        ]);
-
-        $comment = BlogChatComment::findOrFail($id);
-        $comment->flag = $request->flag;
-        $comment->save();
-
-        return response()->json([
-            'message' => 'Comment flag updated by admin',
-            'comment' => $comment
-        ]);
-    }
 
     // Reject (archive) a blog post
     public function reject($id)
@@ -283,10 +273,25 @@ class BlogChatController extends Controller
 
     public function index()
     {
-        $blogs = BlogChat::where('status', 'published')
-            ->withCount(['blogChatComment', 'blogChatLike']) // analytics helper
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $blogs = Cache::remember('blogs_index', now()->addMinutes(5), function () {
+            return BlogChat::where('status', 'published')
+                ->withCount(['blogChatComment', 'blogChatLike'])
+                ->with(['comments' => function ($q) {
+                    $q->whereNull('parent_id')
+                        ->where('flag', '!=', 'hidden') // hide flagged comments
+                        ->with(['replies' => function ($r) {
+                            $r->where('flag', '!=', 'hidden');
+                        }]);
+                }])
+                ->orderByDesc('created_at')
+                ->paginate(10);
+        });
 
         return response()->json($blogs);
     }
