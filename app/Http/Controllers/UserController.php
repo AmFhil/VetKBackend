@@ -207,7 +207,7 @@ class UserController extends Controller
             ->whereNotNull('veterinary_doctor.latitude')
             ->whereNotNull('veterinary_doctor.longitude')
             ->orderBy('distance', 'asc')
-            ->limit(10)
+            ->limit(5)
             ->get();
 
         return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);

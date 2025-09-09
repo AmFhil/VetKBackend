@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class BlogChat extends Model
 {
+    protected $table = 'blog_chats';
+
     protected $fillable = [
         'user_id',
         'user_type',
@@ -37,14 +39,5 @@ class BlogChat extends Model
         return $this->hasMany(BlogChatLike::class, 'blog_chat_id');
     }
 
-    protected static function booted()
-    {
-        static::created(function ($comment) {
-            $comment->blog->increment('comments_count');
-        });
-
-        static::deleted(function ($comment) {
-            $comment->blog->decrement('comments_count');
-        });
-    }
+    
 }

@@ -8,6 +8,7 @@ class BlogChatComment extends Model
 {
     //
     protected $table = 'blog_chat_comments';
+
     protected $fillable = [
         'blog_chat_id',
         'user_id',
@@ -16,6 +17,17 @@ class BlogChatComment extends Model
         'comment',
         'flag',
     ];
+
+    protected static function booted()
+    {
+        static::created(function ($comment) {
+            $comment->blog->increment('comments_count');
+        });
+
+        static::deleted(function ($comment) {
+            $comment->blog->decrement('comments_count');
+        });
+    }
 
     public function blog(){
         return $this->belongsTo(BlogChat::class, 'blog_chat_id');
