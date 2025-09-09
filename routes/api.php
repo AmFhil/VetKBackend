@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BlogChatCommentController;
+use App\Http\Controllers\BlogChatController;
+use App\Http\Controllers\BlogChatLikeController;
 use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\PetOwnerController;
@@ -40,7 +43,7 @@ Route::prefix('v3')->group(function () {
     Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
     Route::get('/search-location', [UserController::class, 'searchLocation']);
 
-    Route::middleware(['auth:sanctum'])->group(function (){
+    Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/complete-profile', [SocialLogin::class, 'completeUserRegistration']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/add-livestock-farmer', [LivestockFarmerController::class, 'AddLivestockFarmer']);
@@ -62,29 +65,50 @@ Route::prefix('v3')->group(function () {
         Route::post('/get-veterinary-doctor-by-location', [VeterinaryDoctorController::class, 'getVeterinaryDoctorsByLocation']);
         Route::post('/get-veterinary-clinic-by-location', [VeterinaryClinicController::class, 'getNearbyVeterinaryClinics']);
         Route::post('/get-veterinary-paraprofessional-by-location', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalsByLocation']);
-        Route::get('/get-veterinary-doctor/{id}', [VeterinaryDoctorController::class, 'getVeterinaryDoctorById']);
-        Route::get('/get-veterinary-clinic/{id}', [VeterinaryClinicController::class, 'getVeterinaryClinicById']);
-        Route::get('/get-veterinary-paraprofessional/{id}', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalById']);
+        Route::get('/get-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'getVeterinaryDoctorById']);
+        Route::get('/get-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'getVeterinaryClinicById']);
+        Route::get('/get-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalById']);
         Route::post('/rate-entity', [RateController::class, 'rateUser']);
         Route::post('/add-new-store', [StoreController::class, 'addNewStore']);
-        Route::put('/update-store/{id}', [StoreController::class, 'updateStore']);
+        Route::put('/store/{id}/store', [StoreController::class, 'updateStore']);
         Route::get('/vendor-store', [StoreController::class, 'getVendorsStore']);
-        Route::get('/get-store-by-user-id/{id}', [StoreController::class, 'getStoreByUserId']);
-        Route::get('/get-store-by-id/{id}', [StoreController::class, 'getStoreById']);
-        Route::get('/delete-store/{id}', [StoreController::class, 'deleteStore']);
+        Route::get('/get-store-by-user-id/{id}/store', [StoreController::class, 'getStoreByUserId']);
+        Route::get('/get-store-by-id/{id}/store', [StoreController::class, 'getStoreById']);
+        Route::delete('/delete-store/{id}/store', [StoreController::class, 'deleteStore']);
         Route::post('/add-new-product', [ProductsController::class, 'addNewProduct']);
-        Route::put('/update-product/{id}', [ProductsController::class, 'updateProduct']);
-        Route::get('/delete-product/{id}', [ProductsController::class, 'deleteProduct']);
-        Route::post('/get-product-by-store/{id}', [ProductsController::class, 'getProductsByStore']);
-
+        Route::put('/update-product/{id}/product', [ProductsController::class, 'updateProduct']);
+        Route::delete('/delete-product/{id}/product', [ProductsController::class, 'deleteProduct']);
+        Route::get('/get-products-by-user-id/{id}/product',[ProductsController::class, 'getProductByUserId']);
+        Route::get('/get-product-not-on-store', [ProductsController::class, 'getProductNotOnStore']);
+        Route::post('/get-product-by-store/{id}/product', [ProductsController::class, 'getProductsByStore']);
+        Route::get('/get-related-product/{id}/related', [ProductsController::class, 'getRelatedProducts']);
+        Route::post('/update-profile', [UserController::class, 'updateProfile']);
+        Route::post('/blogs/{id}/like', [BlogChatLikeController::class, 'toggleLike']);
+        Route::get('/blogs/{id}/blog', [BlogChatController::class, 'show']);
+        Route::get('/blogs/slug/{id}/slug', [BlogChatController::class, 'showWithSlug']);
+        Route::get('/blogs/{id}/share', [BlogChatController::class, 'share']);
+        Route::get('/blogs/trending', [BlogChatController::class, 'trending']);
+        Route::post('/comments/{id}/flag', [BlogChatCommentController::class, 'flag']);
+        Route::post('/add-comment/{blogId}/comment', [BlogChatCommentController::class, 'addComment']);
+        Route::get('/fetch-comment/{id}/comment', [BlogChatCommentController::class, 'fetchComments']);
+        Route::delete('/delete-comment/{id}/comment', [BlogChatCommentController::class, 'deleteComment']);
+        Route::put('/edit-comment/{commentId}/comment', [BlogChatCommentController::class, 'editComment']);
+        Route::get('/gets-all-blog', [BlogChatController::class, 'index']);
 
     });
 
     Route::middleware(['auth:admin'])->group(function () {
         Route::post('/admin/create-category', [\App\Http\Controllers\CategoryController::class, 'store']);
         Route::get('/admin/categories', [\App\Http\Controllers\CategoryController::class, 'adminCategories']);
+        Route::post('/admin/blogs', [BlogChatController::class, 'addBlog']);
+        Route::put('/admin/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
+        Route::delete('/admin//delete-blog/{id}', [BlogChatController::class, 'deleteBlog']);
+        Route::post('/admin/blogs/{id}/publish', [BlogChatController::class, 'publish']);
+        Route::post('/admin/blogs/{id}/archive', [BlogChatController::class, 'archive']);
+        Route::post('/admin/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
+        Route::post('/admin/blogs/{id}/reject', [BlogChatController::class, 'reject']);
+        Route::get('/admin/get-all-blog', [BlogChatController::class, 'getAllBlog']);
     });
-
 });
 
 //social login
