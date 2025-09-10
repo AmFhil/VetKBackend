@@ -1,4 +1,4 @@
-```yaml
+
 services:
 - type: web
 name: vetkonect-app
@@ -10,4 +10,4 @@ envVars:
 value: production
 - key: APP_DEBUG
 value: 'false'
-```
+

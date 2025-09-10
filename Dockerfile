@@ -1,8 +1,5 @@
----
-
 
 ### Dockerfile (place at project root)
-```dockerfile
 # syntax=docker/dockerfile:1
 
 
@@ -54,5 +51,4 @@ libonig-dev libicu-dev nginx supervisor \
 
 
 # Copy application code
-COPY . .
----
+COPY
