@@ -7,14 +7,10 @@ use Illuminate\Support\Facades\Auth;
 
 class RedirectIfAuthenticated
 {
-    public function handle($request, Closure $next, ...$guards)
+    public function handle($request, Closure $next, ...$guard)
     {
-        $guards = empty($guards) ? [null] : $guards;
-
-        foreach ($guards as $guard) {
-            if (Auth::guard($guard)->check()) {
-                return redirect('/home');
-            }
+        if (Auth::guard($guard)->check()) {
+            return response()->json(['message' => 'Already authenticated'], 200);
         }
 
         return $next($request);

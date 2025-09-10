@@ -16,6 +16,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VeterinaryClinicController;
 use App\Http\Controllers\VeterinaryDoctorController;
 use App\Http\Controllers\VeterinaryParaprofessionalController;
+use App\Http\Middleware\CheckTokenExpiry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -48,7 +49,7 @@ Route::prefix('v3')->group(function () {
     Route::get('/search-location', [UserController::class, 'searchLocation']);
 
     //  Protected routes (token required + idle expiry check)
-    Route::middleware(['auth:sanctum', 'token.expiry'])->group(function () {
+    Route::middleware(['auth:sanctum', CheckTokenExpiry::class])->group(function () {
         Route::post('/complete-profile', [SocialLogin::class, 'completeUserRegistration']);
         Route::post('/logout', [AuthController::class, 'logout']);
 

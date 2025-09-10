@@ -3,17 +3,25 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Auth\Middleware\Authenticate as Middleware;
+use Illuminate\Auth\AuthenticationException;
 
 class Authenticate extends Middleware
 {
-    protected function redirectTo($request)
+    /**
+     * Handle unauthenticated requests for APIs.
+     */
+    protected function unauthenticated($request, array $guards)
     {
-        if (! $request->expectsJson()) {
-            abort(response()->json([
-                'message' => 'Unauthenticated.'
-            ], 401));
-        }
+        throw new AuthenticationException(
+            'Unauthenticated.', $guards, $this->redirectTo($request)
+        );
+    }
 
+    /**
+     * Always return null → never redirect to login route.
+     */
+    protected function redirectTo($request): ?string
+    {
         return null;
     }
 }
