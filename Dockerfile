@@ -6,10 +6,8 @@
 FROM composer:2 AS vendor
 WORKDIR /app
 
-# copy only composer files first for build cache
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress --no-scripts
-
 
 # -------------------------
 # 2) Build frontend assets (npm)
@@ -22,7 +20,6 @@ RUN if [ -f package-lock.json ]; then npm ci --silent; else npm install --silent
 
 COPY . .
 RUN npm run build --if-present
-
 
 # -------------------------
 # 3) Production image
@@ -37,7 +34,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     git curl ca-certificates unzip zip libzip-dev \
     libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
-    libonig-dev libicu-dev nginx supervisor \
+    libonig-dev libicu-dev nginx \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
  && docker-php-ext-install -j"$(nproc)" gd pdo pdo_mysql mbstring bcmath intl zip opcache \
  && pecl install redis || true \
@@ -55,9 +52,11 @@ COPY --from=node_builder /app/public ./public
 
 # Copy config files
 COPY docker/nginx.conf /etc/nginx/sites-enabled/default
-COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
 
-EXPOSE 80
+# Add entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+EXPOSE 80
+CMD ["/entrypoint.sh"]
