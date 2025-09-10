@@ -123,6 +123,11 @@ class User extends Authenticatable
         return $this->hasMany(Products::class, 'user_id');
     }
 
+    public function pet()
+    {
+        return $this->hasMany(Pet::class, 'user_id');
+    }
+
     protected static function boot()
     {
         parent::boot();
