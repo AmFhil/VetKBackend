@@ -1,0 +1,13 @@
+```yaml
+services:
+- type: web
+name: vetkonect-app
+env: docker
+dockerfilePath: Dockerfile
+branch: main
+envVars:
+- key: APP_ENV
+value: production
+- key: APP_DEBUG
+value: 'false'
+```
