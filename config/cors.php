@@ -3,7 +3,7 @@
 return [
     'paths' => ['api/*', 'sanctum/*', 'google/*', 'linkedin/*'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['https://nextjs-frontend-beta-drab.vercel.app'],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],

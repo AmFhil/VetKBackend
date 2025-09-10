@@ -7,10 +7,18 @@ use App\Notifications\CompleteProfileLoginLink;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    private function issueToken(User $user)
+    {
+        // Just create token – expiry logic is handled by middleware
+        return $user->createToken('auth_token')->plainTextToken;
+    }
+
     // user registration method
     public function register(Request $request)
     {
@@ -28,20 +36,46 @@ class AuthController extends Controller
             'created_at' => Carbon::now(),
         ]);
 
+        // Signed URL (valid for 60 minutes)
+        $verificationUrl = URL::temporarySignedRoute(
+            'verify.email',
+            Carbon::now()->addMinutes(60),
+            ['id' => $user->id]
+        );
+
         // send verification mail with login link and activation mail
         try {
-            $token = $user->createToken('user_token', ['user'])->plainTextToken;
+            // $token = $user->createToken('user_token', ['user'])->plainTextToken;
 
-            $user->notify(new CompleteProfileLoginLink('/login-verification-link?token=' . $token));
+            $user->notify(new CompleteProfileLoginLink($verificationUrl));
         } catch (\Exception $e) {
             // fallback
-            $token = $user->createToken('user_token', ['user'])->plainTextToken;
+            // $token = $user->createToken('user_token', ['user'])->plainTextToken;
 
-            \Illuminate\Support\Facades\Notification::route('mail', $user->email)->notifyNow(new CompleteProfileLoginLink('/login-verification-link?token=' . $token));
+            \Illuminate\Support\Facades\Notification::route('mail', $user->email)->notifyNow(new CompleteProfileLoginLink($verificationUrl));
         }
 
         // return a response as JSON
-        return response()->json(['message' => 'Registration Link Have Been Sent to Your Mail'], 200);
+        return response()->json(['message' => 'Verification Link Have Been Sent to Your Mail'], 200);
+    }
+
+     public function verifyEmail(Request $request, $id)
+    {
+        if (! $request->hasValidSignature()) {
+            return response()->json(['error' => 'Invalid or expired link'], 401);
+        }
+
+        $user = User::findOrFail($id);
+
+        if (! $user->email_verified_at) {
+            $user->email_verified_at = now();
+            $user->save();
+        }
+
+        // Issue expiring token
+        $token = $this->issueToken($user);
+
+        return Redirect::to("https://nextjs-frontend-beta-drab.vercel.app/home?token={$token}");
     }
 
     public function login(Request $request)
@@ -101,7 +135,10 @@ class AuthController extends Controller
         //     ]);
         // }
 
-        $token = $user->createToken('user_token', ['user'])->plainTextToken;
+
+
+        // Issue expiring token
+        $token = $this->issueToken($user);
 
         return response()->json([
             'message' => 'Login successful',
@@ -111,19 +148,19 @@ class AuthController extends Controller
     }
 
     // logout function
-    public function logout(Request $request)
+      public function logout(Request $request)
     {
         $request->validate([
-            'userEmail' => 'Required|email|exists:users_registration,email'
+            'userEmail' => 'required|email|exists:users_registration,email',
         ]);
 
         $user = User::where('email', $request->userEmail)->first();
 
         if ($user) {
-            $user->tokens()->delete(); // delete all tokens from the user
+            $user->tokens()->delete();
             return response()->json(['message' => 'Logged out successfully'], 200);
-        } else {
-            return response()->json(['error' => 'User not found'], 401);
         }
+
+        return response()->json(['error' => 'User not found'], 401);
     }
 }

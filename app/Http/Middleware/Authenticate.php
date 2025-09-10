@@ -13,5 +13,7 @@ class Authenticate extends Middleware
                 'message' => 'Unauthenticated.'
             ], 401));
         }
+
+        return null;
     }
 }

@@ -20,11 +20,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
 
-// Example protected route (requires auth:api middleware)
+/**
+ * 🔹 Test routes
+ */
 Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
     return $request->user();
 });
-
 
 Route::get('/me-test', function (Request $request) {
     $token = PersonalAccessToken::findToken($request->bearerToken());
@@ -34,18 +35,23 @@ Route::get('/me-test', function (Request $request) {
     ];
 });
 
-
-
-// app routes
+/**
+ * 🔹 App routes
+ */
 Route::prefix('v3')->group(function () {
+    // Public routes
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
+
     Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
     Route::get('/search-location', [UserController::class, 'searchLocation']);
 
-    Route::middleware(['auth:sanctum'])->group(function () {
+    //  Protected routes (token required + idle expiry check)
+    Route::middleware(['auth:sanctum', 'token.expiry'])->group(function () {
         Route::post('/complete-profile', [SocialLogin::class, 'completeUserRegistration']);
         Route::post('/logout', [AuthController::class, 'logout']);
+
         Route::post('/add-livestock-farmer', [LivestockFarmerController::class, 'AddLivestockFarmer']);
         Route::post('/add-others', [OthersController::class, 'addOthers']);
         Route::post('/add-pet-owner', [PetOwnerController::class, 'addPetOwner']);
@@ -53,36 +59,46 @@ Route::prefix('v3')->group(function () {
         Route::post('/add-veterinary-clinic', [VeterinaryClinicController::class, 'addVeterinaryClinic']);
         Route::post('/add-veterinary-doctor', [VeterinaryDoctorController::class, 'addVeterinaryDoctor']);
         Route::post('/add-veterinary-paraprofessional', [VeterinaryParaprofessionalController::class, 'addVeterinaryParaprofessional']);
+
         Route::post('/feed-calculator', [UserController::class, 'feedCalculator']);
         Route::post('/disease-predictor', [UserController::class, 'diseasePredictor']);
         Route::get('/get-livestock-disease', [UserController::class, 'getLivestockDisease']);
+
         Route::get('/get-all-veterinary-doctors', [VeterinaryDoctorController::class, 'getAllVeterinaryDoctors']);
         Route::get('/get-all-veterinary-clinics', [VeterinaryClinicController::class, 'getAllVeterinaryClinics']);
         Route::get('/get-all-veterinary-paraprofessionals', [VeterinaryParaprofessionalController::class, 'getAllVeterinaryParaprofessionals']);
+
         Route::get('/search-veterinary-doctors', [VeterinaryDoctorController::class, 'searchVeterinaryDoctors']);
         Route::get('/search-veterinary-clinics', [VeterinaryClinicController::class, 'searchVeterinaryClinics']);
         Route::get('/search-veterinary-paraprofessionals', [VeterinaryParaprofessionalController::class, 'searchVeterinaryParaprofessionals']);
+
         Route::post('/get-veterinary-doctor-by-location', [VeterinaryDoctorController::class, 'getVeterinaryDoctorsByLocation']);
         Route::post('/get-veterinary-clinic-by-location', [VeterinaryClinicController::class, 'getNearbyVeterinaryClinics']);
         Route::post('/get-veterinary-paraprofessional-by-location', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalsByLocation']);
+
         Route::get('/get-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'getVeterinaryDoctorById']);
         Route::get('/get-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'getVeterinaryClinicById']);
         Route::get('/get-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalById']);
+
         Route::post('/rate-entity', [RateController::class, 'rateUser']);
+
         Route::post('/add-new-store', [StoreController::class, 'addNewStore']);
         Route::put('/store/{id}/store', [StoreController::class, 'updateStore']);
         Route::get('/vendor-store', [StoreController::class, 'getVendorsStore']);
         Route::get('/get-store-by-user-id/{id}/store', [StoreController::class, 'getStoreByUserId']);
         Route::get('/get-store-by-id/{id}/store', [StoreController::class, 'getStoreById']);
         Route::delete('/delete-store/{id}/store', [StoreController::class, 'deleteStore']);
+
         Route::post('/add-new-product', [ProductsController::class, 'addNewProduct']);
         Route::put('/update-product/{id}/product', [ProductsController::class, 'updateProduct']);
         Route::delete('/delete-product/{id}/product', [ProductsController::class, 'deleteProduct']);
-        Route::get('/get-products-by-user-id/{id}/product',[ProductsController::class, 'getProductByUserId']);
+        Route::get('/get-products-by-user-id/{id}/product', [ProductsController::class, 'getProductByUserId']);
         Route::get('/get-product-not-on-store', [ProductsController::class, 'getProductNotOnStore']);
         Route::post('/get-product-by-store/{id}/product', [ProductsController::class, 'getProductsByStore']);
         Route::get('/get-related-product/{id}/related', [ProductsController::class, 'getRelatedProducts']);
+
         Route::post('/update-profile', [UserController::class, 'updateProfile']);
+
         Route::post('/blogs/{id}/like', [BlogChatLikeController::class, 'toggleLike']);
         Route::get('/blogs/{id}/blog', [BlogChatController::class, 'show']);
         Route::get('/blogs/slug/{id}/slug', [BlogChatController::class, 'showWithSlug']);
@@ -94,15 +110,15 @@ Route::prefix('v3')->group(function () {
         Route::delete('/delete-comment/{id}/comment', [BlogChatCommentController::class, 'deleteComment']);
         Route::put('/edit-comment/{commentId}/comment', [BlogChatCommentController::class, 'editComment']);
         Route::get('/gets-all-blog', [BlogChatController::class, 'index']);
-
     });
 
+    //  Admin routes
     Route::middleware(['auth:admin'])->group(function () {
         Route::post('/admin/create-category', [\App\Http\Controllers\CategoryController::class, 'store']);
         Route::get('/admin/categories', [\App\Http\Controllers\CategoryController::class, 'adminCategories']);
         Route::post('/admin/blogs', [BlogChatController::class, 'addBlog']);
         Route::put('/admin/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
-        Route::delete('/admin//delete-blog/{id}', [BlogChatController::class, 'deleteBlog']);
+        Route::delete('/admin/delete-blog/{id}', [BlogChatController::class, 'deleteBlog']);
         Route::post('/admin/blogs/{id}/publish', [BlogChatController::class, 'publish']);
         Route::post('/admin/blogs/{id}/archive', [BlogChatController::class, 'archive']);
         Route::post('/admin/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
@@ -111,14 +127,14 @@ Route::prefix('v3')->group(function () {
     });
 });
 
-//social login
-//google
+/**
+ * 🔹 Social login routes
+ */
 Route::prefix('google')->group(function () {
     Route::get('/loginUsingGoogle', [SocialLogin::class, 'redirectToGoogle']);
     Route::any('/callback', [SocialLogin::class, 'handleGoogleCallback']);
 });
 
-//linkedin
 Route::prefix('linkedin')->group(function () {
     Route::get('/loginUsingLinkedin', [SocialLogin::class, 'redirectToLinkedin']);
     Route::any('/callback', [SocialLogin::class, 'handleLinkedinCallback']);
