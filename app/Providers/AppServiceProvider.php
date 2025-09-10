@@ -22,17 +22,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(Request $request): void
     {
-        //
         Relation::morphMap([
             'users' => \App\Models\User::class, // Sanctum will use this
         ]);
 
         if (!empty(env('NGROK_URL')) && $request->server->has('HTTP_X_ORIGINAL_HOST')) {
-        $this->app['url']->forceRootUrl(env('NGROK_URL'));
+            $this->app['url']->forceRootUrl(env('NGROK_URL'));
 
-        if (env('APP_ENV') === 'production') {
-            URL::forceScheme('https');
+            if (env('APP_ENV') === 'production') {
+                URL::forceScheme('https');
+            }
         }
-    }
     }
 }

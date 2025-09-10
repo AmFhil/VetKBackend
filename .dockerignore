@@ -1,29 +1,15 @@
-### .dockerignore (place at project root)
-
-# Node / PHP deps - we build them inside the image
 /vendor
 /node_modules
 
-
-# Local env files
 .env
 .env.*
 
-
-# Git and misc
 .git
 .gitignore
 README.md
 .dockerignore
 
-
-# Build artefacts
 npm-debug.log
 yarn-error.log
 
-
-# Local SQLite DB
 /database/database.sqlite
-
-
-
