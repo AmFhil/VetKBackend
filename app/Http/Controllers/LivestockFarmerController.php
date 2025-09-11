@@ -34,4 +34,37 @@ class LivestockFarmerController extends Controller
             'data' => $livestockFarmer
         ], 200);
     }
+
+       public function getLivestockFarmerById($id)
+    {
+        $livestockFarmer = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+            ->select('id', 'user_id', 'role')
+            ->where('id', $id)
+            ->first();
+
+        if (!$livestockFarmer) {
+            return response()->json(['message' => 'LivestockFarmer not found.'], 404);
+        }
+
+        return response()->json(['livestockFarmer' => $livestockFarmer], 200);
+    }
+
+    public function livestockFarmerProfile()
+    {
+        $user = auth()->user();
+        if (!$user){
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $livestockFarmer = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+            ->select('id', 'user_id', 'role')
+            ->where('id', $user->id)
+            ->first();
+
+        if (!$livestockFarmer) {
+            return response()->json(['message' => 'LivestockFarmer not found.'], 404);
+        }
+
+        return response()->json(['livestockFarmer' => $livestockFarmer], 200);
+    }
 }

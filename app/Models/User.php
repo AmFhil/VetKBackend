@@ -132,6 +132,10 @@ class User extends Authenticatable
         return $this->hasMany(Farm::class, 'user_id');
     }
 
+    public function clinic(){
+        return $this->hasMany(Clinic::class, 'user_id');
+    }
+
     protected static function boot()
     {
         parent::boot();

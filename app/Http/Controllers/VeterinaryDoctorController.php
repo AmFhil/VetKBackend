@@ -49,7 +49,7 @@ class VeterinaryDoctorController extends Controller
     // get all veterinary doctors
     public function getAllVeterinaryDoctors()
     {
-        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
+        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,profile_image'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
 
@@ -73,7 +73,7 @@ class VeterinaryDoctorController extends Controller
         $veterinaryDoctors = VeterinaryDoctor::where('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,profile_image'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -101,6 +101,7 @@ class VeterinaryDoctorController extends Controller
         $veterinaryDoctors = DB::table('veterinary_doctor')
             ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
             ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rateable_id')
+            ->leftJoin('profile', 'veterinary_doctor.user_id', '=', 'profile.user_id')
             ->select(
                 'veterinary_doctor.id',
                 'veterinary_doctor.user_id',
@@ -117,6 +118,7 @@ class VeterinaryDoctorController extends Controller
                 'users_registration.phone_num',
                 'users_registration.state',
                 'users_registration.country',
+                'profile.profile_image',
                 DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
@@ -131,7 +133,7 @@ class VeterinaryDoctorController extends Controller
 
     // get veterinary doctor by id
     public function getVeterinaryDoctorById($id){
-        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
+        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,bio,profile_image,cover_page_image'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'created_at')
             ->where('id', $id)
             ->first();

@@ -40,7 +40,7 @@ class BlogChatCommentController extends Controller
     public function fetchComments($blogId)
     {
         $comments = BlogChatComment::where('blog_chat_id', $blogId)
-            ->with(['user', 'replies.user'])
+            ->with(['user', 'replies.user', 'user.profile'])
             ->whereNull('parent_id')
             ->latest()
             ->get();

@@ -51,7 +51,7 @@ class VeterinaryClinicController extends Controller
     // get all veterinary clinics
     public function getAllVeterinaryClinics()
     {
-        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
+        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,profile_image'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
@@ -78,7 +78,7 @@ class VeterinaryClinicController extends Controller
             ->orWhere('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,profile_image,'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -107,6 +107,7 @@ class VeterinaryClinicController extends Controller
 
         $veterinaryClinics = VeterinaryClinic::join('users_registration', 'veterinary_clinic.user_id', '=', 'users_registration.id')
             ->leftJoin('rating', 'veterinary_clinic.user_id', '=', 'rating.rateable_id')
+            ->leftJoin('profile', 'veterinary_clinic.user_id', '=', 'profile.user_id')
             ->select(
                 'veterinary_clinic.id',
                 'veterinary_clinic.user_id',
@@ -125,6 +126,7 @@ class VeterinaryClinicController extends Controller
                 'users_registration.phone_num',
                 'users_registration.state',
                 'users_registration.country',
+                'profile.profile_image',
                 DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
@@ -144,7 +146,7 @@ class VeterinaryClinicController extends Controller
     // get veterinary clinic by id
     public function getVeterinaryClinicById($id)
     {
-        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment'])
+        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,bio,profile_image,cover_page_image'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->where('id', $id)
             ->first();

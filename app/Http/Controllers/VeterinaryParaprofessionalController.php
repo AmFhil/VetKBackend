@@ -55,7 +55,7 @@ class VeterinaryParaprofessionalController extends Controller
     // get all veterinary paraprofessionals
    public function getAllVeterinaryParaprofessionals()
     {
-        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment'])
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,bio,profile_image'])
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
 
@@ -72,7 +72,7 @@ class VeterinaryParaprofessionalController extends Controller
     public function searchVeterinaryParaprofessionals(Request $request)
     {
         $query = $request->input('query');
-        
+
         if (!$query) {
             return response()->json(['veterinary_paraprofessionals' => []], 200);
         }
@@ -80,7 +80,7 @@ class VeterinaryParaprofessionalController extends Controller
         $veterinaryParaprofessionals = VeterinaryParaprofessional::where('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,bio,profile_image'])
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -107,6 +107,7 @@ class VeterinaryParaprofessionalController extends Controller
 
         $veterinaryParaprofessionals = VeterinaryParaprofessional::join('users_registration', 'veterinary_paraprofessional.user_id', '=', 'users_registration.id')
             ->leftJoin('rating', 'veterinary_paraprofessional.user_id', '=', 'rating.rateable_id')
+            ->leftJoin('profile', 'veterinary_paraprofessional.user_id', '=', 'profile.user_id')
             ->select(
                 'veterinary_paraprofessional.id',
                 'veterinary_paraprofessional.user_id',
@@ -125,6 +126,7 @@ class VeterinaryParaprofessionalController extends Controller
                 'users_registration.phone_num',
                 'users_registration.state',
                 'users_registration.country',
+                'profile.profile_image',
                 DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
@@ -140,7 +142,7 @@ class VeterinaryParaprofessionalController extends Controller
     // get veterinary paraprofessional by id
     public function getVeterinaryParaprofessionalById($id)
     {
-        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment'])
+        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,bio,profile_image,cover_page_image'])
             ->select('id','user_id','name_of_institution','specialty','list_them','contact_num','address','longitude','latitude','role','availability')
             ->where('id', $id)
             ->first();
