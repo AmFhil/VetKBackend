@@ -128,6 +128,10 @@ class User extends Authenticatable
         return $this->hasMany(Pet::class, 'user_id');
     }
 
+    public function farm(){
+        return $this->hasMany(Farm::class, 'user_id');
+    }
+
     protected static function boot()
     {
         parent::boot();

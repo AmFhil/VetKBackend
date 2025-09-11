@@ -4,8 +4,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
+use App\Http\Controllers\FarmController;
 use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\OthersController;
+use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\RateController;
@@ -111,6 +113,18 @@ Route::prefix('v3')->group(function () {
         Route::delete('/delete-comment/{id}/comment', [BlogChatCommentController::class, 'deleteComment']);
         Route::put('/edit-comment/{commentId}/comment', [BlogChatCommentController::class, 'editComment']);
         Route::get('/gets-all-blog', [BlogChatController::class, 'index']);
+
+        Route::post('/add-pet', [PetController::class, 'addNewPet']);
+        Route::put('/update-pet/{id}/pet', [PetController::class, 'updatePet']);
+        Route::get('/get-user-pets', [PetController::class, 'getUserPets']);
+        Route::get('/get-pet_by-id/{id}/pet', [PetController::class, 'getPetById']);
+        Route::delete('/delete-pet/{id}/delete', [PetController::class, 'deletePet']);
+
+        Route::post('/add-farm', [FarmController::class, 'addNewFarm']);
+        Route::put('/update-farm/{id}/farm', [FarmController::class, 'updateFarm']);
+        Route::get('/get-user-farms', [FarmController::class, 'getUserFarms']);
+        Route::get('/get-farm_by-id/{id}/farm', [FarmController::class, 'getFarmById']);
+        Route::delete('/delete-farm/{id}/delete', [FarmController::class, 'deleteFarm']);
     });
 
     //  Admin routes

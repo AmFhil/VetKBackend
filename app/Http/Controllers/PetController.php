@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pet;
+use App\Models\Pet_Owner;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -36,6 +37,12 @@ class PetController extends Controller
         $user = auth()->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 403);
+        }
+
+        $petOwner = Pet_Owner::where('user_id', $user->id);
+
+        if(!$petOwner){
+            return response()->json(['message' => 'You are not authorize to create a pet'], 403);
         }
 
         $petId = $this->generatePetId($user->id);
