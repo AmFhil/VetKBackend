@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
+use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\FarmController;
 use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\OthersController;
@@ -125,6 +126,13 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-user-farms', [FarmController::class, 'getUserFarms']);
         Route::get('/get-farm_by-id/{id}/farm', [FarmController::class, 'getFarmById']);
         Route::delete('/delete-farm/{id}/delete', [FarmController::class, 'deleteFarm']);
+
+        Route::post('/add-clinic', [ClinicController::class, 'addNewClinic']);
+        Route::put('/update-clinic/{id}/clinic', [ClinicController::class, 'updateClinic']);
+        Route::get('/get-user-clinics', [ClinicController::class, 'getUserClinics']);
+        Route::get('/get-clinic_by-id/{id}/clinic', [FarmController::class, 'getClinicById']);
+        Route::delete('/delete-clinic/{id}/delete', [ClinicController::class, 'deleteClinic']);
+        Route::get('/search-clinic', [ClinicController::class, 'searchClinic']);
     });
 
     //  Admin routes
@@ -139,6 +147,7 @@ Route::prefix('v3')->group(function () {
         Route::post('/admin/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
         Route::post('/admin/blogs/{id}/reject', [BlogChatController::class, 'reject']);
         Route::get('/admin/get-all-blog', [BlogChatController::class, 'getAllBlog']);
+        Route::get('/admin/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
     });
 });
 
