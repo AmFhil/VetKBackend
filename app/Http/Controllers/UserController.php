@@ -394,3 +394,5 @@ class UserController extends Controller
         return response()->json(['message' => 'Profile updated successfully']);
     }
 }
+// add image
+// symptons

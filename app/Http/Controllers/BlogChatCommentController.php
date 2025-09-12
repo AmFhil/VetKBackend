@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\BlogChat;
@@ -40,13 +41,20 @@ class BlogChatCommentController extends Controller
     public function fetchComments($blogId)
     {
         $comments = BlogChatComment::where('blog_chat_id', $blogId)
-            ->with(['user', 'replies.user', 'user.profile'])
+            ->with([
+                'user:id,first_name,last_name,profile_picture',
+                'user.profile:id,user_id,profile_image',
+                'replies.user:id,first_name,last_name,profile_picture',
+                'replies.user.profile:id,user_id,profile_image',
+            ])
             ->whereNull('parent_id')
             ->latest()
             ->get();
 
         return response()->json($comments);
     }
+
+
 
     // Delete comment
     public function deleteComment($commentId)
@@ -71,7 +79,7 @@ class BlogChatCommentController extends Controller
     public function editComment(Request $request, $commentId)
     {
         $user = auth()->user();
-        if(!$user){
+        if (!$user) {
             return response()->json(['message' => "Unauthorized"], 403);
         }
 

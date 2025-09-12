@@ -118,7 +118,7 @@ class FarmController extends Controller
         }
 
         $farms = Cache::remember("user_farms_{$user->id}", now()->addMinutes(10), function () use ($user) {
-            return Farm::where('user_id', $user->id)->orderBy('created_at', 'asc')->get();
+            return Farm::where('user_id', $user->id)->orderBy('created_at', 'asc')->paginate(10);
         });
 
         return response()->json(['farms' => $farms], 200);

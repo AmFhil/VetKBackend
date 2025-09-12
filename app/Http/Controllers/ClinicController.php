@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Clinic;
 use App\Models\VeterinaryClinic;
+use App\Models\VeterinaryDoctor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -33,9 +34,12 @@ class ClinicController extends Controller
         }
 
         $isVeterinaryClinic = VeterinaryClinic::where('user_id', $user->id)->exists();
-        if (!$isVeterinaryClinic) {
-            return response()->json(['message' => 'You cannot create a clinic'], 403);
+        $isVeterinaryDoctor = VeterinaryDoctor::where('user_id', $user->id)->exists();
+
+        if (!($isVeterinaryClinic || $isVeterinaryDoctor)) {
+            return response()->json(['message' => 'You are not authorized to create a clinic'], 403);
         }
+
 
         $imageName = null;
         if ($request->hasFile('picture')) {

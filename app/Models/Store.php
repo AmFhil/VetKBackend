@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Store extends Model
 {
@@ -24,6 +25,13 @@ class Store extends Model
         'longitude',
         'latitude',
     ];
+
+    protected $appends = ['picture_url'];
+
+    public function getPictureUrlAttribute()
+    {
+        return $this->picture ? Storage::url($this->picture) : null;
+    }
 
     public function user()
     {

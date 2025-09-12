@@ -7,6 +7,7 @@ use App\Notifications\CompleteProfileLoginLink;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -59,7 +60,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'Verification Link Have Been Sent to Your Mail'], 200);
     }
 
-     public function verifyEmail(Request $request, $id)
+    public function verifyEmail(Request $request, $id)
     {
         if (! $request->hasValidSignature()) {
             return response()->json(['error' => 'Invalid or expired link'], 401);
@@ -85,70 +86,57 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
+        Log::info('Input email preview: ' . substr($validated['email'], 0, 5) . '...');  // Safe preview
+        Log::info('Input password preview: ' . substr($validated['password'], 0, 5) . '...');
+
         $user = User::where('email', $validated['email'])->first();
+        Log::info('Fetched user password preview: ' . substr($user?->password ?? 'NULL', 0, 10));
 
         if (!$user) {
+            Log::info('Login fail: User not found for email');
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
-        $passwordMatches = false;
+        $passwordMatches = Hash::check($validated['password'], $user->password);
+        Log::info('Bcrypt check result: ' . ($passwordMatches ? 'true' : 'false'));
 
-        // check bcrypt
-        if (Hash::check($validated['password'], $user->password)) {
-            $passwordMatches = true;
-        }
+        // Legacy SHA1 check (only if not bcrypt)
+        if (!$passwordMatches && !str_starts_with($user->password, '$2y$')) {
+            Log::info('Attempting SHA1 fallback');
+            $sha1Hash = sha1($validated['password']);
+            if ($user->password === $sha1Hash) {
+                $passwordMatches = true;
+                Log::info('SHA1 match - upgrading to bcrypt');
 
-        // if not bcrypt, check sha1
-        elseif ($user->password === sha1($validated['password'])) {
-            $passwordMatches = true;
-
-            // upgrade password to bcrypt for future login
-            $user->update([
-                'password' => Hash::make($validated['password']),
-                'password_algorithm' => 'bcrypt',
-            ]);
+                // Upgrade without mutator
+                $bcryptHash = Hash::make($validated['password']);
+                $user->setRawAttributes([
+                    'password' => $bcryptHash,
+                    'password_algorithm' => 'bcrypt',
+                ]);
+                $user->saveQuietly();
+            } else {
+                Log::info('SHA1 mismatch (stored preview: ' . substr($user->password, 0, 10) . ')');
+            }
         }
 
         if (!$passwordMatches) {
-            return response()->json(['error' => "Invalid credentials"], 401);
-        };
+            Log::info('Login fail: Password mismatch for user ID ' . $user->id);
+            return response()->json(['error' => 'Invalid credentials'], 401);
+        }
 
-        // update profile if empty or null
-        // if (empty($user->first_name) || empty($user->last_name) || empty($user->phone_num) || empty($user->country) || empty($user->state)) {
-        //     $profileData = $request->validate([
-        //         'first_name' => 'required|string|max:50|min:3',
-        //         'last_name' => 'required|string|max:50|min:3',
-        //         'phone_num' => 'required|string|max:15',
-        //         'state' => 'required|string|max:50',
-        //         'country' => 'required|string|max:50',
-        //     ]);
-
-        //     // update user profile
-        //     $user->update([
-        //         'email_verified_at' => Carbon::now(),
-        //         'first_name' => $profileData['first_name'],
-        //         'last_name' => $profileData['last_name'],
-        //         'phone_num' => $profileData['phone_num'],
-        //         'state' => $profileData['state'],
-        //         'country' => $profileData['country'],
-        //         'update_at' => Carbon::now(),
-        //     ]);
-        // }
-
-
-
-        // Issue expiring token
+        Log::info('Login success for user ID: ' . $user->id);
         $token = $this->issueToken($user);
 
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user,
+            $user->makeHidden(['password', 'password_algorithm', 'remember_token'])->toArray(),
             'token' => $token,
         ]);
     }
 
     // logout function
-      public function logout(Request $request)
+    public function logout(Request $request)
     {
         $request->validate([
             'userEmail' => 'required|email|exists:users_registration,email',

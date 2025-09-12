@@ -136,6 +136,10 @@ class User extends Authenticatable
         return $this->hasMany(Clinic::class, 'user_id');
     }
 
+    public function cases(){
+        return $this->hasMany(CaseModel::class, 'user_id');
+    }
+
     protected static function boot()
     {
         parent::boot();

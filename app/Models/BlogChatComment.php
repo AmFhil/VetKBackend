@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class BlogChatComment extends Model
 {
-    //
     protected $table = 'blog_chat_comments';
 
     protected $fillable = [
@@ -17,6 +16,8 @@ class BlogChatComment extends Model
         'comment',
         'flag',
     ];
+
+    protected $appends = ['author'];
 
     protected static function booted()
     {
@@ -29,18 +30,43 @@ class BlogChatComment extends Model
         });
     }
 
-    public function blog(){
+    public function getAuthorAttribute()
+    {
+        if ($this->user instanceof \App\Models\Admin) {
+            return [
+                'id'    => $this->user->id,
+                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
+                'image' => $this->user->profile_picture_url,
+                'type'  => 'admin',
+            ];
+        }
+
+        if ($this->user instanceof \App\Models\User) {
+            return [
+                'id'    => $this->user->id,
+                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
+                'image' => optional($this->user->profile)->profile_image_url,
+                'type'  => 'user',
+            ];
+        }
+
+        return null;
+    }
+
+    public function blog()
+    {
         return $this->belongsTo(BlogChat::class, 'blog_chat_id');
     }
 
-     public function parent()
+    public function parent()
     {
         return $this->belongsTo(BlogChatComment::class, 'parent_id');
     }
 
-    public function replies(){
+    public function replies()
+    {
         return $this->hasMany(BlogChatComment::class, 'parent_id')
-            ->with('replies'); // recursive relation
+            ->with('replies');
     }
 
     public function user()

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Farm extends Model
 {
@@ -17,7 +18,7 @@ class Farm extends Model
         'farm_name',
         'farm_id',
         'location',
-        'no_of_worker',  
+        'no_of_worker',
         'livestock_type',
         'no_of_livestock',
         'sex',
@@ -25,6 +26,13 @@ class Farm extends Model
         'picture',
         'description',
     ];
+
+    protected $appends = ['picture_url'];
+
+    public function getPictureUrlAttribute()
+    {
+        return $this->picture ? Storage::url($this->picture) : null;
+    }
 
     public function user()
     {

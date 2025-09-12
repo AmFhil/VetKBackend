@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Products extends Model
 {
@@ -33,6 +34,28 @@ class Products extends Model
         'is_verified' => 'boolean',
         'price' => 'decimal:2',
     ];
+
+    protected $appends = ['image1_url', 'image2_url', 'image3_url', 'image4_url'];
+
+    public function getImage1UrlAttribute()
+    {
+        return $this->image1 ? Storage::url($this->image1_url) : null;
+    }
+
+    public function getImage2UrlAttribute()
+    {
+        return $this->image2 ? Storage::url($this->image2_url) : null;
+    }
+
+    public function getImage3UrlAttribute()
+    {
+        return $this->image3 ? Storage::url($this->image3_url) : null;
+    }
+
+    public function getImage4UrlAttribute()
+    {
+        return $this->image4 ? Storage::url($this->image4_url) : null;
+    }
 
     public function store()
     {

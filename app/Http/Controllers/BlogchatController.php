@@ -63,19 +63,22 @@ class BlogChatController extends Controller
 
     // get all for admin
     public function getAllBlog()
-    {
-        $admin = auth('admin')->user();
-
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $blog = BlogChat::with('blogChatComment')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
-
-        return response()->json($blog);
+{
+    $admin = auth('admin')->user();
+    if (!$admin) {
+        return response()->json(['message' => 'Unauthorized'], 403);
     }
+
+    $blog = BlogChat::with([
+        'user:id,first_name,last_name,profile_picture',
+        'user.profile:id,user_id,profile_image',
+        'blogChatComment'
+    ])
+        ->orderBy('created_at', 'desc')
+        ->paginate(10);
+
+    return response()->json($blog);
+}
 
     // publish blog
     public function publish($id)
@@ -166,22 +169,33 @@ class BlogChatController extends Controller
     private function loadBlog($query, Request $request)
     {
         $user = auth()->user();
-
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $blog = $query->where('status', 'published')
-            ->with(['comments' => function ($q) {
-                $q->whereNull('parent_id')
-                    ->where('flag', '!=', 'hidden') // hide flagged comments
-                    ->with(['replies' => function ($r) {
-                        $r->where('flag', '!=', 'hidden');
-                    }]);
-            }])
+            ->with([
+                'user:id,first_name,last_name,profile_picture',
+                'user.profile:id,user_id,profile_image',
+                'comments' => function ($q) {
+                    $q->whereNull('parent_id')
+                        ->where('flag', '!=', 'hidden')
+                        ->with([
+                            'user:id,first_name,last_name,profile_picture',
+                            'user.profile:id,user_id,profile_image',
+                            'replies' => function ($r) {
+                                $r->where('flag', '!=', 'hidden')
+                                    ->with([
+                                        'user:id,first_name,last_name,profile_picture',
+                                        'user.profile:id,user_id,profile_image',
+                                    ]);
+                            }
+                        ]);
+                }
+            ])
             ->firstOrFail();
 
-        $user = auth()->user();
+        // track views
         $cacheKey = $user
             ? "blog_view_{$blog->id}_user_{$user->id}"
             : "blog_view_{$blog->id}_ip_{$request->ip()}";
@@ -225,7 +239,6 @@ class BlogChatController extends Controller
     public function trending()
     {
         $user = auth()->user();
-
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -233,19 +246,31 @@ class BlogChatController extends Controller
         $trending = Cache::remember('trending_blogs', now()->addMinutes(10), function () {
             return BlogChat::where('status', 'published')
                 ->withCount(['blogChatComment', 'blogChatLike'])
-                ->with(['comments' => function ($q) {
-                    $q->whereNull('parent_id')
-                        ->where('flag', '!=', 'hidden') // hide flagged comments
-                        ->with(['replies' => function ($r) {
-                            $r->where('flag', '!=', 'hidden');
-                        }]);
-                }])
+                ->with([
+                    'user:id,first_name,last_name,profile_picture',
+                    'user.profile:id,user_id,profile_image',
+                    'comments' => function ($q) {
+                        $q->whereNull('parent_id')
+                            ->where('flag', '!=', 'hidden')
+                            ->with([
+                                'user:id,first_name,last_name,profile_picture',
+                                'user.profile:id,user_id,profile_image',
+                                'replies' => function ($r) {
+                                    $r->where('flag', '!=', 'hidden')
+                                        ->with([
+                                            'user:id,first_name,last_name,profile_picture',
+                                            'user.profile:id,user_id,profile_image',
+                                        ]);
+                                }
+                            ]);
+                    }
+                ])
                 ->selectRaw('
-            (views_count * 0.3) +
-            (likes_count * 0.5) +
-            (comments_count * 0.7) +
-            (shares_count * 1) as score
-                                    ')
+                (views_count * 0.3) +
+                (likes_count * 0.5) +
+                (comments_count * 0.7) +
+                (shares_count * 1) as score
+            ')
                 ->orderByDesc('score')
                 ->take(10)
                 ->get();
@@ -274,7 +299,6 @@ class BlogChatController extends Controller
     public function index()
     {
         $user = auth()->user();
-
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -282,13 +306,25 @@ class BlogChatController extends Controller
         $blogs = Cache::remember('blogs_index', now()->addMinutes(5), function () {
             return BlogChat::where('status', 'published')
                 ->withCount(['blogChatComment', 'blogChatLike'])
-                ->with(['comments' => function ($q) {
-                    $q->whereNull('parent_id')
-                        ->where('flag', '!=', 'hidden') // hide flagged comments
-                        ->with(['replies' => function ($r) {
-                            $r->where('flag', '!=', 'hidden');
-                        }]);
-                }])
+                ->with([
+                    'user:id,first_name,last_name,profile_picture',
+                    'user.profile:id,user_id,profile_image',
+                    'comments' => function ($q) {
+                        $q->whereNull('parent_id')
+                            ->where('flag', '!=', 'hidden')
+                            ->with([
+                                'user:id,first_name,last_name,profile_picture',
+                                'user.profile:id,user_id,profile_image',
+                                'replies' => function ($r) {
+                                    $r->where('flag', '!=', 'hidden')
+                                        ->with([
+                                            'user:id,first_name,last_name,profile_picture',
+                                            'user.profile:id,user_id,profile_image',
+                                        ]);
+                                }
+                            ]);
+                    }
+                ])
                 ->orderByDesc('created_at')
                 ->paginate(10);
         });

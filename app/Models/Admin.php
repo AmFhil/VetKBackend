@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class Admin extends Model
@@ -48,6 +49,13 @@ class Admin extends Model
             // Delete all related blog_chats
             $admin->blogChats()->delete();
         });
+    }
+
+    protected $appends = ['profile_picture_url'];
+
+    public function getProfilePictureUrlAttribute()
+    {
+        return $this->profile_picture ? Storage::url($this->profile_picture) : null;
     }
 
     public function blogChats()

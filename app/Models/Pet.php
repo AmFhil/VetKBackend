@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Pet extends Model
 {
@@ -23,6 +24,13 @@ class Pet extends Model
         'age',
         'picture',
     ];
+
+    protected $appends = ['picture_url'];
+
+    public function getPictureUrlAttribute()
+    {
+        return $this->picture ? Storage::url($this->picture) : null;
+    }
 
     public function user(){
        return $this->belongsTo(User::class, 'user_id');
