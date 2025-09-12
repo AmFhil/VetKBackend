@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
+use App\Http\Controllers\CaseModelController;
 use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\FarmController;
 use App\Http\Controllers\LivestockFarmerController;
@@ -44,15 +45,18 @@ Route::get('/me-test', function (Request $request) {
  */
 Route::prefix('v3')->group(function () {
     // Public routes
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:auth')->group(function () {  // Uses your custom 'auth' limiter (10/min)
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login', [AuthController::class, 'login']);
+    });
+
     Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
 
     Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
     Route::get('/search-location', [UserController::class, 'searchLocation']);
 
     //  Protected routes (token required + idle expiry check)
-    Route::middleware(['auth:sanctum', CheckTokenExpiry::class])->group(function () {
+    Route::middleware(['auth:sanctum', 'token.expiry', 'throttle:api'])->group(function () {
         Route::post('/complete-profile', [SocialLogin::class, 'completeUserRegistration']);
         Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -130,9 +134,16 @@ Route::prefix('v3')->group(function () {
         Route::post('/add-clinic', [ClinicController::class, 'addNewClinic']);
         Route::put('/update-clinic/{id}/clinic', [ClinicController::class, 'updateClinic']);
         Route::get('/get-user-clinics', [ClinicController::class, 'getUserClinics']);
-        Route::get('/get-clinic_by-id/{id}/clinic', [FarmController::class, 'getClinicById']);
+        Route::get('/get-clinic_by-id/{id}/clinic', [ClinicController::class, 'getClinicById']);
         Route::delete('/delete-clinic/{id}/delete', [ClinicController::class, 'deleteClinic']);
         Route::get('/search-clinic', [ClinicController::class, 'searchClinic']);
+
+        Route::post('/add-case', [CaseModelController::class, 'addNewCase']);
+        Route::put('/update-case/{id}/case', [CaseModelController::class, 'updateCases']);
+        Route::get('/get-user-cases', [CaseModelController::class, 'getUserCase']);
+        Route::get('/get-case_by-id/{id}/case', [CaseModelController::class, 'show']);
+        Route::delete('/delete-case/{id}/delete', [CaseModelController::class, 'destroy']);
+        Route::get('/filter-case/{id}/cases', [CaseModelController::class, 'filterByDateForUser']);
     });
 
     //  Admin routes
@@ -148,6 +159,8 @@ Route::prefix('v3')->group(function () {
         Route::post('/admin/blogs/{id}/reject', [BlogChatController::class, 'reject']);
         Route::get('/admin/get-all-blog', [BlogChatController::class, 'getAllBlog']);
         Route::get('/admin/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
+        Route::get('/filter-case', [CaseModelController::class, 'filterByDateForAdmin']);
+        Route::get('/get-user-case', [CaseModelController::class, 'adminSeeAllCases']);
     });
 });
 
