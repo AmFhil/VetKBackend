@@ -29,6 +29,15 @@ class ProductsController extends Controller
         return $images ?? [];
     }
 
+    private function generateProductId($userId)
+    {
+        $farmCount = Products::where('user_id', $userId)->count();
+        $randomNumber = mt_rand(100000, 999999);
+        $letter = chr(97 + $farmCount);
+
+        return "FM{$randomNumber}{$letter}";
+    }
+
 
     //add new product
     public function addNewProduct(Request $request)
@@ -66,6 +75,7 @@ class ProductsController extends Controller
             // $image4Name = $request->file('image4')?->store('product_images', 'public');
 
             $images = $this->handleImageUpload($request);
+            $productId = $this->generateProductId($user->id);
 
             // Create new product
             // $product = Products::create([
@@ -87,6 +97,7 @@ class ProductsController extends Controller
             $product = Products::create(array_merge([
                 'user_id' => $user->id,
                 'store_id' => $request->store_id,
+                'product_id' => $productId,
                 'product_type' => $isVendor ? 1 : 0,
                 'product_name' => $request->product_name,
                 'category' => $request->category,
@@ -190,6 +201,7 @@ class ProductsController extends Controller
 
                 $product->tags()->sync($tags);
             }
+            $product->touch();
 
             $product->save();
 
@@ -375,7 +387,7 @@ class ProductsController extends Controller
             // Cache the related products for performance
             $relatedProducts = Cache::remember("related_products_{$id}", now()->addMinutes(15), function () use ($product, $id) {
                 $query = Products::with('ratings:id,rating,comment,rateable_id', 'tags')
-                    ->where('category', $product->category)
+                    ->where('category', 'LIKE', "%{$product->category}%")
                     ->where('id', '!=', $id);
 
                 // If product has tags, use them to improve relevance

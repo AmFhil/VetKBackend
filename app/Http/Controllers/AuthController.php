@@ -76,7 +76,7 @@ class AuthController extends Controller
         // Issue expiring token
         $token = $this->issueToken($user);
 
-        return Redirect::to("https://nextjs-frontend-beta-drab.vercel.app/home?token={$token}");
+        return Redirect::to("https://nextjs-frontend-beta-drab.vercel.app/signup?token={$token}");
     }
 
     public function login(Request $request)
@@ -121,11 +121,11 @@ class AuthController extends Controller
         }
 
         if (!$passwordMatches) {
-            Log::info('Login fail: Password mismatch for user ID ' . $user->id);
+            // Log::info('Login fail: Password mismatch for user ID ' . $user->id);
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
-        Log::info('Login success for user ID: ' . $user->id);
+        // Log::info('Login success for user ID: ' . $user->id);
         $token = $this->issueToken($user);
 
         return response()->json([
