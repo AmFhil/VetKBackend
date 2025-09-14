@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -176,5 +177,50 @@ class User extends Authenticatable
     public function blogChats()
     {
         return $this->morphMany(BlogChat::class, 'user');
+    }
+
+    // for subscriptions
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(UserSubscription::class, 'user_id');
+    }
+
+    public function canCreateStore(): bool
+    {
+        $sub = $this->subscription;
+        if (!$sub) return false;
+
+        $limits = $sub->store; // casted JSON
+        $maxStores = $limits['stores'] ?? null;
+
+        $currentStores = Store::where('user_id', $this->id)->count();
+
+        return is_null($maxStores) || $currentStores < $maxStores;
+    }
+
+    public function canAddProduct($storeId): bool
+    {
+        $sub = $this->subscription;
+        if (!$sub) return false;
+
+        $limits = $sub->store;
+        $maxProducts = $limits['products_per_store'] ?? null;
+
+        $currentProducts = Products::where('store_id', $storeId)->count();
+
+        return is_null($maxProducts) || $currentProducts < $maxProducts;
+    }
+
+    public function canCreateCase(): bool
+    {
+        $sub = $this->subscription;
+        if (!$sub) return false;
+
+        $limit = $sub->case_record;
+
+        $currentCases = CaseModel::where('user_id', $this->id)->count();
+
+        // if null => unlimited
+        return is_null($limit) || $currentCases < $limit;
     }
 }

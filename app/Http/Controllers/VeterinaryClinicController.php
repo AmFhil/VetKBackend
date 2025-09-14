@@ -50,7 +50,7 @@ class VeterinaryClinicController extends Controller
     // get all veterinary clinics
     public function getAllVeterinaryClinics()
     {
-        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,profile_image'])
+        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
@@ -77,7 +77,7 @@ class VeterinaryClinicController extends Controller
             ->orWhere('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,profile_image,'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -126,6 +126,9 @@ class VeterinaryClinicController extends Controller
                 'users_registration.state',
                 'users_registration.country',
                 'profile.profile_image',
+                'profile.id',
+                'profile.bio',
+                'profile.cover_page_image',
                 DB::raw('AVG(rating.rating) as average_rating'),
                 DB::raw("$haversine AS distance")
             )
@@ -145,7 +148,7 @@ class VeterinaryClinicController extends Controller
     // get veterinary clinic by id
     public function getVeterinaryClinicById($id)
     {
-        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->where('id', $id)
             ->first();
