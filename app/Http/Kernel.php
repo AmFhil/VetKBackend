@@ -27,5 +27,6 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
         // Keep custom ones if not aliased elsewhere
         'token.expiry' => CheckTokenExpiry::class,
+        'subscription' => \App\Http\Middleware\CheckSubscription::class,
     ];
 }

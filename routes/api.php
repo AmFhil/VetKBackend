@@ -146,6 +146,26 @@ Route::prefix('v3')->group(function () {
         Route::get('/filter-case/{id}/cases', [CaseModelController::class, 'filterByDateForUser']);
     });
 
+    // User must have an active subscription
+    // Route::middleware(['auth:sanctum', 'subscription'])->group(function () {
+
+    //     // Store limit
+    //     Route::post('/store', [StoreController::class, 'create'])->middleware('subscription:store');
+
+    //     // Product limit per store
+    //     Route::post('/product', [ProductsController::class, 'create'])->middleware('subscription:product');
+
+    //     // Case records
+    //     Route::post('/cases', [CaseModelController::class, 'create'])->middleware('subscription:case_record');
+
+    //     // Direct messaging
+    //     Route::post('/messages', [MessageController::class, 'send'])->middleware('subscription:direct_message');
+
+    //     // Contact info
+    //     Route::get('/contacts/{id}', [ContactController::class, 'show'])->middleware('subscription:contact_info');
+    // });
+
+
     //  Admin routes
     Route::middleware(['auth:admin'])->group(function () {
         Route::post('/admin/create-category', [\App\Http\Controllers\CategoryController::class, 'store']);

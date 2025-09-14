@@ -47,6 +47,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
             'token.expiry' => \App\Http\Middleware\CheckTokenExpiry::class,
             'force.json' => \App\Http\Middleware\ForceJsonResponse::class,  // Alias if not already
+            'subscription' => \App\Http\Middleware\CheckSubscription::class,
         ]);
 
         // Middleware priority (Laravel 12.x recommended—ensures order)
