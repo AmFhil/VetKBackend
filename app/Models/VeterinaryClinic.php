@@ -40,8 +40,6 @@ class VeterinaryClinic extends Model
 
     public function averageRating()
     {
-        return $this->ratings()->avg('rating') ?: 0;
+        return round($this->ratings()->avg('rating') ?? 0, 1);
     }
-
-
 }

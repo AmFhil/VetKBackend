@@ -2,29 +2,20 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $table = 'users_registration';
-
     protected $primaryKey = 'id';
-
     public $incrementing = true;
     protected $keyType = 'int';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'email',
         'first_name',
@@ -40,21 +31,11 @@ class User extends Authenticatable
         'old_table'
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -63,6 +44,24 @@ class User extends Authenticatable
         ];
     }
 
+    // Many roles
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'role_user')->withTimestamps();
+    }
+
+    // Active role (from roles table)
+    public function activeRole()
+    {
+        return $this->belongsTo(Role::class, 'active_role_id');
+    }
+
+    public function hasRole($role)
+    {
+        return $this->roles()->where('name', $role)->exists();
+    }
+
+    // --- Role-specific relationships ---
     public function veterinaryDoctor()
     {
         return $this->hasOne(VeterinaryDoctor::class, 'user_id');
@@ -85,7 +84,7 @@ class User extends Authenticatable
 
     public function livestockFarmer()
     {
-        return $this->hasOne(livestock_farmer::class, 'user_id');
+        return $this->hasOne(Livestock_Farmer::class, 'user_id');
     }
 
     public function others()
@@ -98,6 +97,28 @@ class User extends Authenticatable
         return $this->hasOne(Vendor::class, 'user_id');
     }
 
+    // --- Active role data (dynamic switch) ---
+    public function activeRoleModel()
+    {
+        return match ($this->activeRole?->name) {
+            'petOwner' => $this->petOwner(),
+            'vendor' => $this->vendor(),
+            'veterinary_doctor' => $this->veterinaryDoctor(),
+            'veterinary_clinic' => $this->veterinaryClinic(),
+            'veterinary_paraprofessional' => $this->veterinaryParaprofessional(),
+            'livestock_farmer' => $this->livestockFarmer(),
+            'others' => $this->others(),
+            default => null,
+        };
+    }
+
+    // Example: $user->activeRoleData
+    public function getActiveRoleDataAttribute()
+    {
+        return $this->activeRoleModel()?->first();
+    }
+
+    // --- Other relationships (unchanged) ---
     public function profile()
     {
         return $this->hasOne(Profiles::class, 'user_id');
@@ -128,15 +149,18 @@ class User extends Authenticatable
         return $this->hasMany(Pet::class, 'user_id');
     }
 
-    public function farm(){
+    public function farm()
+    {
         return $this->hasMany(Farm::class, 'user_id');
     }
 
-    public function clinic(){
+    public function clinic()
+    {
         return $this->hasMany(Clinic::class, 'user_id');
     }
 
-    public function cases(){
+    public function cases()
+    {
         return $this->hasMany(CaseModel::class, 'user_id');
     }
 
@@ -144,9 +168,7 @@ class User extends Authenticatable
     {
         parent::boot();
 
-        // Register the deleting event
         static::deleting(function ($user) {
-            // Delete all related blog_chats
             $user->blogChats()->delete();
         });
     }

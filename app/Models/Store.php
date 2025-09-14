@@ -8,10 +8,10 @@ use Illuminate\Support\Facades\Storage;
 class Store extends Model
 {
     //
-    protected $table='store';
-    protected $primaryKey='id';
-    public $timestamps=true;
-    protected $keyType='int';
+    protected $table = 'store';
+    protected $primaryKey = 'id';
+    public $timestamps = true;
+    protected $keyType = 'int';
 
     protected $fillable = [
         'user_id',
@@ -45,8 +45,9 @@ class Store extends Model
 
     public function averageRating()
     {
-        return $this->ratings()->avg('rating') ?: 0;
+        return round($this->ratings()->avg('rating') ?? 0, 1);
     }
+
 
     public function products()
     {

@@ -26,4 +26,15 @@ class Pet_Owner extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    // optional: allow ratings if you plan to
+    public function ratings()
+    {
+        return $this->morphMany(Rate::class, 'rateable');
+    }
+
+    public function averageRating()
+    {
+        return round($this->ratings()->avg('rating') ?? 0, 1);
+    }
 }

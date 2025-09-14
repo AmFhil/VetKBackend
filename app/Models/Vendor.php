@@ -12,7 +12,7 @@ class Vendor extends Model
     protected $keyType = 'int';
     public $incrementing = true;
 
-    
+
     protected $fillable = [
         'user_id',
         'role',
@@ -21,5 +21,15 @@ class Vendor extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function ratings()
+    {
+        return $this->morphMany(Rate::class, 'rateable');
+    }
+
+    public function averageRating()
+    {
+        return round($this->ratings()->avg('rating') ?? 0, 1);
     }
 }

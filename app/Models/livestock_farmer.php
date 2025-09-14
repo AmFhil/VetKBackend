@@ -21,4 +21,14 @@ class livestock_farmer extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function ratings()
+    {
+        return $this->morphMany(Rate::class, 'rateable');
+    }
+
+    public function averageRating()
+    {
+        return round($this->ratings()->avg('rating') ?? 0, 1);
+    }
 }
