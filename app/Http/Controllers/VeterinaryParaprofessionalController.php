@@ -19,7 +19,6 @@ class VeterinaryParaprofessionalController extends Controller
 
         // validate request
         $validated = $request->validate([
-            'user_id' => 'required|integer|unique:veterinary_paraprofessional,user_id',
             'name_of_institution' => 'required|string|max:255',
             'graduation_year' => 'required|string|max:30',
             'expected_year_of_graduation' => 'sometimes|nullable|string|max:30',
@@ -33,7 +32,7 @@ class VeterinaryParaprofessionalController extends Controller
 
         // create veterinary paraprofessional
         $veterinaryParaprofessional = VeterinaryParaprofessional::create([
-            'user_id' => $validated['user_id'],
+            'user_id' => $user->id,
             'name_of_institution' => $validated['name_of_institution'],
             'graduation_year' => $validated['graduation_year'],
             'expected_year_of_graduation' => $validated['expected_year_of_graduation'] ?? null,

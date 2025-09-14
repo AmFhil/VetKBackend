@@ -4,33 +4,46 @@ namespace App\Http\Controllers;
 
 use App\Models\Pet_Owner;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PetOwnerController extends Controller
 {
     //
-    public function addPetOwner(Request $request){
+    public function choosePetOwnerRole(Request $request)
+    {
         $user = auth()->user();
-        if (!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        // validate request
-        $validated = $request->validate([
-        ]);
-
-        // check if already has profile
+        // check if already a pet owner
         if (Pet_Owner::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'Profile already exists.'], 409);
+            return response()->json(['message' => 'You already registered as a Pet Owner.'], 400);
         }
 
-        // create pet owner profile
-        $petOwner = Pet_Owner::create([
-            'user_id' => $user->id,
-            'role' => 'Pet Owner',
-        ]);
+        DB::beginTransaction();
+        try {
+            // create profile
+            $petOwner = Pet_Owner::create([
+                'user_id' => $user->id,
+                'role' => 'Pet Owner',
+            ]);
 
-        // return response
-        return response()->json(['message' => 'Pet Owner profile created successfully.', 'data' => $petOwner], 200);
+            // update user's active role
+            $user->update([
+                'active_role_id' => $petOwner->id, // or store role name depending on your schema
+            ]);
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Pet Owner role activated successfully.',
+                'pet_owner' => $petOwner,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
+        }
     }
 
        public function getPetOwnerById($id)

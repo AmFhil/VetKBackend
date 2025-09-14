@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Profiles;
+use App\Models\Role;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
 use App\Models\VeterinaryParaprofessional;
@@ -343,6 +344,25 @@ class UserController extends Controller
         if ($request->filled('status')) {
             $status = $request->status;
 
+            $roleNameMap = [
+                'vet' => 'veterinary_doctor',
+                'vet_clinic' => 'veterinary_clinic',
+                'vet_paraprofessional' => 'veterinary_paraprofessional',
+            ];
+
+            if (isset($roleNameMap[$status])) {
+                $role = Role::where('name', $roleNameMap[$status])->first();
+
+                if ($role) {
+                    // Attach role to pivot if not exists
+                    $user->roles()->syncWithoutDetaching([$role->id]);
+
+                    // Update active role
+                    $user->active_role_id = $role->id;
+                    $user->save();
+                }
+            }
+
             switch ($status) {
                 case 'vet':
                     $roleData = $request->only(['practice_license_num', 'specialty', 'list_them', 'address', 'longitude', 'latitude']);
@@ -390,6 +410,7 @@ class UserController extends Controller
                     break;
             }
         }
+
 
         return response()->json(['message' => 'Profile updated successfully']);
     }

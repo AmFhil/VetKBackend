@@ -19,7 +19,6 @@ class VeterinaryDoctorController extends Controller
 
         // validate request
         $validated = $request->validate([
-            'user_id' => 'required|integer|unique:veterinary_doctor,user_id',
             'practice_license_num' => 'required|string|max:255',
             'specialty' => 'required|string|max:255',
             'list_them' => 'required|string|max:255',
@@ -30,7 +29,7 @@ class VeterinaryDoctorController extends Controller
 
         // create veterinary doctor
         $veterinaryDoctor = VeterinaryDoctor::create([
-            'user_id' => $validated['user_id'],
+            'user_id' => $user->id,
             'practice_license_num' => $validated['practice_license_num'],
             'specialty' => $validated['specialty'],
             'list_them' => $validated['list_them'],

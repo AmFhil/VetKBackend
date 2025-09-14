@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\livestock_farmer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LivestockFarmerController extends Controller
 {
@@ -15,24 +16,29 @@ class LivestockFarmerController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        // validate request (no need for user_id anymore)
-        $validated = $request->validate([]);
-
-        // check if already has profile
-        if (livestock_farmer::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'Profile already exists.'], 409);
+        if (Livestock_farmer::where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'You already registered as a Livestock Farmer.'], 400);
         }
 
-        // create livestock farmer profile
-        $livestockFarmer = livestock_farmer::create([
-            'user_id' => $user->id,
-            'role' => 'Livestock Farmer',
-        ]);
+        DB::beginTransaction();
+        try {
+            $farmer = Livestock_farmer::create([
+                'user_id' => $user->id,
+                'role' => 'Livestock Farmer',
+            ]);
 
-        return response()->json([
-            'message' => 'Livestock Farmer profile created successfully.',
-            'data' => $livestockFarmer
-        ], 200);
+            $user->update(['active_role_id' => $farmer->id]);
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Livestock Farmer role activated successfully.',
+                'livestock_farmer' => $farmer,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Error: '.$e->getMessage()], 500);
+        }
     }
 
        public function getLivestockFarmerById($id)

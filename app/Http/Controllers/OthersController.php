@@ -4,33 +4,40 @@ namespace App\Http\Controllers;
 
 use App\Models\Others;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OthersController extends Controller
 {
     //
     public function addOthers(Request $request){
         $user = auth()->user();
-        if (!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        // validate request
-        $validated = $request->validate([
-        ]);
-
-        // check if already has profile
         if (Others::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'Profile already exists.'], 409);
+            return response()->json(['message' => 'You already registered as Other role.'], 400);
         }
 
-        // create livestock farmer profile
-        $others = Others::create([
-            'user_id' => $user->id,
-            'role' => 'Others',
-        ]);
+        DB::beginTransaction();
+        try {
+            $other = Others::create([
+                'user_id' => $user->id,
+                'role' => 'Others',
+            ]);
 
-        // return response
-        return response()->json(['message' => 'Others profile created successfully.', 'data' => $others], 200);
+            $user->update(['active_role_id' => $other->id]);
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Other role activated successfully.',
+                'other' => $other,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Error: '.$e->getMessage()], 500);
+        }
     }
 
        public function getOtherById($id)
