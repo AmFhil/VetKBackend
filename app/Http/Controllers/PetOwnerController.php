@@ -35,6 +35,13 @@ class PetOwnerController extends Controller
             ]);
 
             DB::commit();
+            $user->logActivity(
+                action: 'create_petOwner',
+                title: 'Created Pet Owner Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a Pet Owner profile",
+                meta: ['petOwner_id' => $petOwner->id]
+            );
+
             return response()->json([
                 'message' => 'Pet Owner role activated successfully.',
                 'pet_owner' => $petOwner,

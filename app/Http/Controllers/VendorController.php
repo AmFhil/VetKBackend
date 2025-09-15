@@ -30,6 +30,13 @@ class VendorController extends Controller
             $user->update(['active_role_id' => $vendor->id]);
 
             DB::commit();
+            $user->logActivity(
+                action: 'create_vendor',
+                title: 'Created Vendor Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a vendor profile",
+                meta: ['vendor_id' => $vendor->id]
+            );
+
             return response()->json([
                 'message' => 'Vendor role activated successfully.',
                 'vendor' => $vendor,

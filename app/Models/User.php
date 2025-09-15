@@ -237,13 +237,17 @@ class User extends Authenticatable
 
     private function logActivity(string $action, string $title, ?string $detail = null, array $meta = []): void
     {
-        $this->activities()->create([
+        $activity = $this->activities()->create([
             'action' => $action,
             'title' => $title,
             'detail' => $detail,
             'meta' => $meta,
         ]);
+
+        // Optional: broadcast activity in real-time
+        broadcast(new \App\Events\UserActivityEvent($activity))->toOthers();
     }
+
 
     private function sendNotification(string $type, string $title, ?string $content = null, array $meta = []): void
     {
@@ -255,6 +259,6 @@ class User extends Authenticatable
         ]);
 
         // Broadcast event for Pusher / WebSockets
-        // broadcast(new \App\Events\UserNotificationEvent($notification))->toOthers();
+        broadcast(new \App\Events\UserNotificationEvent($notification))->toOthers();
     }
 }

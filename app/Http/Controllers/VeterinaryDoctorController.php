@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
+use App\Models\UserActivity;
 use App\Models\VeterinaryDoctor;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class VeterinaryDoctorController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     public function addVeterinaryDoctor(Request $request)
     {
@@ -27,22 +31,60 @@ class VeterinaryDoctorController extends Controller
             'latitude' => 'required|numeric',
         ]);
 
-        // create veterinary doctor
-        $veterinaryDoctor = VeterinaryDoctor::create([
-            'user_id' => $user->id,
-            'practice_license_num' => $validated['practice_license_num'],
-            'specialty' => $validated['specialty'],
-            'list_them' => $validated['list_them'],
-            'address' => $validated['address'],
-            'longitude' => $validated['longitude'],
-            'latitude' => $validated['latitude'],
-            'role' => 'Veterinarian',
-            'is_approved' => 0, // default to pending
-            'created_at' => Carbon::now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            // create veterinary doctor
+            $veterinaryDoctor = VeterinaryDoctor::create([
+                'user_id' => $user->id,
+                'practice_license_num' => $validated['practice_license_num'],
+                'specialty' => $validated['specialty'],
+                'list_them' => $validated['list_them'],
+                'address' => $validated['address'],
+                'longitude' => $validated['longitude'],
+                'latitude' => $validated['latitude'],
+                'role' => 'Veterinarian',
+                'is_approved' => 0, // default to pending
+                'created_at' => Carbon::now(),
+            ]);
 
-        // return
-        return response()->json(['message' => 'Veterinary doctor added successfully. Pending approval.', 'veterinary_doctor' => $veterinaryDoctor], 200);
+            $user->update([
+                'active_role_id' => $veterinaryDoctor->id,
+            ]);
+
+            DB::commit();
+            // log activity via private helper
+            $user->logActivity(
+                action: 'create_veterinary_doctor',
+                title: 'Created Veterinary Doctor Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a veterinary doctor profile",
+                meta: ['veterinary_doctor_id' => $veterinaryDoctor->id]
+            );
+
+            // notify admins (optional)
+            // $admins = Admin::all();
+            // foreach ($admins as $admin) {
+            //     $this->createAdminNotification(
+            //         $admin->id,
+            //         "New Veterinary Doctor Pending Approval",
+            //         "vet_profile",
+            //         "A new veterinary doctor profile has been created by {$user->first_name} {$user->last_name}.",
+            //         ['doctor_id' => $veterinaryDoctor->id, 'user_id' => $user->id]
+            //     );
+            // $this->createAdminActivity(
+            //     $admin->id,
+            //     "vet_profile_review",
+            //     "New Vet Doctor Created",
+            //     "Review vet doctor {$veterinaryDoctor->id} created by user {$user->id}",
+            //     ['doctor_id' => $veterinaryDoctor->id]
+            // );
+            // }
+
+            // return
+            return response()->json(['message' => 'Veterinary doctor added successfully. Pending approval.', 'veterinary_doctor' => $veterinaryDoctor], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
+        }
     }
 
     // get all veterinary doctors
@@ -52,11 +94,11 @@ class VeterinaryDoctorController extends Controller
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
 
-            // add average rating to each veterinary doctor
-            $veterinaryDoctors->getCollection()->transform(function ($doctor){
-                $doctor->average_rating = $doctor->averageRating();
-                return $doctor;
-            });
+        // add average rating to each veterinary doctor
+        $veterinaryDoctors->getCollection()->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
 
         return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
     }
@@ -72,15 +114,15 @@ class VeterinaryDoctorController extends Controller
         $veterinaryDoctors = VeterinaryDoctor::where('specialty', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
-            // add average rating to each veterinary doctor
-            $veterinaryDoctors->getCollection()->transform(function ($doctor){
-                $doctor->average_rating = $doctor->averageRating();
-                return $doctor;
-            });
+        // add average rating to each veterinary doctor
+        $veterinaryDoctors->getCollection()->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
 
         return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
     }
@@ -134,22 +176,54 @@ class VeterinaryDoctorController extends Controller
     }
 
     // get veterinary doctor by id
-    public function getVeterinaryDoctorById($id){
-        $veterinaryDoctor = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'created_at')
+    // get veterinary doctor by id
+    public function getVeterinaryDoctorById($id)
+    {
+        $user = auth()->user();
+
+        $veterinaryDoctor = VeterinaryDoctor::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'ratings:id,rateable_id,rating,comment',
+            'user.profile:id,user_id,bio,profile_image,cover_page_image'
+        ])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'view', 'created_at')
             ->where('id', $id)
             ->first();
 
-            // get average rating
-            if($veterinaryDoctor){
-                $veterinaryDoctor->average_rating = $veterinaryDoctor->averageRating();
-            }else{
-                 return response()->json(['message' => 'Veterinary doctor not found.'], 404);
-            }
+        if (!$veterinaryDoctor) {
+            return response()->json(['message' => 'Veterinary doctor not found.'], 404);
+        }
 
-            // return veterinary doctor
-            return response()->json(['veterinary_doctor' => $veterinaryDoctor], 200);
+        // check if user is admin by email
+        $isAdmin = $user && Admin::where('email', $user->email)->exists();
+
+        // increment views if not self and not admin
+        if ($user && $user->id !== $veterinaryDoctor->user_id && !$isAdmin) {
+            $veterinaryDoctor->recordView();
+        }
+
+        $veterinaryDoctor->average_rating = $veterinaryDoctor->averageRating();
+
+        return response()->json(['veterinary_doctor' => $veterinaryDoctor], 200);
     }
 
+    public function getMyVeterinaryProfile()
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
+        $veterinaryDoctor = VeterinaryDoctor::where('user_id', $user->id)
+            ->with(['ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
+            ->first();
+
+        if (!$veterinaryDoctor) {
+            return response()->json(['message' => 'No veterinary profile found.'], 404);
+        }
+
+        $veterinaryDoctor->average_rating = $veterinaryDoctor->averageRating();
+
+        return response()->json(['veterinary_doctor' => $veterinaryDoctor], 200);
+    }
 }

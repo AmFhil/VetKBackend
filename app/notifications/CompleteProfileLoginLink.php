@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class CompleteProfileLoginLink extends Notification implements ShouldQueue
+class CompleteProfileLoginLink extends Notification
 {
     use Queueable;
 
@@ -41,7 +41,7 @@ class CompleteProfileLoginLink extends Notification implements ShouldQueue
             ->subject('Complete Your Profile')
             ->greeting("Hello " . $notifiable->email)
             ->line('Please complete your profile by clicking the link below')
-            ->action('Login Link', $this->loginUrl)
+            ->action('Verify Link', $this->loginUrl)
             ->line('If you did not create an account, no further action is required.')
             ->line('Thank you for using our application!')
             ->line('VetKonect Team');

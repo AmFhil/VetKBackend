@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\VeterinaryClinic;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class VeterinaryClinicController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     public function addVeterinaryClinic(Request $request)
     {
@@ -29,22 +32,48 @@ class VeterinaryClinicController extends Controller
             'latitude' => 'required|numeric',
         ]);
 
-        $clinic = VeterinaryClinic::create([
-            'user_id' => $user->id,
-            'practice_license_num' => $validated['practice_license_num'],
-            'name_of_clinic' => $validated['clinic_name'],
-            'specialty' => $validated['specialty'],
-            'list_them' => $validated['list_them'],
-            'contact_num' => $validated['contact_num'],
-            'address' => $validated['address'],
-            'longitude' => $validated['longitude'] ?? null,
-            'latitude' => $validated['latitude'] ?? null,
-            'role' => 'Veterinary Clinic',
-            'is_approved' => 0, // default to pending
-            'created_at' => Carbon::now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            $clinic = VeterinaryClinic::create([
+                'user_id' => $user->id,
+                'practice_license_num' => $validated['practice_license_num'],
+                'name_of_clinic' => $validated['clinic_name'],
+                'specialty' => $validated['specialty'],
+                'list_them' => $validated['list_them'],
+                'contact_num' => $validated['contact_num'],
+                'address' => $validated['address'],
+                'longitude' => $validated['longitude'] ?? null,
+                'latitude' => $validated['latitude'] ?? null,
+                'role' => 'Veterinary Clinic',
+                'is_approved' => 0, // default to pending
+                'created_at' => Carbon::now(),
+            ]);
 
-        return response()->json(['message' => 'Veterinary clinic added successfully. Pending approval.', 'clinic' => $clinic], 200);
+            DB::commit();
+            $user->logActivity(
+                action: 'create_veterinary_clinic',
+                title: 'Created Veterinary Clinic Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a veterinary clinic profile",
+                meta: ['veterinary_clinic_id' => $clinic->id]
+            );
+
+            // notify admins (optional)
+            $admins = Admin::all();
+            foreach ($admins as $admin) {
+                $this->createAdminNotification(
+                    $admin->id,
+                    "New Veterinary Clinic Pending Approval",
+                    "vet_clinic_profile",
+                    "A new veterinary clinic profile has been created by {$user->first_name} {$user->last_name}.",
+                    ['clinic_id' => $clinic->id, 'user_id' => $user->id]
+                );
+            }
+
+            return response()->json(['message' => 'Veterinary clinic added successfully. Pending approval.', 'clinic' => $clinic], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
+        }
     }
 
     // get all veterinary clinics
@@ -148,17 +177,49 @@ class VeterinaryClinicController extends Controller
     // get veterinary clinic by id
     public function getVeterinaryClinicById($id)
     {
+        $user = auth()->user();
+
         $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
-            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability')
             ->where('id', $id)
             ->first();
 
-        if ($clinic) {
-            $clinic->average_rating = $clinic->averageRating();
-        } else {
+        if (!$clinic) {
             return response()->json(['message' => 'Veterinary clinic not found.'], 404);
         }
 
+        // check if user is admin by email
+        $isAdmin = $user && Admin::where('email', $user->email)->exists();
+
+        // increment views if not self and not admin
+        if ($user && $user->id !== $clinic->user_id && !$isAdmin) {
+            $clinic->recordView();
+        }
+
+
+        $clinic->average_rating = $clinic->averageRating();
+
+
         return response()->json(['clinic' => $clinic], 200);
+    }
+
+    public function getMyVeterinaryProfile()
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $clinic = VeterinaryClinic::where('user_id', $user->id)
+            ->with(['ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
+            ->first();
+
+        if (!$clinic) {
+            return response()->json(['message' => 'No veterinary clinic profile found.'], 404);
+        }
+
+        $clinic->average_rating = $clinic->averageRating();
+
+        return response()->json(['veterinary_clinic' => $clinic], 200);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\VeterinaryParaprofessional;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -30,39 +31,53 @@ class VeterinaryParaprofessionalController extends Controller
             'latitude' => 'required|numeric',
         ]);
 
-        // create veterinary paraprofessional
-        $veterinaryParaprofessional = VeterinaryParaprofessional::create([
-            'user_id' => $user->id,
-            'name_of_institution' => $validated['name_of_institution'],
-            'graduation_year' => $validated['graduation_year'],
-            'expected_year_of_graduation' => $validated['expected_year_of_graduation'] ?? null,
-            'specialty' => $validated['specialty'],
-            'list_them' => $validated['list_them'],
-            'contact_num' => $validated['contact_num'],
-            'address' => $validated['address'],
-            'longitude' => $validated['longitude'],
-            'latitude' => $validated['latitude'],
-            'role' => 'Veterinary Paraprofessional',
-            'is_approved' => 0, // default to pending
-            'created_at' => Carbon::now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            // create veterinary paraprofessional
+            $veterinaryParaprofessional = VeterinaryParaprofessional::create([
+                'user_id' => $user->id,
+                'name_of_institution' => $validated['name_of_institution'],
+                'graduation_year' => $validated['graduation_year'],
+                'expected_year_of_graduation' => $validated['expected_year_of_graduation'] ?? null,
+                'specialty' => $validated['specialty'],
+                'list_them' => $validated['list_them'],
+                'contact_num' => $validated['contact_num'],
+                'address' => $validated['address'],
+                'longitude' => $validated['longitude'],
+                'latitude' => $validated['latitude'],
+                'role' => 'Veterinary Paraprofessional',
+                'is_approved' => 0, // default to pending
+                'created_at' => Carbon::now(),
+            ]);
 
-        // return
-        return response()->json(['message' => 'Veterinary paraprofessional added successfully. Pending', 'veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
+            DB::commit();
+            $user->logActivity(
+                action: 'create_veterinary_doctor',
+                title: 'Created Veterinary Paraprofessional Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a veterinary doctor profile",
+                meta: ['veterinary_doctor_id' => $veterinaryParaprofessional->id]
+            );
+
+            // return
+            return response()->json(['message' => 'Veterinary paraprofessional added successfully. Pending', 'veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
+        }
     }
 
     // get all veterinary paraprofessionals
-   public function getAllVeterinaryParaprofessionals()
+    public function getAllVeterinaryParaprofessionals()
     {
-        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
 
-            // add average rating to each veterinary paraprofessional
-            $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional){
-                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
-                return $veterinaryParaprofessional;
-            });
+        // add average rating to each veterinary paraprofessional
+        $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional) {
+            $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
+            return $veterinaryParaprofessional;
+        });
 
         return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
     }
@@ -80,15 +95,15 @@ class VeterinaryParaprofessionalController extends Controller
             ->orWhere('name_of_institution', 'like', "%$query%")
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
-            // add average rating to each veterinary paraprofessional
-            $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional){
-                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
-                return $veterinaryParaprofessional;
-            });
+        // add average rating to each veterinary paraprofessional
+        $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional) {
+            $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
+            return $veterinaryParaprofessional;
+        });
 
         return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
     }
@@ -145,19 +160,29 @@ class VeterinaryParaprofessionalController extends Controller
     // get veterinary paraprofessional by id
     public function getVeterinaryParaprofessionalById($id)
     {
-        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country','ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
-            ->select('id','user_id','name_of_institution','specialty','list_them','contact_num','address','longitude','latitude','role','availability')
+        $user = auth()->user();
+
+        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability')
             ->where('id', $id)
             ->first();
 
-            // get average rating
-            if($veterinaryParaprofessional){
-                $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
-            }else{
-                 return response()->json(['message' => 'Veterinary paraprofessional not found.'], 404);
-            }
+        if (!$veterinaryParaprofessional) {
+            return response()->json(['message' => 'Veterinary paraprofessional not found'], 404);
+        }
 
-            // return veterinary paraprofessional
-            return response()->json(['veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
+        // check if user is admin by email
+        $isAdmin = $user && Admin::where('email', $user->email)->exists();
+
+        // increment views if not self and not admin
+        if ($user && $user->id !== $veterinaryParaprofessional->user_id && !$isAdmin) {
+            $veterinaryParaprofessional->recordView();
+        }
+
+        $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
+
+
+        // return veterinary paraprofessional
+        return response()->json(['veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
     }
 }

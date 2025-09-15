@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\HasViews;
 use Illuminate\Database\Eloquent\Model;
 
 class VeterinaryClinic extends Model
 {
+    use HasViews;
+
     //
     protected $table = 'veterinary_clinic';
     protected $primaryKey = 'id';

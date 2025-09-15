@@ -63,4 +63,14 @@ class Admin extends Model
         return $this->morphMany(BlogChat::class, 'user');
     }
 
+     public function notifications()
+    {
+        return $this->hasMany(AdminNotification::class, 'admin_id');
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(AdminActivity::class, 'admin_id');
+    }
+
 }
