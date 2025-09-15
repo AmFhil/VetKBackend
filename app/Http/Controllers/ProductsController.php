@@ -121,6 +121,22 @@ class ProductsController extends Controller
             Cache::forget("products_by_store_{$request->store_id}");
             Cache::forget("product_not_on_store");
 
+            //  Log activity
+            $user->logActivity(
+                'create_product',
+                'Product Created',
+                "Product {$product->product_name} was created.",
+                ['product_id' => $product->id]
+            );
+
+            //  Send notification
+            $user->sendNotification(
+                'product',
+                'New Product Added',
+                "Your product '{$product->product_name}' has been successfully added.",
+                ['product_id' => $product->id]
+            );
+
             return response()->json(['message' => 'Product created successfully.', 'product' => $product], 201);
         } catch (\Throwable $th) {
             return response()->json(['message' => 'An error occurred while creating the product.', 'error' => $th->getMessage()], 500);
@@ -211,6 +227,22 @@ class ProductsController extends Controller
             Cache::forget("products_by_store_{$product->store_id}");
             Cache::forget("related_products_{$product->id}");
 
+            //  Log activity
+            $user->logActivity(
+                'update_product',
+                'Product Updated',
+                "Product {$product->product_name} was updated.",
+                ['product_id' => $product->id]
+            );
+
+            //  Send notification
+            $user->sendNotification(
+                'product',
+                'Product Updated',
+                "Your product '{$product->product_name}' has been updated successfully.",
+                ['product_id' => $product->id]
+            );
+
             return response()->json(['message' => 'Product updated successfully.', 'product' => $product], 200);
         } catch (\Throwable $th) {
             return response()->json(['message' => 'An error occurred while updating the product.', 'error' => $th->getMessage()], 500);
@@ -242,6 +274,8 @@ class ProductsController extends Controller
                 }
             }
 
+            $name = $product->product_name;
+
             $product->tags()->detach();
             $product->delete();
 
@@ -250,6 +284,22 @@ class ProductsController extends Controller
             Cache::forget("products_by_user_{$user->id}");
             Cache::forget("products_by_store_{$product->store_id}");
             Cache::forget("related_products_{$product->id}");
+
+            //  Log activity
+            $user->logActivity(
+                'delete_product',
+                'Product Deleted',
+                "Product {$name} was deleted.",
+                ['product_id' => $id]
+            );
+
+            //  Send notification
+            $user->sendNotification(
+                'product',
+                'Product Deleted',
+                "Your product {$name} has been deleted.",
+                ['product_id' => $id]
+            );
 
             return response()->json(['message' => 'Product deleted successfully.'], 200);
         } catch (\Throwable $th) {

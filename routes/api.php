@@ -32,18 +32,13 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
     return $request->user();
 });
 
-Route::get('/me-test', function (Request $request) {
-    $token = PersonalAccessToken::findToken($request->bearerToken());
-    return [
-        'token' => $token,
-        'user'  => $token?->tokenable,
-    ];
-});
 
 /**
  * 🔹 App routes
  */
 Route::prefix('v3')->group(function () {
+    Route::get('secureEndpoint/{$email}/secure', [UserController::class, 'secureEndpoint']);
+
     // Public routes
     Route::middleware('throttle:auth')->group(function () {  // Uses your custom 'auth' limiter (10/min)
         Route::post('/register', [AuthController::class, 'register']);
@@ -51,6 +46,7 @@ Route::prefix('v3')->group(function () {
     });
 
     Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
+    Route::post('/resendVerificationEmail', [AuthController::class, 'resendVerificationEmail']);
 
     Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
     Route::get('/search-location', [UserController::class, 'searchLocation']);

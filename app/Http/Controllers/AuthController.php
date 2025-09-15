@@ -57,7 +57,7 @@ class AuthController extends Controller
                 ->notifyNow(new CompleteProfileLoginLink($verificationUrl));
         }
 
-        return response()->json(['message' => 'Verification Link sent to your email'], 200);
+        return response()->json(['message' => 'Verification Link sent to your email', 'email_verified_at' => $user->email_verified_at], 200);
     }
 
     public function verifyEmail(Request $request, $id)
@@ -74,8 +74,9 @@ class AuthController extends Controller
         }
 
         $token = $this->issueToken($user);
+        $url = env('TEXT_url');
 
-        return Redirect::to("https://nextjs-frontend-beta-drab.vercel.app/signup?token={$token}");
+        return Redirect::to($url . "/signup/personal-info?token={$token}");
     }
 
     public function login(Request $request)
@@ -116,5 +117,35 @@ class AuthController extends Controller
         }
 
         return response()->json(['error' => 'User not found'], 401);
+    }
+
+    // Resend verification email
+    public function resendVerificationEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if ($user->email_verified_at) {
+            return response()->json(['error' => 'Email already verified'], 400);
+        }
+
+        // Generate a new signed URL (valid for 60 minutes)
+        $verificationUrl = URL::temporarySignedRoute(
+            'verify.email',
+            Carbon::now()->addMinutes(60),
+            ['id' => $user->id]
+        );
+
+        try {
+            $user->notify(new CompleteProfileLoginLink($verificationUrl));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Notification::route('mail', $user->email)
+                ->notifyNow(new CompleteProfileLoginLink($verificationUrl));
+        }
+
+        return response()->json(['message' => 'Verification link resent to your email'], 200);
     }
 }

@@ -29,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->group('api', [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,  // Enables auth:sanctum for SPA
+            // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,  // Enables auth:sanctum for SPA
             \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',  // Enables throttle:api (uses your 'api' limiter)
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             // ForceJsonResponse: Alias it below and add here if it's custom
@@ -72,6 +72,6 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withProviders([
-        BroadcastServiceProvider::class, 
+        BroadcastServiceProvider::class,
     ])
     ->create();

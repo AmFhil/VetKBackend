@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogChat;
 use App\Models\BlogChatComment;
+use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -11,11 +12,11 @@ use Illuminate\Support\Facades\Storage;
 
 class BlogChatController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     public function addBlog(Request $request)
     {
         $admin = auth('admin')->user();
-
         if (!$admin) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -28,13 +29,10 @@ class BlogChatController extends Controller
             'picture' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
-        //  Upload picture
-        $imageName = null;
-        if ($request->hasFile('picture')) {
-            $imageName = $request->file('picture')->store('blog_pictures', 'public');
-        }
+        $imageName = $request->hasFile('picture')
+            ? $request->file('picture')->store('blog_pictures', 'public')
+            : null;
 
-        //  Create unique slug
         $baseSlug = Str::slug($request->title);
         $slug = $baseSlug;
         $count = 1;
@@ -42,7 +40,6 @@ class BlogChatController extends Controller
             $slug = $baseSlug . '-' . $count++;
         }
 
-        // create new
         $blog = BlogChat::create([
             'user_id' => $admin->id,
             'user_type' => get_class($admin),
@@ -52,8 +49,25 @@ class BlogChatController extends Controller
             'category' => $request->category,
             'section' => $request->section,
             'picture' => $imageName,
-            'status' => 'draft', // default
+            'status' => 'draft',
         ]);
+
+        //  Log + notify
+        $this->createAdminActivity(
+            $admin->id,
+            'created',
+            'New Blog Created',
+            "Admin {$admin->first_name} created a blog titled '{$request->title}'",
+            ['blog_id' => $blog->id]
+        );
+
+        $this->createAdminNotification(
+            $admin->id,
+            'Blog Post Pending Approval',
+            'blog',
+            "Your blog '{$request->title}' is created and waiting approval.",
+            ['blog_id' => $blog->id]
+        );
 
         return response()->json([
             'message' => 'Blog post created successfully (waiting approval)',
@@ -61,65 +75,85 @@ class BlogChatController extends Controller
         ], 201);
     }
 
+
     // get all for admin
     public function getAllBlog()
-{
-    $admin = auth('admin')->user();
-    if (!$admin) {
-        return response()->json(['message' => 'Unauthorized'], 403);
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $blog = BlogChat::with([
+            'user:id,first_name,last_name,profile_picture',
+            'user.profile:id,user_id,profile_image',
+            'blogChatComment'
+        ])->orderBy('created_at', 'desc')->paginate(10);
+
+        return response()->json($blog);
     }
-
-    $blog = BlogChat::with([
-        'user:id,first_name,last_name,profile_picture',
-        'user.profile:id,user_id,profile_image',
-        'blogChatComment'
-    ])
-        ->orderBy('created_at', 'desc')
-        ->paginate(10);
-
-    return response()->json($blog);
-}
 
     // publish blog
     public function publish($id)
     {
         $admin = auth('admin')->user();
-
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blog = BlogChat::findOrFail($id);
         $blog->status = 'published';
         $blog->save();
 
-        return response()->json(['message' => 'Blog published Successfully', 'blog' => $blog], 200);
+        $this->createAdminActivity(
+            $admin->id,
+            'published',
+            "Blog Published",
+            "Admin {$admin->first_name} published blog '{$blog->title}'.",
+            ['blog_id' => $blog->id]
+        );
+        $this->createAdminNotification(
+            $admin->id,
+            "Blog Published",
+            'blog',
+            "Blog '{$blog->title}' is now live!",
+            ['blog_id' => $blog->id]
+        );
+
+        return response()->json(['message' => 'Blog published successfully', 'blog' => $blog], 200);
     }
 
     // archive blog
     public function archive($id)
     {
         $admin = auth('admin')->user();
-
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blog = BlogChat::findOrFail($id);
         $blog->status = 'archived';
         $blog->save();
 
+        $this->createAdminActivity(
+            $admin->id,
+            'archived',
+            "Blog Archived",
+            "Admin {$admin->first_name} archived blog '{$blog->title}'.",
+            ['blog_id' => $blog->id]
+        );
+        $this->createAdminNotification(
+            $admin->id,
+            "Blog Archived",
+            'blog',
+            "Blog '{$blog->title}' has been archived.",
+            ['blog_id' => $blog->id]
+        );
+
         return response()->json(['message' => 'Blog archived successfully', 'blog' => $blog], 200);
     }
 
-    // delete blog
+    // Delete blog
     public function delete($id)
     {
         $admin = auth('admin')->user();
-
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blog = BlogChat::findOrFail($id);
 
@@ -127,7 +161,23 @@ class BlogChatController extends Controller
             Storage::disk('public')->delete($blog->picture);
         }
 
+        $blogTitle = $blog->title;
         $blog->delete();
+
+        $this->createAdminActivity(
+            $admin->id,
+            'deleted',
+            "Blog Deleted",
+            "Admin {$admin->first_name} permanently deleted blog '{$blogTitle}'.",
+            ['blog_id' => $id]
+        );
+        $this->createAdminNotification(
+            $admin->id,
+            "Blog Deleted",
+            'blog',
+            "Blog '{$blogTitle}' was deleted by {$admin->first_name}.",
+            ['blog_id' => $id]
+        );
 
         return response()->json(['message' => 'Blog deleted successfully']);
     }
@@ -136,22 +186,18 @@ class BlogChatController extends Controller
     public function updateBlog(Request $request, $id)
     {
         $admin = auth('admin')->user();
-
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blog = BlogChat::findOrFail($id);
 
         $request->validate([
-            'title' => 'sometimes|string|max:50',
-            'content' => 'sometimes|string|max:1000',
+            'title'    => 'sometimes|string|max:50',
+            'content'  => 'sometimes|string|max:1000',
             'category' => 'sometimes|string|max:50',
-            'section' => 'sometimes|string|in:hot news,normal post',
-            'picture' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'section'  => 'sometimes|string|in:hot news,normal post',
+            'picture'  => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
-        // handle file upload
         if ($request->hasFile('picture')) {
             if ($blog->picture && Storage::disk('public')->exists($blog->picture)) {
                 Storage::disk('public')->delete($blog->picture);
@@ -159,9 +205,23 @@ class BlogChatController extends Controller
             $blog->picture = $request->file('picture')->store('blog_pictures', 'public');
         }
 
-        //  Update other fields
         $blog->fill($request->only(['title', 'content', 'category', 'section']));
         $blog->save();
+
+        $this->createAdminActivity(
+            $admin->id,
+            'updated',
+            "Blog Updated",
+            "Admin {$admin->first_name} updated blog '{$blog->title}'.",
+            ['blog_id' => $blog->id]
+        );
+        $this->createAdminNotification(
+            $admin->id,
+            "Blog Updated",
+            'blog',
+            "Blog '{$blog->title}' has been updated.",
+            ['blog_id' => $blog->id]
+        );
 
         return response()->json(['message' => 'Blog updated successfully', 'blog' => $blog]);
     }
@@ -285,13 +345,26 @@ class BlogChatController extends Controller
     public function reject($id)
     {
         $admin = auth('admin')->user();
-        if (!$admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blog = BlogChat::findOrFail($id);
         $blog->status = 'archived';
         $blog->save();
+
+        $this->createAdminActivity(
+            $admin->id,
+            'rejected',
+            "Blog Rejected",
+            "Admin {$admin->first_name} rejected blog '{$blog->title}' (moved to archived).",
+            ['blog_id' => $blog->id]
+        );
+        $this->createAdminNotification(
+            $admin->id,
+            "Blog Rejected",
+            'blog',
+            "Blog '{$blog->title}' was rejected and archived by {$admin->first_name}.",
+            ['blog_id' => $blog->id]
+        );
 
         return response()->json(['message' => 'Blog post rejected/archived']);
     }

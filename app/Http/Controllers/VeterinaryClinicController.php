@@ -49,6 +49,10 @@ class VeterinaryClinicController extends Controller
                 'created_at' => Carbon::now(),
             ]);
 
+            $user->update([
+                'active_role_id' => $clinic->id,
+            ]);
+
             DB::commit();
             $user->logActivity(
                 action: 'create_veterinary_clinic',
@@ -57,17 +61,25 @@ class VeterinaryClinicController extends Controller
                 meta: ['veterinary_clinic_id' => $clinic->id]
             );
 
+
             // notify admins (optional)
-            $admins = Admin::all();
-            foreach ($admins as $admin) {
-                $this->createAdminNotification(
-                    $admin->id,
-                    "New Veterinary Clinic Pending Approval",
-                    "vet_clinic_profile",
-                    "A new veterinary clinic profile has been created by {$user->first_name} {$user->last_name}.",
-                    ['clinic_id' => $clinic->id, 'user_id' => $user->id]
-                );
-            }
+            // $admins = Admin::all();
+            // foreach ($admins as $admin) {
+            //     $this->createAdminNotification(
+            //         $admin->id,
+            //         "New Veterinary Doctor Pending Approval",
+            //         "vet_profile",
+            //         "A new veterinary doctor profile has been created by {$user->first_name} {$user->last_name}.",
+            //         ['doctor_id' => $veterinaryDoctor->id, 'user_id' => $user->id]
+            //     );
+            // $this->createAdminActivity(
+            //     $admin->id,
+            //     "vet_profile_review",
+            //     "New Vet Doctor Created",
+            //     "Review vet doctor {$veterinaryDoctor->id} created by user {$user->id}",
+            //     ['doctor_id' => $veterinaryDoctor->id]
+            // );
+            // }
 
             return response()->json(['message' => 'Veterinary clinic added successfully. Pending approval.', 'clinic' => $clinic], 200);
         } catch (\Exception $e) {

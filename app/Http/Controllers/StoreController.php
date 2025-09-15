@@ -36,9 +36,9 @@ class StoreController extends Controller
         };
 
         // check if role is vendor
-        $vendor = Vendor::where('user_id', $user->id);
+        $vendor = Vendor::where('user_id', $user->id)->exists();
 
-        if(!$vendor){
+        if (!$vendor) {
             return response()->json(['message' => 'You can not create a store'], 403);
         }
 
@@ -59,6 +59,19 @@ class StoreController extends Controller
             'latitude' => $request->latitude,
             'created_at' => Carbon::now()
         ]);
+
+        $user->logActivity(
+            action: 'create_store',
+            title: 'Store Created',
+            detail: "Store '{$store->store_name}' was created successfully.",
+            meta: ['store_id' => $store->id]
+        );
+
+        $user->sendNotification(
+            type: 'store',
+            title: 'Store Created',
+            content: "Your store '{$store->store_name}' has been created successfully."
+        );
 
         // return response
         return response()->json(['message' => 'Store created successfully.', 'store' => $store], 200);
@@ -115,6 +128,19 @@ class StoreController extends Controller
         if ($request->has('latitude')) $store->latitude = $request->latitude;
         $store->updated_at = Carbon::now();
         $store->save();
+
+        $user->logActivity(
+            action: 'update_store',
+            title: 'Store Updated',
+            detail: "Store '{$store->store_name}' was updated successfully.",
+            meta: ['store_id' => $store->id]
+        );
+
+        $user->sendNotification(
+            type: 'store',
+            title: 'Store Updated',
+            content: "Your store '{$store->store_name}' details have been updated."
+        );
 
         // return response
         return response()->json(['message' => 'Store updated successfully.', 'store' => $store]);
@@ -244,6 +270,21 @@ class StoreController extends Controller
                 // delete the product
                 $product->delete();
             }
+
+
+            $user->logActivity(
+                action: 'delete_store',
+                title: 'Store Deleted',
+                detail: "Store '{$store->store_name}' and all related products were deleted.",
+                meta: ['store_id' => $store->id]
+            );
+
+            $user->sendNotification(
+                type: 'store',
+                title: 'Store Deleted',
+                content: "Your store '{$store->store_name}' and its products have been removed."
+            );
+
 
             // delete the store itself
             $store->delete();

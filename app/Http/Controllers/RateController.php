@@ -7,78 +7,77 @@ use Illuminate\Http\Request;
 
 class RateController extends Controller
 {
-    // Implement rating functionalities here
     public function rateUser(Request $request)
     {
         try {
-            // check if user is authenticated
             $user = auth()->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
 
-            // check if user have already rated this user
-            // validate the request
             $validated = $request->validate([
                 'rateable_id' => 'required|integer',
-                'rateable_type' => 'required|string|in:App\Models\VeterinaryDoctor,App\Models\VeterinaryParaprofessional,App\Models\VeterinaryClinic,App\Models\Store,App\Models\Product',
+                'rateable_type' => 'required|string|in:App\Models\VeterinaryDoctor,App\Models\VeterinaryParaprofessional,App\Models\VeterinaryClinic,App\Models\Store,App\Models\Products',
                 'rating' => 'required|integer|min:1|max:5',
                 'comment' => 'nullable|string|max:1000',
             ]);
 
-            // validate the rateable entity
-            $rateable = null;
-
-            switch ($validated['rateable_type']){
-                case 'App\Models\VeterinaryDoctor':
-                    $rateable = \App\Models\VeterinaryDoctor::find($validated['rateable_id']);
-                    break;
-                case 'App\Models\VeterinaryParaprofessional':
-                    $rateable = \App\Models\VeterinaryParaprofessional::find($validated['rateable_id']);
-                    break;
-                case 'App\Models\VeterinaryClinic':
-                    $rateable = \App\Models\VeterinaryClinic::find($validated['rateable_id']);
-                    break;
-                case 'App\Models\Store':
-                    $rateable = \App\Models\Store::find($validated['rateable_id']);
-                    break;
-                case 'App\Models\Product':
-                    $rateable = \App\Models\Products::find($validated['rateable_id']);
-                    break;
-                default:
-                    return response()->json(['message' => 'Invalid rateable type.'], 400);
-            };
-
+            // Find the rateable entity
+            $rateable = $validated['rateable_type']::find($validated['rateable_id']);
             if (!$rateable) {
                 return response()->json(['message' => 'Rateable entity not found.'], 404);
             }
 
-            // check if user is rating themselves
+            // Prevent self-rating
             if (isset($rateable->user_id) && $rateable->user_id === $user->id) {
-            return response()->json(['message' => 'You cannot rate yourself.'], 400);
-        }
+                return response()->json(['message' => 'You cannot rate yourself.'], 400);
+            }
 
-            // check if user has already rated this user
-
-
-
+            // Check for existing rating
             $existingRate = Rate::where('user_id', $user->id)
                 ->where('rateable_id', $validated['rateable_id'])
                 ->where('rateable_type', $validated['rateable_type'])
-                ->get()
                 ->first();
 
             if ($existingRate) {
-                // update existing rate
-                $rate = Rate::where('id', $existingRate->id)->update([
+                $existingRate->update([
                     'rating' => $validated['rating'],
                     'comment' => $validated['comment'] ?? $existingRate->comment,
                 ]);
 
-                return response()->json(['message' => 'User rating updated successfully.', 'rate' => $rate], 200);
+                // Log activity
+                $user->logActivity(
+                    action: 'update_rating',
+                    title: 'Rating Updated',
+                    detail: "You updated your rating for {$validated['rateable_type']} #{$validated['rateable_id']}.",
+                    meta: [
+                        'rate_id' => $existingRate->id,
+                        'rating' => $validated['rating'],
+                        'rateable_type' => $validated['rateable_type'],
+                        'rateable_id' => $validated['rateable_id'],
+                    ]
+                );
+
+                // Notify entity owner (if applicable)
+                if (isset($rateable->user_id)) {
+                    $rateable->user->sendNotification(
+                        type: 'rating',
+                        title: 'Rating Updated',
+                        content: "Your {$this->prettyType($validated['rateable_type'])} just got its rating updated.",
+                        meta: [
+                            'rate_id' => $existingRate->id,
+                            'rating' => $validated['rating']
+                        ]
+                    );
+                }
+
+                return response()->json([
+                    'message' => 'User rating updated successfully.',
+                    'rate' => $existingRate
+                ], 200);
             }
 
-            // create a new rate
+            // Create new rating
             $rate = Rate::create([
                 'user_id' => $user->id,
                 'rateable_id' => $validated['rateable_id'],
@@ -87,10 +86,51 @@ class RateController extends Controller
                 'comment' => $validated['comment'] ?? null,
             ]);
 
-            // return response
-            return response()->json(['message' => 'Entity rated successfully.', 'rate' => $rate], 200);
+            // Log activity
+            $user->logActivity(
+                action: 'create_rating',
+                title: 'New Rating',
+                detail: "You rated {$validated['rateable_type']} #{$validated['rateable_id']} with {$validated['rating']} stars.",
+                meta: [
+                    'rate_id' => $rate->id,
+                    'rating' => $validated['rating'],
+                    'rateable_type' => $validated['rateable_type'],
+                    'rateable_id' => $validated['rateable_id'],
+                ]
+            );
+
+            // Notify entity owner (if applicable)
+            if (isset($rateable->user_id)) {
+                $rateable->user->sendNotification(
+                    type: 'rating',
+                    title: 'New Rating',
+                    content: "Your {$this->prettyType($validated['rateable_type'])} just received a new {$validated['rating']}-star rating.",
+                    meta: [
+                        'rate_id' => $rate->id,
+                        'rating' => $validated['rating']
+                    ]
+                );
+            }
+
+            return response()->json([
+                'message' => 'Entity rated successfully.',
+                'rate' => $rate
+            ], 200);
+
         } catch (\Exception $e) {
             return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
         }
+    }
+
+    private function prettyType(string $type): string
+    {
+        return match ($type) {
+            'App\Models\VeterinaryDoctor' => 'Veterinary Doctor',
+            'App\Models\VeterinaryParaprofessional' => 'Veterinary Paraprofessional',
+            'App\Models\VeterinaryClinic' => 'Veterinary Clinic',
+            'App\Models\Store' => 'Store',
+            'App\Models\Products' => 'Product',
+            default => 'Entity',
+        };
     }
 }

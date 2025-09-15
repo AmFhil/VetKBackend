@@ -67,6 +67,14 @@ class FarmController extends Controller
 
         Cache::forget("user_farms_{$user->id}");
 
+        // Log + Notify
+        $user->logActivity('farm_created', 'Farm Created', "You created a new farm: {$farm->farm_name}", [
+            'farm_id' => $farm->id,
+        ]);
+        $user->sendNotification('farm', 'New Farm Added', "Your farm {$farm->farm_name} has been added.", [
+            'farm_id' => $farm->id,
+        ]);
+
         return response()->json(['message' => "A new farm created", 'farm' => $farm], 201);
     }
 
@@ -101,11 +109,22 @@ class FarmController extends Controller
             $farm->picture = $request->file('picture')->store('farm_pictures', 'public');
         }
 
-        $farm->fill($request->only(['farm_name', 'location', 'no_of_worker', 'livestock_type', 'no_of_livestock', 'sex', 'age', 'description']));
+        $farm->fill($request->only([
+            'farm_name', 'location', 'no_of_worker',
+            'livestock_type', 'no_of_livestock', 'sex', 'age', 'description'
+        ]));
         $farm->updated_at = Carbon::now();
         $farm->save();
 
         Cache::forget("user_farms_{$user->id}");
+
+        // Log + Notify
+        $user->logActivity('farm_updated', 'Farm Updated', "Farm {$farm->farm_name} updated successfully.", [
+            'farm_id' => $farm->id,
+        ]);
+        $user->sendNotification('farm', 'Farm Updated', "Your farm {$farm->farm_name} has been updated.", [
+            'farm_id' => $farm->id,
+        ]);
 
         return response()->json(['message' => "Farm {$farm->farm_id} updated successfully.", 'farm' => $farm]);
     }
@@ -165,10 +184,19 @@ class FarmController extends Controller
                 Storage::disk('public')->delete($farm->picture);
             }
 
+            $farmName = $farm->farm_name;
             $farm->delete();
 
             Cache::forget("user_farms_{$user->id}");
             Cache::forget("farm_{$id}");
+
+            // Log + Notify
+            $user->logActivity('farm_deleted', 'Farm Deleted', "Farm {$farmName} deleted successfully.", [
+                'farm_id' => $id,
+            ]);
+            $user->sendNotification('farm', 'Farm Deleted', "Your farm {$farmName} has been deleted.", [
+                'farm_id' => $id,
+            ]);
 
             return response()->json(['message' => 'Farm deleted successfully.'], 200);
         } catch (\Throwable $th) {

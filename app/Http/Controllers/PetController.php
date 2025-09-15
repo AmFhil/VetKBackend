@@ -21,6 +21,18 @@ class PetController extends Controller
         return "PT{$randomNumber}{$letter}";
     }
 
+    // handle image upload
+    private function handleImageUpload(Request $request, Pet $pet = null)
+    {
+        if ($request->hasFile('picture')) {
+            if ($pet && $pet->picture) {
+                Storage::disk('public')->delete($pet->picture);
+            }
+            return $request->file('picture')->store('pet_pictures', 'public');
+        }
+        return $pet ? $pet->picture : null;
+    }
+
     // add new pet
     public function addNewPet(Request $request)
     {
@@ -39,18 +51,13 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $petOwner = Pet_Owner::where('user_id', $user->id);
-
-        if(!$petOwner){
-            return response()->json(['message' => 'You are not authorize to create a pet'], 403);
+        $petOwner = Pet_Owner::where('user_id', $user->id)->exists();
+        if (!$petOwner) {
+            return response()->json(['message' => 'You are not authorized to create a pet'], 403);
         }
 
         $petId = $this->generatePetId($user->id);
-
-        $imageName = null;
-        if ($request->hasFile('picture')) {
-            $imageName = $request->file('picture')->store('pet_pictures', 'public');
-        }
+        $imageName = $this->handleImageUpload($request);
 
         $pet = Pet::create([
             'user_id'  => $user->id,
@@ -64,8 +71,14 @@ class PetController extends Controller
             'picture'  => $imageName,
         ]);
 
-        // clear user pets cache
         Cache::forget("user_pets_{$user->id}");
+
+        $user->logActivity('pet_created', 'Pet Created', "You added a new pet: {$pet->pet_name}", [
+            'pet_id' => $pet->id,
+        ]);
+        $user->sendNotification('pet', 'New Pet Added', "Your pet {$pet->pet_name} has been added.", [
+            'pet_id' => $pet->id,
+        ]);
 
         return response()->json(['message' => "A new pet created", 'pet' => $pet], 201);
     }
@@ -93,19 +106,20 @@ class PetController extends Controller
             return response()->json(['message' => 'You are not authorized to update this pet.'], 403);
         }
 
-        if ($request->hasFile('picture')) {
-            if ($pet->picture) {
-                Storage::disk('public')->delete($pet->picture);
-            }
-            $pet->picture = $request->file('picture')->store('pet_pictures', 'public');
-        }
-
+        $pet->picture = $this->handleImageUpload($request, $pet);
         $pet->fill($request->only(['pet_name', 'specie', 'breed', 'sex', 'age', 'location']));
         $pet->updated_at = Carbon::now();
         $pet->save();
 
-        // refresh cache
         Cache::forget("user_pets_{$user->id}");
+        Cache::forget("pet_{$id}");
+
+        $user->logActivity('pet_updated', 'Pet Updated', "Pet {$pet->pet_name} updated.", [
+            'pet_id' => $pet->id,
+        ]);
+        $user->sendNotification('pet', 'Pet Updated', "Your pet {$pet->pet_name} has been updated.", [
+            'pet_id' => $pet->id,
+        ]);
 
         return response()->json(['message' => "Pet {$pet->pet_id} updated successfully.", 'pet' => $pet]);
     }
@@ -118,10 +132,8 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $pets = Cache::remember("user_pets_{$user->id}", now()->addMinutes(10), function () use ($user) {
-            return Pet::where('user_id', $user->id)
-                ->orderBy('created_at', 'asc')
-                ->get();
+        $pets = Cache::remember("user_pets_{$user->id}", now()->addMinutes(30), function () use ($user) {
+            return Pet::where('user_id', $user->id)->orderBy('created_at', 'asc')->get();
         });
 
         return response()->json(['pets' => $pets], 200);
@@ -135,17 +147,15 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $pet = Cache::remember("pet_{$id}", now()->addMinutes(10), function () use ($id) {
-            return Pet::find($id);
-        });
-
+        $pet = Pet::find($id);
         if (!$pet) {
             return response()->json(['message' => 'Pet not found.'], 404);
         }
-
         if ($pet->user_id !== $user->id) {
             return response()->json(['message' => 'You are not authorized to view this pet.'], 403);
         }
+
+        Cache::remember("pet_{$id}", now()->addMinutes(30), fn() => $pet);
 
         return response()->json(['pet' => $pet], 200);
     }
@@ -171,12 +181,18 @@ class PetController extends Controller
             if ($pet->picture) {
                 Storage::disk('public')->delete($pet->picture);
             }
-
+            $pet_name = $pet->pet_name;
             $pet->delete();
 
-            // clear caches
             Cache::forget("user_pets_{$user->id}");
             Cache::forget("pet_{$id}");
+
+            $user->logActivity('pet_deleted', 'Pet Deleted', "Pet {$pet_name} deleted.", [
+                'pet_id' => $pet->id,
+            ]);
+            $user->sendNotification('pet', 'Pet Deleted', "Your pet {$pet_name} has been deleted.", [
+                'pet_id' => $pet->id,
+            ]);
 
             return response()->json(['message' => 'Pet deleted successfully.'], 200);
         } catch (\Throwable $th) {

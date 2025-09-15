@@ -109,6 +109,21 @@ class CaseModelController extends Controller
 
         Cache::forget("user_cases_{$user->id}");
 
+        $user->sendNotification(
+            'case_created',
+            'New Case Created',
+            "You created a new case: {$case->case_title}.",
+            ['case_id' => $case->id]
+        );
+
+        // 📝 Log user activity
+        $user->logActivity(
+            'case_created',
+            'New Case Created',
+            "Created case {$case->case_title} (ID: {$case->case_id})",
+            ['case_id' => $case->id]
+        );
+
         return response()->json(['message' => 'Case created successfully', 'case' => $case], 200);
     }
 
@@ -191,6 +206,23 @@ class CaseModelController extends Controller
 
         Cache::forget("user_cases_{$userId}");
 
+        // After saving updates
+        $user = Auth::user();
+        $user->sendNotification(
+            'case_updated',
+            'Case Updated',
+            "You updated case {$case->case_title}.",
+            ['case_id' => $case->id]
+        );
+
+        $user->logActivity(
+            'case_updated',
+            'Case Updated',
+            "Updated case {$case->case_title} (ID: {$case->case_id})",
+            ['case_id' => $case->id]
+        );
+
+
         return response()->json(['message' => 'Case updated successfully', 'case' => $case], 200);
     }
 
@@ -208,9 +240,28 @@ class CaseModelController extends Controller
             Storage::disk('public')->delete($case->picture);
         }
 
+        $case_title = $case->case_title;
+        $case_id = $case->case_id;
+        $caseId = $case->id;
         $case->delete();
         Cache::forget("user_cases_{$userId}");
         Cache::forget("cases_{$id}");
+
+        $user = Auth::user();
+        $user->sendNotification(
+            'case_deleted',
+            'Case Deleted',
+            "You deleted case {$case_title}.",
+            ['case_id' => $caseId]
+        );
+
+        $user->logActivity(
+            'case_deleted',
+            'Case Deleted',
+            "Deleted case {$case_title} (ID: {$case_id})",
+            ['case_id' => $caseId]
+        );
+
 
         return response()->json(['message' => 'Case deleted successfully'], 200);
     }

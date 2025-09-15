@@ -50,12 +50,16 @@ class VeterinaryParaprofessionalController extends Controller
                 'created_at' => Carbon::now(),
             ]);
 
+            $user->update([
+                'active_role_id' => $veterinaryParaprofessional->id,
+            ]);
+
             DB::commit();
             $user->logActivity(
-                action: 'create_veterinary_doctor',
+                action: 'create_veterinary_paraprofessional',
                 title: 'Created Veterinary Paraprofessional Profile',
-                detail: "User {$user->first_name} {$user->last_name} created a veterinary doctor profile",
-                meta: ['veterinary_doctor_id' => $veterinaryParaprofessional->id]
+                detail: "User {$user->first_name} {$user->last_name} created a veterinary paraprofessional profile",
+                meta: ['veterinary_paraprofessional_id' => $veterinaryParaprofessional->id]
             );
 
             // return

@@ -235,7 +235,7 @@ class User extends Authenticatable
         return $this->hasMany(UserActivity::class, 'user_id');
     }
 
-    private function logActivity(string $action, string $title, ?string $detail = null, array $meta = []): void
+    public function logActivity(string $action, string $title, ?string $detail = null, array $meta = []): void
     {
         $activity = $this->activities()->create([
             'action' => $action,
@@ -249,7 +249,7 @@ class User extends Authenticatable
     }
 
 
-    private function sendNotification(string $type, string $title, ?string $content = null, array $meta = []): void
+    public function sendNotification(string $type, string $title, ?string $content = null, array $meta = []): void
     {
         $notification = $this->notifications()->create([
             'type' => $type,

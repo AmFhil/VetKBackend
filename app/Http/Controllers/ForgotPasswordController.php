@@ -44,14 +44,16 @@ class ForgotPasswordController extends Controller
         );
 
         // generate reset link
-        $resetUrl = url('/reset-password?token=' .$token . '$email=' . urlencode($request->email));
+        // $resetUrl = url('/reset-password?token=' .$token . '$email=' . urlencode($request->email));
+        // generate for texting
+        $textUrl = env('TEXT_url') . '/reset-password?token=' .$token . '$email=' . urlencode($request->email);
 
         // dispatch the mail job to send the reset link
         try {
-            $user->notify(new ResetPasswordLink($resetUrl, $user->name, $user->email));
+            $user->notify(new ResetPasswordLink($textUrl, $user->name, $user->email));
         }catch (\Exception $e) {
             //  fallback to notification route
-            Notification::route('mail', $user->email)->notifyNow(new ResetPasswordLink($resetUrl, $user->name, $user->email));
+            Notification::route('mail', $user->email)->notifyNow(new ResetPasswordLink($textUrl, $user->name, $user->email));
         }
 
         // return a response

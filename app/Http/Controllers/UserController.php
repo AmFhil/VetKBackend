@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Profiles;
 use App\Models\Role;
+use App\Models\User;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
 use App\Models\VeterinaryParaprofessional;
@@ -291,6 +292,11 @@ class UserController extends Controller
                 $user->password = Hash::make($currentPassword);
                 $user->password_algorithm = 'bcrypt';
                 $user->save();
+                $user->sendNotification(
+                    type: 'security',
+                    title: 'Password Changed',
+                    content: 'Your password has been successfully updated.'
+                );
             }
 
             if (!$passwordMatches) {
@@ -300,6 +306,11 @@ class UserController extends Controller
             // set new password
             $user->password = Hash::make($request->password);
             $user->password_algorithm = 'bcrypt';
+            $user->sendNotification(
+                type: 'security',
+                title: 'Password Changed',
+                content: 'Your password has been successfully updated.'
+            );
         }
 
         //  Update email only if provider == null
@@ -308,6 +319,11 @@ class UserController extends Controller
                 return response()->json(['message' => 'You cannot change email for social login accounts'], 422);
             }
             $user->email = $request->email;
+            $user->sendNotification(
+                type: 'security',
+                title: 'Email Updated',
+                content: 'Your email address has been updated.'
+            );
         }
 
         //  Update base user info
@@ -327,6 +343,19 @@ class UserController extends Controller
                 Storage::disk('public')->delete($profile->profile_image);
             }
             $profile->profile_image = $request->file('profile_image')->store('profiles', 'public');
+
+            $user->logActivity(
+                action: 'update_profile_image',
+                title: 'Profile Image Updated',
+                detail: "User {$user->first_name} {$user->last_name} updated their profile image",
+                meta: ['profile_image' => $profile->profile_image]
+            );
+
+            $user->sendNotification(
+                type: 'profile',
+                title: 'Profile Image Updated',
+                content: 'Your profile picture was updated successfully.'
+            );
         }
 
         if ($request->hasFile('cover_page_image')) {
@@ -335,6 +364,13 @@ class UserController extends Controller
                 Storage::disk('public')->delete($profile->cover_page_image);
             }
             $profile->cover_page_image = $request->file('cover_page_image')->store('profiles', 'public');
+
+            $user->logActivity(
+                action: 'update_cover_image',
+                title: 'Cover Image Updated',
+                detail: "User {$user->first_name} {$user->last_name} updated their cover page image",
+                meta: ['cover_page_image' => $profile->cover_page_image]
+            );
         }
 
         $profile->save();
@@ -376,7 +412,16 @@ class UserController extends Controller
                     }
 
                     $vet->fill($roleData);
+                    $user->update([
+                        'active_role_id' => $vet->id,
+                    ]);
                     $vet->save();
+                    $user->logActivity(
+                        action: 'create_veterinary_doctor',
+                        title: 'Created Veterinary Doctor Profile',
+                        detail: "User {$user->first_name} {$user->last_name} created a veterinary doctor profile",
+                        meta: ['veterinary_doctor_id' => $vet->id]
+                    );
                     break;
 
                 case 'vet_clinic':
@@ -391,7 +436,16 @@ class UserController extends Controller
                     }
 
                     $clinic->fill($roleData);
+                    $user->update([
+                        'active_role_id' => $clinic->id,
+                    ]);
                     $clinic->save();
+                    $user->logActivity(
+                        action: 'create_veterinary_clinic',
+                        title: 'Created Veterinary Clinic Profile',
+                        detail: "User {$user->first_name} {$user->last_name} created a veterinary clinic profile",
+                        meta: ['veterinary_clinic_id' => $clinic->id]
+                    );
                     break;
 
                 case 'vet_paraprofessional':
@@ -406,13 +460,38 @@ class UserController extends Controller
                     }
 
                     $para->fill($roleData);
+                    $user->update([
+                        'active_role_id' => $para->id,
+                    ]);
                     $para->save();
+                    $user->logActivity(
+                        action: 'create_veterinary_paraprofessional',
+                        title: 'Created Veterinary Paraprofessional Profile',
+                        detail: "User {$user->first_name} {$user->last_name} created a veterinary paraprofessional profile",
+                        meta: ['veterinary_paraprofessional_id' => $para->id]
+                    );
                     break;
             }
         }
 
+        $user->logActivity('update', 'Profile Updated', 'User updated their profile');
+        $user->sendNotification('profile', 'Profile Updated', 'Your profile was successfully updated.');
+
+
 
         return response()->json(['message' => 'Profile updated successfully']);
+    }
+
+    public function secureEndpoint($user_email)
+    {
+        $email = User::where('email', $user_email)
+            ->get(['email_verified_at']);
+
+            if(!$email){
+                return response()->json(['message' => 'Email not found']);
+            }
+
+        return response()->json(['message' => 'success', 'email_verified_at' => $email], 200);
     }
 }
 // add image
