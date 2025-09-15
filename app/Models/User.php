@@ -223,4 +223,38 @@ class User extends Authenticatable
         // if null => unlimited
         return is_null($limit) || $currentCases < $limit;
     }
+
+    // for notification and activity
+    public function notifications()
+    {
+        return $this->hasMany(UserNotification::class, 'user_id');
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(UserActivity::class, 'user_id');
+    }
+
+    private function logActivity(string $action, string $title, ?string $detail = null, array $meta = []): void
+    {
+        $this->activities()->create([
+            'action' => $action,
+            'title' => $title,
+            'detail' => $detail,
+            'meta' => $meta,
+        ]);
+    }
+
+    private function sendNotification(string $type, string $title, ?string $content = null, array $meta = []): void
+    {
+        $notification = $this->notifications()->create([
+            'type' => $type,
+            'title' => $title,
+            'content' => $content,
+            'meta' => $meta,
+        ]);
+
+        // Broadcast event for Pusher / WebSockets
+        // broadcast(new \App\Events\UserNotificationEvent($notification))->toOthers();
+    }
 }
