@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
 use App\Models\VeterinaryParaprofessional;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -482,16 +483,20 @@ class UserController extends Controller
         return response()->json(['message' => 'Profile updated successfully']);
     }
 
-    public function secureEndpoint($user_email)
+    public function secureEndpoint($email): JsonResponse
     {
-        $email = User::where('email', $user_email)
-            ->get(['email_verified_at']);
+        $user = User::where('email', $email)
+            ->select('email_verified_at')
+            ->first();
 
-            if(!$email){
-                return response()->json(['message' => 'Email not found']);
-            }
+        if (!$user) {
+            return response()->json(['message' => 'Email not found'], 404);
+        }
 
-        return response()->json(['message' => 'success', 'email_verified_at' => $email], 200);
+        return response()->json([
+            'message' => 'success',
+            'email_verified_at' => $user->email_verified_at,
+        ], 200);
     }
 }
 // add image

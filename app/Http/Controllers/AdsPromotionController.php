@@ -221,7 +221,7 @@ class AdsPromotionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $ad->availability = !$ad->availability;
+        $ad->availability === 0;
         $ad->save();
 
         $status = $ad->availability ? 'available' : 'unavailable';

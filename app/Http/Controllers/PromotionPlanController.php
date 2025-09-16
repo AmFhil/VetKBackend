@@ -7,7 +7,7 @@ use App\Models\PromotionPlan;
 use App\Models\UserPromotionPlan;
 use Carbon\Carbon;
 
-class PromotionController extends Controller
+class PromotionPlanController extends Controller
 {
     public function buyPlan(Request $request)
     {

@@ -23,6 +23,8 @@ class ForgotPasswordController extends Controller
         $user = User::where('email', $request->email)->first();
         if(!$user){
             return response()->json(['error' => 'Email does not seem to exist on our platform'], 404);
+        }elseif($user->provider !== null){
+            return response()->json(['error' => 'Request Failed. Email is already been used for social login', 404]);
         }
 
         // generate reset token

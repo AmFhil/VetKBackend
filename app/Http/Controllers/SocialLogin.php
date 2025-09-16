@@ -43,6 +43,7 @@ class SocialLogin extends AuthController
             // if user does not exit -> create with social data
             $newUser = User::create([
                 'email' => $googleUser->getEmail(),
+                'email_verified_at' => Carbon::now(),
                 'provider' => 'google',
                 'provider_id' => $googleUser->getId(),
                 'password' => null, // no password for social login
@@ -86,6 +87,7 @@ class SocialLogin extends AuthController
             // if user does not exit -> create with social data
             $newUser = User::create([
                 'email' => $linkedInUser->getEmail(),
+                'email_verified_at' => Carbon::now(),
                 'provider' => 'linkedin',
                 'provider_id' => $linkedInUser->getId(),
                 'password' => null, // no password for social login
@@ -116,7 +118,6 @@ class SocialLogin extends AuthController
 
         $user = $request->user();
         $user->update([
-            'email_verified_at' => Carbon::now(),
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'phone_num' => $validated['phone_num'],

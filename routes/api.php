@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdsPromotionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
@@ -7,11 +8,14 @@ use App\Http\Controllers\BlogChatLikeController;
 use App\Http\Controllers\CaseModelController;
 use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\FarmController;
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
 use App\Http\Controllers\ProductsController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PromotionPlanController;
 use App\Http\Controllers\RateController;
 use App\Http\Controllers\SocialLogin;
 use App\Http\Controllers\StoreController;
@@ -20,7 +24,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VeterinaryClinicController;
 use App\Http\Controllers\VeterinaryDoctorController;
 use App\Http\Controllers\VeterinaryParaprofessionalController;
-use App\Http\Middleware\CheckTokenExpiry;
+use App\Models\AdsPromotion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -37,16 +41,20 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
  * 🔹 App routes
  */
 Route::prefix('v3')->group(function () {
-    Route::get('secureEndpoint/{$email}/secure', [UserController::class, 'secureEndpoint']);
 
     // Public routes
     Route::middleware('throttle:auth')->group(function () {  // Uses your custom 'auth' limiter (10/min)
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/reset-mail', [ForgotPasswordController::class, 'sendResetLink']);
+        Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword']);
+        Route::post('/resendVerificationEmail', [AuthController::class, 'resendVerificationEmail']);
+        Route::get('/endpoint/{email}/secure', [UserController::class, 'secureEndpoint']);
+        Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
     });
 
-    Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
-    Route::post('/resendVerificationEmail', [AuthController::class, 'resendVerificationEmail']);
+
+
 
     Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
     Route::get('/search-location', [UserController::class, 'searchLocation']);
@@ -57,9 +65,13 @@ Route::prefix('v3')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
 
         Route::post('/add-livestock-farmer', [LivestockFarmerController::class, 'AddLivestockFarmer']);
+        Route::get('/get-livestock-farmer/{id}/livestock-farmer', [LivestockFarmerController::class, 'getLivestockFarmerById']);
         Route::post('/add-others', [OthersController::class, 'addOthers']);
+        Route::get('/get-other-by-id/{id}/others', [OthersController::class, 'getOtherById']);
         Route::post('/add-pet-owner', [PetOwnerController::class, 'addPetOwner']);
+        Route::get('/get-pet-owner-by-id/{id}/pet-owner', [PetOwnerController::class, 'getPetOwnerById']);
         Route::post('/add-vendor', [VendorController::class, 'addVendor']);
+        Route::get('/get-vendor-by-id/{id}/vendor', [VendorController::class, 'getVendorById']);
         Route::post('/add-veterinary-clinic', [VeterinaryClinicController::class, 'addVeterinaryClinic']);
         Route::post('/add-veterinary-doctor', [VeterinaryDoctorController::class, 'addVeterinaryDoctor']);
         Route::post('/add-veterinary-paraprofessional', [VeterinaryParaprofessionalController::class, 'addVeterinaryParaprofessional']);
@@ -118,19 +130,19 @@ Route::prefix('v3')->group(function () {
         Route::post('/add-pet', [PetController::class, 'addNewPet']);
         Route::put('/update-pet/{id}/pet', [PetController::class, 'updatePet']);
         Route::get('/get-user-pets', [PetController::class, 'getUserPets']);
-        Route::get('/get-pet_by-id/{id}/pet', [PetController::class, 'getPetById']);
+        Route::get('/get-pet-by-id/{id}/pet', [PetController::class, 'getPetById']);
         Route::delete('/delete-pet/{id}/delete', [PetController::class, 'deletePet']);
 
         Route::post('/add-farm', [FarmController::class, 'addNewFarm']);
         Route::put('/update-farm/{id}/farm', [FarmController::class, 'updateFarm']);
         Route::get('/get-user-farms', [FarmController::class, 'getUserFarms']);
-        Route::get('/get-farm_by-id/{id}/farm', [FarmController::class, 'getFarmById']);
+        Route::get('/get-farm-by-id/{id}/farm', [FarmController::class, 'getFarmById']);
         Route::delete('/delete-farm/{id}/delete', [FarmController::class, 'deleteFarm']);
 
         Route::post('/add-clinic', [ClinicController::class, 'addNewClinic']);
         Route::put('/update-clinic/{id}/clinic', [ClinicController::class, 'updateClinic']);
         Route::get('/get-user-clinics', [ClinicController::class, 'getUserClinics']);
-        Route::get('/get-clinic_by-id/{id}/clinic', [ClinicController::class, 'getClinicById']);
+        Route::get('/get-clinic-by-id/{id}/clinic', [ClinicController::class, 'getClinicById']);
         Route::delete('/delete-clinic/{id}/delete', [ClinicController::class, 'deleteClinic']);
         Route::get('/search-clinic', [ClinicController::class, 'searchClinic']);
 
@@ -140,6 +152,15 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-case_by-id/{id}/case', [CaseModelController::class, 'show']);
         Route::delete('/delete-case/{id}/delete', [CaseModelController::class, 'destroy']);
         Route::get('/filter-case/{id}/cases', [CaseModelController::class, 'filterByDateForUser']);
+
+        Route::post('/promote-ad', [AdsPromotionController::class, 'promoteAd']);
+        Route::put('/update-ad/{id}/ad', [AdsPromotionController::class, 'updateAd']);
+        Route::delete('/delete-ad/{id}/ad', [AdsPromotionController::class, 'deleteAd']);
+        Route::get('/toggle_availability/{id}/ad', [AdsPromotionController::class, 'toggleAvailability']);
+
+        Route::post('/buy-plan', [PromotionPlanController::class, 'buyPlan']);
+
+        Route::get('/get-profile', [ProfileController::class, 'getMyProfile']);
     });
 
     // User must have an active subscription

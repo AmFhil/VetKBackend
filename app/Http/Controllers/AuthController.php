@@ -1,16 +1,20 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Role;
 use App\Notifications\CompleteProfileLoginLink;
+use App\Notifications\VerifyEmailToLogin;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -22,15 +26,27 @@ class AuthController extends Controller
     // user registration method
     public function register(Request $request)
     {
-        $validatedData = $request->validate([
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+        $validatedData = Validator::make($request->all(), [
+        'email' => 'required|email|unique:users_registration,email',
+        'password' => 'required|string|min:8|confirmed',
+    ]);
+
+        if ($validatedData->fails()) {
+            // Check if the validation error is specifically for the email's unique rule
+            if ($validatedData->errors()->has('email') && in_array('The email has already been taken.', $validatedData->errors()->get('email'))) {
+                return response()->json([
+                    'message' => 'This email is already registered. Please go and login.'
+                ], 409); // Use a 409 Conflict status code
+            }
+
+            // If other validation errors exist, return the default error response
+            throw new ValidationException($validatedData);
+        }
 
         // Create a new user
         $user = User::create([
-            'email' => $validatedData['email'],
-            'password' => Hash::make($validatedData['password']),
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
             'password_algorithm' => 'bcrypt',
             'created_at' => Carbon::now(),
         ]);
@@ -90,6 +106,22 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             return response()->json(['error' => 'Invalid credentials'], 401);
+        }
+
+        if ($user->email_verified_at === null) {
+            // Signed URL (valid for 60 minutes)
+            $verificationUrl = URL::temporarySignedRoute(
+                'verify.email',
+                Carbon::now()->addMinutes(60),
+                ['id' => $user->id]
+            );
+
+            try {
+                $user->notify(new VerifyEmailToLogin($verificationUrl));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Notification::route('mail', $user->email)
+                    ->notifyNow(new VerifyEmailToLogin($verificationUrl));
+            }
         }
 
         $token = $this->issueToken($user);
