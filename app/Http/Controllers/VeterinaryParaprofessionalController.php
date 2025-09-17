@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\User;
 use App\Models\VeterinaryParaprofessional;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class VeterinaryParaprofessionalController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     public function addVeterinaryParaprofessional(Request $request)
     {
@@ -188,5 +191,48 @@ class VeterinaryParaprofessionalController extends Controller
 
         // return veterinary paraprofessional
         return response()->json(['veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
+    }
+
+    public function verify($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $paraprofessional = VeterinaryParaprofessional::findOrFail($id);
+        $paraprofessional->is_approved = 1;
+        $paraprofessional->save();
+
+        $user = User::find($paraprofessional->user_id);
+
+        if ($user) {
+            // Notify the user
+            $user->sendNotification(
+                'veterinary_paraprofessional_verified',
+                'Verified Veterinary Paraprofessional',
+                "{$user->first_name} You have been verified.",
+                ['veterinary_paraprofessional_id' => $paraprofessional->id, 'user_id' => $user->id]
+            );
+
+            // Log user activity
+            $user->logActivity(
+                'veterinary_paraprofessional_verified',
+                'Verified Veterinary paraprofessional',
+                "{$user->first_name} Your verification was approved by admin.",
+                ['paraprofessional_id' => $paraprofessional->id]
+            );
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'veterinary_paraprofessional_verified',
+            'Verified Veterinary Paraprofessional',
+            "Admin {$admin->name} verified {$user->first_name} (ID: {$paraprofessional->id}).",
+            ['paraprofessional_id' => $paraprofessional->id, 'user_id' => $paraprofessional->user_id]
+        );
+
+        return response()->json(['message' => 'Veterinary Paraprofessional Verified']);
     }
 }

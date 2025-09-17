@@ -196,6 +196,9 @@ Route::prefix('v3')->group(function () {
         Route::post('/admin/blogs/{id}/reject', [BlogChatController::class, 'reject']);
         Route::get('/admin/get-all-blog', [BlogChatController::class, 'getAllBlog']);
         Route::get('/admin/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
+        Route::get('/admin/verify-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'verify']);
+        Route::get('/admin/verify-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'verify']);
+        Route::get('/admin/verify-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'verify']);
         Route::get('/filter-case', [CaseModelController::class, 'filterByDateForAdmin']);
         Route::get('/get-user-case', [CaseModelController::class, 'adminSeeAllCases']);
     });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\User;
 use App\Models\VeterinaryClinic;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
@@ -233,5 +234,48 @@ class VeterinaryClinicController extends Controller
         $clinic->average_rating = $clinic->averageRating();
 
         return response()->json(['veterinary_clinic' => $clinic], 200);
+    }
+
+    public function verify($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $clinic = VeterinaryClinic::findOrFail($id);
+        $clinic->is_approved = 1;
+        $clinic->save();
+
+        $user = User::find($clinic->user_id);
+
+        if ($user) {
+            // Notify the user
+            $user->sendNotification(
+                'veterinary_clinic_verified',
+                'Verified Clinic',
+                "{$user->first_name} Your clinic have been verified.",
+                ['veterinary_clinic_id' => $clinic->id, 'user_id' => $user->id]
+            );
+
+            // Log user activity
+            $user->logActivity(
+                'veterinary_clinic_verified',
+                'Verified Clinic',
+                "{$user->first_name} Your clinic verification was approved by admin.",
+                ['clinic_id' => $clinic->id]
+            );
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'veterinary_clinic_verified',
+            'Verified Clinic',
+            "Admin {$admin->name} verified {$user->first_name} clinic (ID: {$clinic->id}).",
+            ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id]
+        );
+
+        return response()->json(['message' => 'Veterinary Clinic Verified']);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\User;
 use App\Models\UserActivity;
 use App\Models\VeterinaryDoctor;
 use App\Traits\BroadcastsAdminEvents;
@@ -225,5 +226,48 @@ class VeterinaryDoctorController extends Controller
         $veterinaryDoctor->average_rating = $veterinaryDoctor->averageRating();
 
         return response()->json(['veterinary_doctor' => $veterinaryDoctor], 200);
+    }
+
+    public function verify($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $doctor = VeterinaryDoctor::findOrFail($id);
+        $doctor->is_approved = 1;
+        $doctor->save();
+
+        $user = User::find($doctor->user_id);
+
+        if ($user) {
+            // Notify the user
+            $user->sendNotification(
+                'veterinary_doctor_verified',
+                'Verified Veterinary Doctor',
+                "Dr {$user->first_name}, You have been verified.",
+                ['veterinary_doctor_id' => $doctor->id, 'user_id' => $user->id]
+            );
+
+            // Log user activity
+            $user->logActivity(
+                'veterinary_doctor_verified',
+                'Verified Veterinary Doctor',
+                "Dr {$user->first_name}Your verification was approved by admin.",
+                ['doctor_id' => $doctor->id]
+            );
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'veterinary_doctor_verified',
+            'Verified Veterinary Doctor',
+            "Admin {$admin->name} verified Dr {$user->first_name} (ID: {$doctor->id}).",
+            ['doctor_id' => $doctor->id, 'user_id' => $doctor->user_id]
+        );
+
+        return response()->json(['message' => 'Veterinary Doctor Verified']);
     }
 }
