@@ -46,9 +46,9 @@ class ForgotPasswordController extends Controller
         );
 
         // generate reset link
-        // $resetUrl = url('/reset-password?token=' .$token . '$email=' . urlencode($request->email));
+        // $resetUrl = url('/reset-password?token=' .$token . '&email=' . urlencode($request->email));
         // generate for texting
-        $textUrl = env('TEXT_url') . '/reset-password?token=' .$token . '$email=' . urlencode($request->email);
+        $textUrl = env('TEXT_url') . '/reset-password/forgot-password?token=' .$token . '&email=' . urlencode($request->email);
 
         // dispatch the mail job to send the reset link
         try {
@@ -84,7 +84,7 @@ class ForgotPasswordController extends Controller
 
         // check if the token is expired
         if(Carbon::parse($tokenData->created_at)->addMinutes(60)->isPast()) {
-            $tokenData->delete();
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
             return response()->json(['error' => 'Token has expired'], 400);
         }
 
@@ -93,7 +93,7 @@ class ForgotPasswordController extends Controller
             ->update(['password' => bcrypt($request->password)]);
 
         // delete the token
-        $tokenData->delete();
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
         // return a response
         return response()->json(['message' => 'Password reset successfully'], 200);

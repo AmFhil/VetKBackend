@@ -62,7 +62,7 @@ class AuthController extends Controller
         // Signed URL (valid for 60 minutes)
         $verificationUrl = URL::temporarySignedRoute(
             'verify.email',
-            Carbon::now()->addMinutes(60),
+            Carbon::now()->addMinutes(5),
             ['id' => $user->id]
         );
 
@@ -109,10 +109,10 @@ class AuthController extends Controller
         }
 
         if ($user->email_verified_at === null) {
-            // Signed URL (valid for 60 minutes)
+            // Signed URL (valid for 5 minutes)
             $verificationUrl = URL::temporarySignedRoute(
                 'verify.email',
-                Carbon::now()->addMinutes(60),
+                Carbon::now()->addMinutes(5),
                 ['id' => $user->id]
             );
 
@@ -122,6 +122,8 @@ class AuthController extends Controller
                 \Illuminate\Support\Facades\Notification::route('mail', $user->email)
                     ->notifyNow(new VerifyEmailToLogin($verificationUrl));
             }
+
+            return response()->json(['error' => "Your account isn't verified yet. Please check your inbox for the verification link and complete verification to log in."], 401);
         }
 
         $token = $this->issueToken($user);
@@ -138,7 +140,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $request->validate([
-            'userEmail' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:users_registration,email',
         ]);
 
         $user = User::where('email', $request->userEmail)->first();
@@ -155,7 +157,7 @@ class AuthController extends Controller
     public function resendVerificationEmail(Request $request)
     {
         $validated = $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:users_registration,email',
         ]);
 
         $user = User::where('email', $validated['email'])->first();
@@ -167,7 +169,7 @@ class AuthController extends Controller
         // Generate a new signed URL (valid for 60 minutes)
         $verificationUrl = URL::temporarySignedRoute(
             'verify.email',
-            Carbon::now()->addMinutes(60),
+            Carbon::now()->addMinutes(5),
             ['id' => $user->id]
         );
 

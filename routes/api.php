@@ -7,6 +7,7 @@ use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
 use App\Http\Controllers\CaseModelController;
 use App\Http\Controllers\ClinicController;
+use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FarmController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LivestockFarmerController;
@@ -161,6 +162,13 @@ Route::prefix('v3')->group(function () {
         Route::post('/buy-plan', [PromotionPlanController::class, 'buyPlan']);
 
         Route::get('/get-profile', [ProfileController::class, 'getMyProfile']);
+
+        Route::post('/messages/send', [DirectMessageController::class, 'send']);
+        Route::get('/messages/{userId}', [DirectMessageController::class, 'conversation']);
+        Route::patch('/messages/{id}/read', [DirectMessageController::class, 'markAsRead']);
+        Route::patch('/messages/{id}/edit', [DirectMessageController::class, 'edit']);
+        Route::delete('/messages/{id}', [DirectMessageController::class, 'destroy']);
+        Route::patch('/messages/{id}/flag', [DirectMessageController::class, 'flag']);
     });
 
     // User must have an active subscription

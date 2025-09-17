@@ -261,4 +261,14 @@ class User extends Authenticatable
         // Broadcast event for Pusher / WebSockets
         broadcast(new \App\Events\UserNotificationEvent($notification))->toOthers();
     }
+
+    public function sentMessages()
+    {
+        return $this->hasMany(DirectMessage::class, 'sender_id');
+    }
+
+    public function receivedMessages()
+    {
+        return $this->hasMany(DirectMessage::class, 'receiver_id');
+    }
 }
