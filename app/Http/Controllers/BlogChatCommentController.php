@@ -14,6 +14,17 @@ class BlogChatCommentController extends Controller
 {
     use BroadcastsAdminEvents;
 
+    // Clear blog caches (index, trending, show)
+    private function clearBlogCaches($blogId): void
+    {
+        Cache::forget("blog_show_{$blogId}");
+        Cache::forget("trending_blogs");
+
+        for ($page = 1; $page <= 10; $page++) {
+            Cache::forget("blogs_index_page_{$page}");
+        }
+    }
+
     // Add comment
     public function addComment(Request $request, $blogId)
     {
@@ -35,7 +46,6 @@ class BlogChatCommentController extends Controller
             'parent_id'    => $request->parent_id,
         ]);
 
-        // Log + Notify (user)
         $user->logActivity(
             'blog_comment_add',
             'Added a comment',
@@ -50,6 +60,8 @@ class BlogChatCommentController extends Controller
             ['blog_id' => $blog->id, 'comment_id' => $comment->id]
         );
 
+        $this->clearBlogCaches($blog->id);
+
         return response()->json([
             'message' => 'Comment added successfully',
             'comment' => $comment
@@ -60,13 +72,21 @@ class BlogChatCommentController extends Controller
     public function fetchComments($blogId)
     {
         $comments = BlogChatComment::where('blog_chat_id', $blogId)
-            ->with([
-                'user:id,first_name,last_name,profile_picture',
-                'user.profile:id,user_id,profile_image',
-                'replies.user:id,first_name,last_name,profile_picture',
-                'replies.user.profile:id,user_id,profile_image',
-            ])
             ->whereNull('parent_id')
+            ->where('flag', '!=', 'hidden')
+            ->with([
+                'user.roles:id,name',
+                'user.activeRole:id,name',
+                'user.profile:id,user_id,profile_image',
+                'replies' => function ($q) {
+                    $q->where('flag', '!=', 'hidden')
+                      ->with([
+                          'user.roles:id,name',
+                          'user.activeRole:id,name',
+                          'user.profile:id,user_id,profile_image',
+                      ]);
+                }
+            ])
             ->latest()
             ->get();
 
@@ -85,10 +105,10 @@ class BlogChatCommentController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $blogId = $comment->blog_chat_id;
         $commentContent = $comment->comment;
         $comment->delete();
 
-        // Log + Notify (user)
         $user->logActivity(
             'blog_comment_delete',
             'Deleted a comment',
@@ -102,6 +122,8 @@ class BlogChatCommentController extends Controller
             "Your comment <em>\"{$commentContent}\"</em> has been removed.",
             ['comment_id' => $commentId]
         );
+
+        $this->clearBlogCaches($blogId);
 
         return response()->json(['message' => 'Comment deleted successfully']);
     }
@@ -124,7 +146,6 @@ class BlogChatCommentController extends Controller
         $oldComment = $comment->comment;
         $comment->update(['comment' => $request->comment]);
 
-        // Log + Notify (user)
         $user->logActivity(
             'blog_comment_edit',
             'Edited a comment',
@@ -139,6 +160,8 @@ class BlogChatCommentController extends Controller
             ['comment_id' => $commentId]
         );
 
+        $this->clearBlogCaches($comment->blog_chat_id);
+
         return response()->json([
             'message' => 'Comment updated successfully',
             'comment' => $comment
@@ -146,7 +169,6 @@ class BlogChatCommentController extends Controller
     }
 
     // User flag
-    // User flag - with rate limiting
     public function flag(Request $request, $id)
     {
         $user = auth()->user();
@@ -160,19 +182,17 @@ class BlogChatCommentController extends Controller
 
         $comment = BlogChatComment::findOrFail($id);
 
-        // Rate limiting: prevent same user from flagging same comment repeatedly
         $key = "user:{$user->id}:comment:{$comment->id}:flag";
         if (Cache::has($key)) {
             return response()->json([
                 'message' => 'You are flagging too frequently. Please wait before retrying.'
             ], 429);
         }
-        Cache::put($key, true, now()->addMinutes(2)); // lock for 2 minutes
+        Cache::put($key, true, now()->addMinutes(2));
 
         $oldFlag = $comment->flag;
         $comment->update(['flag' => $request->flag]);
 
-        // Log + notify user (so they have record of their own action)
         $user->logActivity(
             'comment_flagged',
             'You flagged a comment',
@@ -195,12 +215,12 @@ class BlogChatCommentController extends Controller
             ]
         );
 
+        $this->clearBlogCaches($comment->blog_chat_id);
+
         return response()->json(['message' => 'Comment flagged as ' . $request->flag]);
     }
 
-
-    // Admin flag - admin action must create admin activities/notifications
-    // Admin flag - with rate limiting
+    // Admin flag
     public function updateFlag(Request $request, $id)
     {
         $actor = auth('admin')->user();
@@ -212,19 +232,17 @@ class BlogChatCommentController extends Controller
 
         $comment = BlogChatComment::findOrFail($id);
 
-        // Rate limiting: prevent same admin from flagging same comment too often
         $key = "admin:{$actor->id}:comment:{$comment->id}:flag";
         if (Cache::has($key)) {
             return response()->json([
                 'message' => 'You are performing this action too frequently. Please wait before retrying.'
             ], 429);
         }
-        Cache::put($key, true, now()->addMinute()); // lock for 1 minute
+        Cache::put($key, true, now()->addMinute());
 
         $oldFlag = $comment->flag;
         $comment->update(['flag' => $request->flag]);
 
-        // Create admin activities + notifications for all admins
         $admins = \App\Models\Admin::all();
         foreach ($admins as $admin) {
             $this->createAdminActivity(
@@ -253,7 +271,6 @@ class BlogChatCommentController extends Controller
             );
         }
 
-        // Notify the comment owner (if user)
         if ($comment->user_type === \App\Models\User::class) {
             $owner = \App\Models\User::find($comment->user_id);
             if ($owner) {
@@ -272,6 +289,8 @@ class BlogChatCommentController extends Controller
                 );
             }
         }
+
+        $this->clearBlogCaches($comment->blog_chat_id);
 
         return response()->json([
             'message' => 'Comment flag updated by admin',

@@ -29,8 +29,8 @@ class BlogChatLikeController extends Controller
             // LOG ACTIVITY
             $user->logActivity(
                 'blog_unlike',
-                "Unliked Blog Chat",
-                "You unliked the blog chat titled '{$blog->title}'.",
+                "UnLiked Blog Chat",
+                "You unLiked the blog chat titled '{$blog->title}'.",
                 ['blog_id' => $blog->id, 'action' => 'unlike']
             );
 

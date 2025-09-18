@@ -33,22 +33,25 @@ class BlogChatLike extends Model
             return [
                 'id'    => $this->user->id,
                 'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => $this->user->profile_picture_url,
+                'image' => $this->user->profile_picture_url, // safe for admins
                 'type'  => 'admin',
             ];
         }
 
         if ($this->user instanceof \App\Models\User) {
             return [
-                'id'    => $this->user->id,
-                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => optional($this->user->profile)->profile_image_url,
-                'type'  => 'user',
+                'id'          => $this->user->id,
+                'name'        => $this->user->first_name . ' ' . $this->user->last_name,
+                'image'       => optional($this->user->profile)->profile_image_url, // safe for users
+                'type'        => 'user',
+                'roles'       => $this->user->roles->pluck('name'),
+                'active_role' => $this->user->activeRole?->name,
             ];
         }
 
         return null;
     }
+
 
     public function blog()
     {
