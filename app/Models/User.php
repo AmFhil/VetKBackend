@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasUserEvents;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, HasUserEvents;
 
     protected $table = 'users_registration';
     protected $primaryKey = 'id';
@@ -172,11 +173,38 @@ class User extends Authenticatable
         static::deleting(function ($user) {
             $user->blogChats()->delete();
         });
+
+        static::deleting(function ($user) {
+            // Delete all related blog_chats
+            $user->forumChats()->delete();
+        });
     }
 
     public function blogChats()
     {
         return $this->morphMany(BlogChat::class, 'user');
+    }
+
+    public function blogChatComments()
+    {
+        return $this->morphMany(BlogChatComment::class, 'user');
+    }
+
+    public function blogChatLikes()
+    {
+        return $this->morphMany(BlogChatLike::class, 'user');
+    }
+
+    public function forumChats(){
+        return $this->morphMany(ForumChat::class, 'user');
+    }
+
+    public function forumChatComments(){
+        return $this->morphMany(ForumChatComment::class, 'user');
+    }
+
+    public function forumChatLikes(){
+        return $this->morphMany(ForumChatLike::class, 'user');
     }
 
     // for subscriptions
@@ -235,32 +263,32 @@ class User extends Authenticatable
         return $this->hasMany(UserActivity::class, 'user_id');
     }
 
-    public function logActivity(string $action, string $title, ?string $detail = null, array $meta = []): void
-    {
-        $activity = $this->activities()->create([
-            'action' => $action,
-            'title' => $title,
-            'detail' => $detail,
-            'meta' => $meta,
-        ]);
+    // public function logActivity(string $action, string $title, ?string $detail = null, array $meta = []): void
+    // {
+    //     $activity = $this->activities()->create([
+    //         'action' => $action,
+    //         'title' => $title,
+    //         'detail' => $detail,
+    //         'meta' => $meta,
+    //     ]);
 
-        // Optional: broadcast activity in real-time
-        broadcast(new \App\Events\UserActivityEvent($activity))->toOthers();
-    }
+    //     // Optional: broadcast activity in real-time
+    //     broadcast(new \App\Events\UserActivityEvent($activity))->toOthers();
+    // }
 
 
-    public function sendNotification(string $type, string $title, ?string $content = null, array $meta = []): void
-    {
-        $notification = $this->notifications()->create([
-            'type' => $type,
-            'title' => $title,
-            'content' => $content,
-            'meta' => $meta,
-        ]);
+    // public function sendNotification(string $type, string $title, ?string $content = null, array $meta = []): void
+    // {
+    //     $notification = $this->notifications()->create([
+    //         'type' => $type,
+    //         'title' => $title,
+    //         'content' => $content,
+    //         'meta' => $meta,
+    //     ]);
 
-        // Broadcast event for Pusher / WebSockets
-        broadcast(new \App\Events\UserNotificationEvent($notification))->toOthers();
-    }
+    //     // Broadcast event for Pusher / WebSockets
+    //     broadcast(new \App\Events\UserNotificationEvent($notification))->toOthers();
+    // }
 
     public function sentMessages()
     {

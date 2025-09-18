@@ -49,6 +49,11 @@ class Admin extends Model
             // Delete all related blog_chats
             $admin->blogChats()->delete();
         });
+
+        static::deleting(function ($admin) {
+            // Delete all related blog_chats
+            $admin->forumChats()->delete();
+        });
     }
 
     protected $appends = ['profile_picture_url'];
@@ -61,6 +66,28 @@ class Admin extends Model
     public function blogChats()
     {
         return $this->morphMany(BlogChat::class, 'user');
+    }
+
+    public function blogChatComments()
+    {
+        return $this->morphMany(BlogChatComment::class, 'user');
+    }
+
+    public function blogChatLikes()
+    {
+        return $this->morphMany(BlogChatLike::class, 'user');
+    }
+
+    public function forumChats(){
+        return $this->morphMany(ForumChat::class, 'user');
+    }
+
+    public function forumChatComments(){
+        return $this->morphMany(ForumChatComment::class, 'user');
+    }
+
+    public function forumChatLikes(){
+        return $this->morphMany(ForumChatLike::class, 'user');
     }
 
      public function notifications()
