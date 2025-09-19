@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
@@ -209,6 +210,11 @@ Route::prefix('v3')->group(function () {
         Route::get('/admin/verify-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'verify']);
         Route::get('/filter-case', [CaseModelController::class, 'filterByDateForAdmin']);
         Route::get('/get-user-case', [CaseModelController::class, 'adminSeeAllCases']);
+        Route::post('/subscriptions', [AdminSubscriptionController::class, 'addSubscription']);
+        Route::get('/subscriptions', [AdminSubscriptionController::class, 'listSubscriptions']);
+        Route::get('/subscriptions/{id}/view', [AdminSubscriptionController::class, 'viewSubscription']);
+        Route::put('/subscriptions/{id}/update', [AdminSubscriptionController::class, 'updateSubscription']);
+        Route::delete('/subscriptions/{id}/delete', [AdminSubscriptionController::class, 'deleteSubscription']);
     });
 });
 
