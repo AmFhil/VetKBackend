@@ -10,7 +10,7 @@ class NewsletterController extends Controller
     //
     public function addNewsletter(Request $request){
         $request->validate([
-            'email' => 'required|unique:newsletter,email,',
+            'email' => 'required|email|unique:newsletter,email,',
             // 'ip' => 'required|ip',
         ]);
 

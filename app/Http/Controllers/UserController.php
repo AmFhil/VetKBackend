@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Profiles;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserActivity;
+use App\Models\UserNotification;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
 use App\Models\VeterinaryParaprofessional;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -497,6 +500,28 @@ class UserController extends Controller
             'message' => 'success',
             'email_verified_at' => $user->email_verified_at,
         ], 200);
+    }
+
+    // get user activity
+    public function getUserActivity(){
+        $user = Auth::user();
+
+        $userActivity = UserActivity::where('user_id', $user->id)
+            ->orderBy('created_at', 'asc')
+            ->paginate(10);
+
+        return response()->json($userActivity, 200);
+    }
+
+    // get user notification
+    public function getUserNotification(){
+        $user = Auth::user();
+
+        $userNotification = UserNotification::where('user_id', $user->id)
+            ->latest()
+            ->paginate(10);
+
+        return response()->json($userNotification, 200);
     }
 }
 // add image

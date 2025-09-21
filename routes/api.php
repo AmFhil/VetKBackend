@@ -8,10 +8,12 @@ use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
 use App\Http\Controllers\CaseModelController;
 use App\Http\Controllers\ClinicController;
+use App\Http\Controllers\ContactUsController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FarmController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LivestockFarmerController;
+use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
@@ -53,13 +55,15 @@ Route::prefix('v3')->group(function () {
         Route::post('/resendVerificationEmail', [AuthController::class, 'resendVerificationEmail']);
         Route::get('/endpoint/{email}/secure', [UserController::class, 'secureEndpoint']);
         Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
+        Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
+        Route::get('/search-location', [UserController::class, 'searchLocation']);
+        Route::post('/add-to-newsletter', [NewsletterController::class, 'addNewsletter']);
+        Route::post('/contact-us', [ContactUsController::class, 'addContactUs']);
     });
 
 
 
 
-    Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
-    Route::get('/search-location', [UserController::class, 'searchLocation']);
 
     //  Protected routes (token required + idle expiry check)
     Route::middleware(['auth:sanctum', 'token.expiry', 'throttle:api'])->group(function () {
@@ -170,6 +174,9 @@ Route::prefix('v3')->group(function () {
         Route::patch('/messages/{id}/edit', [DirectMessageController::class, 'edit']);
         Route::delete('/messages/{id}', [DirectMessageController::class, 'destroy']);
         Route::patch('/messages/{id}/flag', [DirectMessageController::class, 'flag']);
+
+        Route::get('/get-user-activity', [UserController::class, 'getUserActivity']);
+        Route::get('/get-user-notification', [UserController::class, 'getUserNotification']);
     });
 
     // User must have an active subscription
