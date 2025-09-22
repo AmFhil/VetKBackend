@@ -65,6 +65,24 @@ class VeterinaryParaprofessionalController extends Controller
                 meta: ['veterinary_paraprofessional_id' => $veterinaryParaprofessional->id]
             );
 
+            $admins = Admin::all();
+            foreach ($admins as $admin) {
+                $this->createAdminNotification(
+                    $admin->id,
+                    "New Veterinary Paraprofessional Pending Approval",
+                    "vet_profile",
+                    "A new veterinary paraprofessional profile has been created by {$user->first_name} {$user->last_name}.",
+                    ['paraprofessional_id' => $veterinaryParaprofessional->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+                );
+                $this->createAdminActivity(
+                    $admin->id,
+                    "vet_profile_review",
+                    "New Vet Paraprofessional Created",
+                    "Review vet paraprofessional {$veterinaryParaprofessional->id} created by user {$user->name}",
+                    ['paraprofessional_id' => $veterinaryParaprofessional->id, 'staff_id' => $admin->staff_id]
+                );
+            }
+
             // return
             return response()->json(['message' => 'Veterinary paraprofessional added successfully. Pending', 'veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
         } catch (\Exception $e) {
@@ -77,6 +95,7 @@ class VeterinaryParaprofessionalController extends Controller
     public function getAllVeterinaryParaprofessionals()
     {
         $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->where('is_approved', '!=', 0)
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->paginate(10);
 
@@ -94,15 +113,14 @@ class VeterinaryParaprofessionalController extends Controller
     {
         $query = $request->input('query');
 
-        if (!$query) {
-            return response()->json(['veterinary_paraprofessionals' => []], 200);
-        }
-
-        $veterinaryParaprofessionals = VeterinaryParaprofessional::where('specialty', 'like', "%$query%")
-            ->orWhere('name_of_institution', 'like', "%$query%")
-            ->orWhere('list_them', 'like', "%$query%")
-            ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->where('is_approved', '!=', 0)
+            ->when($query, function ($q) use ($query) {
+                $q->where('specialty', 'like', "%$query%")
+                    ->orWhere('name_of_institution', 'like', "%$query%")
+                    ->orWhere('list_them', 'like', "%$query%")
+                    ->orWhere('address', 'like', "%$query%");
+            })
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -201,12 +219,11 @@ class VeterinaryParaprofessionalController extends Controller
         }
 
         $paraprofessional = VeterinaryParaprofessional::findOrFail($id);
-        $paraprofessional->is_approved = 1;
-        $paraprofessional->save();
-
         $user = User::find($paraprofessional->user_id);
 
         if ($user) {
+            $paraprofessional->is_approved = 1;
+            $paraprofessional->save();
             // Notify the user
             $user->sendNotification(
                 'veterinary_paraprofessional_verified',
@@ -222,6 +239,11 @@ class VeterinaryParaprofessionalController extends Controller
                 "{$user->first_name} Your verification was approved by admin.",
                 ['paraprofessional_id' => $paraprofessional->id]
             );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Verified',
+                'Congratulations ' . $user->first_name . ', We are so pleased to inform you that your Details has been verified and your account is now visible on our platform.'
+            ));
         }
 
         // Log admin activity
@@ -230,7 +252,7 @@ class VeterinaryParaprofessionalController extends Controller
             'veterinary_paraprofessional_verified',
             'Verified Veterinary Paraprofessional',
             "Admin {$admin->name} verified {$user->first_name} (ID: {$paraprofessional->id}).",
-            ['paraprofessional_id' => $paraprofessional->id, 'user_id' => $paraprofessional->user_id]
+            ['paraprofessional_id' => $paraprofessional->id, 'user_id' => $paraprofessional->user_id, 'staff_id' => $admin->staff_id]
         );
 
         return response()->json(['message' => 'Veterinary Paraprofessional Verified']);

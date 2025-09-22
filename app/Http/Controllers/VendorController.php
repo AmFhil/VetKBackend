@@ -80,4 +80,17 @@ class VendorController extends Controller
 
         return response()->json(['vendor' => $vendor], 200);
     }
+
+    public function getVendor()
+    {
+        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role',  'created_at')
+            ->paginate(20);
+
+        return response()->json($vendor, 200);
+    }
+
+    
+
+
 }

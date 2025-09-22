@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminPromotionController;
 use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
 use App\Http\Controllers\AuthController;
@@ -74,7 +75,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-livestock-farmer/{id}/livestock-farmer', [LivestockFarmerController::class, 'getLivestockFarmerById']);
         Route::post('/add-others', [OthersController::class, 'addOthers']);
         Route::get('/get-other-by-id/{id}/others', [OthersController::class, 'getOtherById']);
-        Route::post('/add-pet-owner', [PetOwnerController::class, 'addPetOwner']);
+        Route::post('/add-pet-owner', [PetOwnerController::class, 'choosePetOwnerRole']);
         Route::get('/get-pet-owner-by-id/{id}/pet-owner', [PetOwnerController::class, 'getPetOwnerById']);
         Route::post('/add-vendor', [VendorController::class, 'addVendor']);
         Route::get('/get-vendor-by-id/{id}/vendor', [VendorController::class, 'getVendorById']);
@@ -222,6 +223,12 @@ Route::prefix('v3')->group(function () {
         Route::get('/subscriptions/{id}/view', [AdminSubscriptionController::class, 'viewSubscription']);
         Route::put('/subscriptions/{id}/update', [AdminSubscriptionController::class, 'updateSubscription']);
         Route::delete('/subscriptions/{id}/delete', [AdminSubscriptionController::class, 'deleteSubscription']);
+
+        Route::post('/promotion', [AdminPromotionController::class, 'addPromotion']);
+        Route::get('/promotion', [AdminPromotionController::class, 'listPromotion']);
+        Route::get('/promotion/{id}/view', [AdminPromotionController::class, 'viewPromotion']);
+        Route::put('/promotion/{id}/update', [AdminPromotionController::class, 'updatePromotion']);
+        Route::delete('/promotion/{id}/delete', [AdminPromotionController::class, 'deletePromotion']);
     });
 });
 

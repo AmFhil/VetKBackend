@@ -63,24 +63,24 @@ class VeterinaryClinicController extends Controller
             );
 
 
-            // notify admins (optional)
-            // $admins = Admin::all();
-            // foreach ($admins as $admin) {
-            //     $this->createAdminNotification(
-            //         $admin->id,
-            //         "New Veterinary Doctor Pending Approval",
-            //         "vet_profile",
-            //         "A new veterinary doctor profile has been created by {$user->first_name} {$user->last_name}.",
-            //         ['doctor_id' => $veterinaryDoctor->id, 'user_id' => $user->id]
-            //     );
-            // $this->createAdminActivity(
-            //     $admin->id,
-            //     "vet_profile_review",
-            //     "New Vet Doctor Created",
-            //     "Review vet doctor {$veterinaryDoctor->id} created by user {$user->id}",
-            //     ['doctor_id' => $veterinaryDoctor->id]
-            // );
-            // }
+            // notify admins
+            $admins = Admin::all();
+            foreach ($admins as $admin) {
+                $this->createAdminNotification(
+                    $admin->id,
+                    "New Veterinary Clinic Pending Approval",
+                    "vet_profile",
+                    "A new veterinary clinic profile has been created by {$user->first_name} {$user->last_name}.",
+                    ['clinic_id' => $clinic->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+                );
+                $this->createAdminActivity(
+                    $admin->id,
+                    "vet_profile_review",
+                    "New Vet Clinic Created",
+                    "Review vet clinic {$clinic->id} created by user {$user->name}",
+                    ['clinic_id' => $clinic->id, 'staff_id' => $admin->staff_id]
+                );
+            }
 
             return response()->json(['message' => 'Veterinary clinic added successfully. Pending approval.', 'clinic' => $clinic], 200);
         } catch (\Exception $e) {
@@ -93,6 +93,7 @@ class VeterinaryClinicController extends Controller
     public function getAllVeterinaryClinics()
     {
         $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->where('is_approved', '!=', 0)
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
@@ -115,11 +116,14 @@ class VeterinaryClinicController extends Controller
             return response()->json(['clinics' => []], 200);
         }
 
-        $clinics = VeterinaryClinic::where('name_of_clinic', 'like', "%$query%")
-            ->orWhere('specialty', 'like', "%$query%")
-            ->orWhere('list_them', 'like', "%$query%")
-            ->orWhere('address', 'like', "%$query%")
-            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->where('is_approved', '!=', 0)
+            ->when($query, function ($q) use ($query) {
+                $q->where('specialty', 'like', "%$query%")
+                    ->orWhere('name_of_clinic', 'like', "%$query%")
+                    ->orWhere('list_them', 'like', "%$query%")
+                    ->orWhere('address', 'like', "%$query%");
+            })
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
             ->paginate(10);
 
@@ -244,12 +248,11 @@ class VeterinaryClinicController extends Controller
         }
 
         $clinic = VeterinaryClinic::findOrFail($id);
-        $clinic->is_approved = 1;
-        $clinic->save();
-
         $user = User::find($clinic->user_id);
 
         if ($user) {
+            $clinic->is_approved = 1;
+            $clinic->save();
             // Notify the user
             $user->sendNotification(
                 'veterinary_clinic_verified',
@@ -265,6 +268,11 @@ class VeterinaryClinicController extends Controller
                 "{$user->first_name} Your clinic verification was approved by admin.",
                 ['clinic_id' => $clinic->id]
             );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'License Number Verified',
+                'Congratulations ' . $user->first_name . ', We are so pleased to inform you that your Clinic License Number has been verified and your account is now visible on our platform.'
+            ));
         }
 
         // Log admin activity
@@ -273,7 +281,7 @@ class VeterinaryClinicController extends Controller
             'veterinary_clinic_verified',
             'Verified Clinic',
             "Admin {$admin->name} verified {$user->first_name} clinic (ID: {$clinic->id}).",
-            ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id]
+            ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id, 'staff_id' => $admin->staff_id]
         );
 
         return response()->json(['message' => 'Veterinary Clinic Verified']);

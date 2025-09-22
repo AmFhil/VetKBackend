@@ -103,7 +103,7 @@ class User extends Authenticatable
     public function activeRoleModel()
     {
         return match ($this->activeRole?->name) {
-            'petOwner' => $this->petOwner(),
+            'pet_owners' => $this->petOwner(),
             'vendor' => $this->vendor(),
             'veterinary_doctor' => $this->veterinaryDoctor(),
             'veterinary_clinic' => $this->veterinaryClinic(),
@@ -172,12 +172,27 @@ class User extends Authenticatable
 
         static::deleting(function ($user) {
             $user->blogChats()->delete();
+            $user->forumChats()->delete();
+            $user->blogChatComments()->delete();
+            $user->forumChatComments()->delete();
+            $user->blogChatLikes()->delete();
+            $user->forumChatLikes()->delete();
+            $user->notifications()->delete();
+            $user->activities()->delete();
+            $user->store()->delete();
+            $user->products()->delete();
+            $user->pet()->delete();
+            $user->farm()->delete();
+            $user->clinic()->delete();
+            $user->cases()->delete();
+            $user->ratingsGiven()->delete();
+            $user->ratingsReceived()->delete();
+            $user->subscription()->delete();
+            $user->sentMessages()->delete();
+            $user->receivedMessages()->delete();
         });
 
-        static::deleting(function ($user) {
-            // Delete all related blog_chats
-            $user->forumChats()->delete();
-        });
+
     }
 
     public function blogChats()
