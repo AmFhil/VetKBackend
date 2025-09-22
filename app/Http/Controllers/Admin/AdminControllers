@@ -1,0 +1,395 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+use App\Mail\message;
+use App\Events\vet_notification;
+use App\Models\AdminActivity;
+use App\Models\Clinic;
+use App\Models\Farm;
+use App\Models\ForumChat;
+use App\Models\livestock_farmer;
+use App\Models\Others;
+use App\Models\Pet;
+use App\Models\Pet_Owner;
+use App\Models\Products;
+use App\Models\PromotionPlan;
+use App\Models\Store;
+use App\Models\Subscription;
+use App\Models\User;
+use App\Models\Vendor;
+use App\Models\VeterinaryClinic;
+use App\Models\VeterinaryDoctor;
+use App\Models\VeterinaryParaprofessional;
+use App\Notifications\MessageNotification;
+use App\Traits\BroadcastsAdminEvents;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use stdClass;
+use Illuminate\Support\Str;
+
+class AdminControllers extends Controller
+{
+    use BroadcastsAdminEvents;
+
+
+
+
+    // count of all tables in the database
+    public function adminGetUserCount()
+    {
+        $data = new stdClass;
+        $data->veterinaryDoctor = VeterinaryDoctor::count();
+        $data->veterinaryClinic = VeterinaryClinic::count();
+        $data->veterinaryParaprofessional = VeterinaryParaprofessional::count();
+        $data->pet_owner = Pet_Owner::count();
+        $data->vendor = Vendor::count();
+        $data->livestock_farmer = livestock_farmer::count();
+        $data->other = Others::count();
+        $data->users = User::count();
+        $data->pets = Pet::count();
+        $data->farms = Farm::count();
+        $data->clinics = Clinic::count();
+        $data->stores = Store::count();
+        $data->products = Products::count();
+        return $data;
+    }
+
+
+    public function getAllVeterinaryParaprofessional()
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized']);
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
+            ->latest()
+            ->paginate(10);
+
+        // add average rating to each veterinary paraprofessional
+        $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional) {
+            $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
+            return $veterinaryParaprofessional;
+        });
+
+        return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
+    }
+
+    public function getAllVeterinaryDoctors()
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized']);
+
+        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
+            ->paginate(10);
+
+        // add average rating to each veterinary doctor
+        $veterinaryDoctors->getCollection()->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
+
+        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+    }
+
+    public function getAllVeterinaryClinics()
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized']);
+
+        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
+            ->inRandomOrder()
+            ->paginate(10);
+
+        // add average rating to each veterinary clinic
+        $clinics->getCollection()->transform(function ($clinic) {
+            $clinic->average_rating = $clinic->averageRating();
+            return $clinic;
+        });
+
+        return response()->json(['clinics' => $clinics], 200);
+    }
+
+    public function searchVeterinaryParaprofessionals(Request $request)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized']);
+
+        $query = $request->input('query');
+
+        if (!$query) {
+            return response()->json(['veterinary_paraprofessionals' => []], 200);
+        }
+
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::where('specialty', 'like', "%$query%")
+            ->orWhere('name_of_institution', 'like', "%$query%")
+            ->orWhere('list_them', 'like', "%$query%")
+            ->orWhere('address', 'like', "%$query%")
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->paginate(10);
+
+        // add average rating to each veterinary paraprofessional
+        $veterinaryParaprofessionals->getCollection()->transform(function ($veterinaryParaprofessional) {
+            $veterinaryParaprofessional->average_rating = $veterinaryParaprofessional->averageRating();
+            return $veterinaryParaprofessional;
+        });
+
+        return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
+    }
+
+    public function searchVeterinaryDoctors(Request $request)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized']);
+
+        $query = $request->input('query');
+        if (!$query) {
+            return response()->json(['veterinary_doctors' => []], 200);
+        }
+
+        $veterinaryDoctors = VeterinaryDoctor::where('specialty', 'like', "%$query%")
+            ->orWhere('list_them', 'like', "%$query%")
+            ->orWhere('address', 'like', "%$query%")
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->paginate(10);
+
+        // add average rating to each veterinary doctor
+        $veterinaryDoctors->getCollection()->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
+
+        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+    }
+
+    public function searchVeterinaryClinics(Request $request)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized']);
+
+        $query = $request->input('query', '');
+
+        if (!$query) {
+            return response()->json(['clinics' => []], 200);
+        }
+
+        $clinics = VeterinaryClinic::where('name_of_clinic', 'like', "%$query%")
+            ->orWhere('specialty', 'like', "%$query%")
+            ->orWhere('list_them', 'like', "%$query%")
+            ->orWhere('address', 'like', "%$query%")
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->paginate(10);
+
+        // add average rating to each veterinary clinic
+        $clinics->getCollection()->transform(function ($clinic) {
+            $clinic->average_rating = $clinic->averageRating();
+            return $clinic;
+        });
+
+        return response()->json(['clinics' => $clinics], 200);
+    }
+
+
+    // get all
+    public function getVendor()
+    {
+        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role',  'created_at')
+            ->paginate(20);
+
+        return response()->json($vendor, 200);
+    }
+
+    public function getOther()
+    {
+        $other = Others::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role',  'created_at')
+            ->paginate(20);
+
+        return response()->json($other, 200);
+    }
+
+    public function getPetOwner()
+    {
+        $pet_owner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role',  'created_at')
+            ->paginate(20);
+
+        return response()->json($pet_owner, 200);
+    }
+
+    public function getLifeStockFarmer()
+    {
+        $lifeStock = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role',  'created_at')
+            ->paginate(20);
+
+        return response()->json($lifeStock, 200);
+    }
+
+    // get stores
+    public function getStores()
+    {
+        // check if user is authenticated
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        //get stores
+        $stores = Store::with('ratings:id,rating,comment,rateable_id')
+            ->paginate(10);
+
+        // get average rating for each store
+        $stores->getCollection()->transform(function ($store) {
+            $store->average_rating = $store->averageRating();
+            // $store->average_rating = $average ? number_format($average, 1) . ' of 5' : '0 of 5';
+            return $store;
+        });
+
+        return response()->json(['stores' => $stores], 200);
+    }
+
+    // search stores by name
+    public function searchStores(Request $request)
+    {
+        $query = $request->input('query');
+        if (!$query) return response()->json(['stores' => []], 200);
+
+        $stores = Store::where('store_name', 'like', "%$query%")
+            ->orWhere('location', 'like', "%$query%")
+            ->with('ratings:id,rating,comment,rateable_id')
+            ->paginate(10);
+
+        $stores->getCollection()->transform(function ($store) {
+            $store->average_rating = $store->averageRating();
+            // $store->average_rating = $average ? number_format($average, 1) . ' of 5' : '0 of 5';
+            return $store;
+        });
+
+        return response()->json(['stores' => $stores], 200);
+    }
+
+    // search product
+    public function searchProducts(Request $request)
+    {
+        try {
+            $query = $request->input('query');
+            if (!$query) return response()->json(['stores' => []], 200);
+
+            $query = Products::with('ratings:id,rating,comment,rateable_id', 'tags')
+                ->where('category', 'LIKE', "%{$request->category}%")
+                ->where('description', 'LIKE', "%{$request->keyword}%")
+                ->orWhere('product_name', 'LIKE', "%{$request->keyword}%");
+
+
+            $products = $query->paginate(10);
+
+            $products->getCollection()->transform(function ($product) {
+                $product->average_rating = $product->averageRating();
+                return $product;
+            });
+
+            return response()->json(['message' => 'Products retrieved successfully.', 'products' => $products], 200);
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'An error occurred while searching.', 'error' => $th->getMessage()], 500);
+        }
+    }
+
+    // get products
+    public function getProducts()
+    {
+        // check if user is authenticated
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        //get stores
+        $products = Products::with('ratings:id,rating,comment,rateable_id', 'tags', 'user', 'user.profile', 'user.activeRoleData')
+            ->latest()
+            ->paginate(10);
+
+        // get average rating for each product
+        $products->getCollection()->transform(function ($product) {
+            $product->average_rating = $product->averageRating();
+            return $product;
+        });
+
+        return response()->json(['products' => $products], 200);
+    }
+
+    // search clinic
+    public function searchClinics(Request $request)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        $query = $request->input('query', '');
+
+        if (!$query) {
+            return response()->json(['clinics' => []], 200);
+        }
+
+        $clinics = Clinic::where('clinic_name', 'like', "%$query%")
+            ->orWhereJsonContains('clinic_speciality', $query)
+            ->orWhere('location', 'like', "%$query%")
+            ->paginate(10);
+
+        return response()->json(['clinics' => $clinics], 200);
+    }
+
+    // get clinic
+    public function getClinic()
+    {
+        // check if user is authenticated
+        $admin = auth('admin')->user();
+        if (!$admin) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        //get clinic
+        $clinics = Clinic::all()
+            ->latest()
+            ->paginate(10);
+
+        return response()->json(['clinics' => $clinics], 200);
+    }
+
+    //get all farms
+    public function getFarms()
+    {
+        $farms = Farm::with('user')->latest()->paginate(10);
+
+        return response()->json($farms);
+    }
+
+    /**
+     * ✅ Pets
+     */
+    public function getPets()
+    {
+        $pets = Pet::with('user')->latest()->paginate(10);
+
+        return response()->json($pets);
+    }
+
+
+
+
+
+
+
+
+}
