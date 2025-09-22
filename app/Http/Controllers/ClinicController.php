@@ -94,7 +94,7 @@ class ClinicController extends Controller
                 $admin->id,
                 "vet_profile_review",
                 "New Clinic Created",
-                "Review clinic {$clinic->clinic_name} created by user {$user->id}",
+                "Review clinic {$clinic->clinic_name} created by user {$user->first_name}",
                 ['clinic_id' => $clinic->id]
             );
         }
@@ -296,6 +296,11 @@ class ClinicController extends Controller
                 "Your clinic {$clinic->clinic_name} was approved by admin.",
                 ['clinic_id' => $clinic->id]
             );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'License Number Verified',
+                'Congratulations ' . $user->first_name . ', We are so pleased to inform you that your Clinic License Number has been verified and your clinic is now visible on our platform.'
+            ));
         }
 
         // Log admin activity
@@ -304,7 +309,7 @@ class ClinicController extends Controller
             'clinic_verified',
             'Clinic License Verified',
             "Admin {$admin->name} verified clinic {$clinic->clinic_name} (ID: {$clinic->id}).",
-            ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id]
+            ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id, 'staff_id' => $admin->staff_id]
         );
 
         return response()->json(['message' => 'Clinic Verified']);

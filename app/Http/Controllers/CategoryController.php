@@ -20,7 +20,7 @@ class CategoryController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:categories,name',
-            'image' => 'nullable|image|max:1048|jpeg,png,jpg',
+            'image' => 'nullable|image|max:2048|jpeg,png,jpg',
         ]);
 
         $imagePath = null;

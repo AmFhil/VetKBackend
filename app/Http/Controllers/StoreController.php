@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Models\Vendor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -219,6 +220,55 @@ class StoreController extends Controller
 
         // get average rating
         $store->average_rating = $store->averageRating();
+
+        return response()->json(['store' => $store], 200);
+    }
+
+    public function getStoreByLocation(Request $request)
+    {
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        if (!$latitude || !$longitude) {
+            return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
+        }
+
+        // Haversine formula to calculate distance
+        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(store.latitude)) * cos(radians(store.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(store.latitude))))";
+
+        $store = DB::table('store')
+            ->join('users_registration', 'store.user_id', '=', 'users_registration.id')
+            ->leftJoin('rating', 'store.user_id', '=', 'rating.rateable_id')
+            ->leftJoin('profile', 'store.user_id', '=', 'profile.user_id')
+            ->select(
+                'store.id',
+                'store.user_id',
+                'store.role',
+                'store.store_name',
+                'store.email',
+                'store.longitude',
+                'store.latitude',
+                'store.phone_number',
+                'store.location',
+                'store.picture',
+                'store.availability',
+                'users_registration.email',
+                'users_registration.first_name',
+                'users_registration.last_name',
+                'users_registration.phone_num',
+                'users_registration.state',
+                'users_registration.country',
+                'profile.profile_image',
+                'profile.bio',
+                'profile.id',
+                'profile.cover_page_image',
+                DB::raw('AVG(rating.rating) as average_rating'),
+                DB::raw("$haversine AS distance")
+            )
+            ->whereNotNull('store.latitude')
+            ->whereNotNull('store.longitude')
+            ->orderBy('distance', 'asc')
+            ->limit(10)
+            ->get();
 
         return response()->json(['store' => $store], 200);
     }

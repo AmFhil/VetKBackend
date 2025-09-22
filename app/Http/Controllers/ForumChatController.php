@@ -60,7 +60,7 @@ class ForumChatController extends Controller
             'title'     => $validated['title'],
             'content'   => $validated['content'],
             'images'    => $imagePaths,
-            'status'    => 'published',
+            'status'    => 'archived',
         ]);
 
         $this->clearForumCaches();
@@ -241,34 +241,34 @@ class ForumChatController extends Controller
     /**
      * Archive forum post (Admin only).
      */
-    public function archive($id)
-    {
-        $admin = auth('admin')->user();
-        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+    // public function archive($id)
+    // {
+    //     $admin = auth('admin')->user();
+    //     if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $forum = ForumChat::findOrFail($id);
-        $forum->status = 'archived';
-        $forum->save();
+    //     $forum = ForumChat::findOrFail($id);
+    //     $forum->status = 'archived';
+    //     $forum->save();
 
-        $this->clearForumCaches($forum->id, $forum->slug);
+    //     $this->clearForumCaches($forum->id, $forum->slug);
 
-        $this->createAdminActivity(
-            $admin->id,
-            'archived',
-            "Forum Archived",
-            "Admin {$admin->first_name} archived forum '{$forum->title}'.",
-            ['forum_id' => $forum->id]
-        );
-        $this->createAdminNotification(
-            $admin->id,
-            "Forum Archived",
-            'forum',
-            "Forum '{$forum->title}' has been archived.",
-            ['forum_id' => $forum->id]
-        );
+    //     $this->createAdminActivity(
+    //         $admin->id,
+    //         'archived',
+    //         "Forum Archived",
+    //         "Admin {$admin->first_name} archived forum '{$forum->title}'.",
+    //         ['forum_id' => $forum->id, 'staff_id' => $admin->staff_id]
+    //     );
+    //     $this->createAdminNotification(
+    //         $admin->id,
+    //         "Forum Archived",
+    //         'forum',
+    //         "Forum '{$forum->title}' has been archived.",
+    //         ['forum_id' => $forum->id, 'staff_id' => $admin->staff_id]
+    //     );
 
-        return response()->json(['message' => 'Forum archived successfully', 'forum' => $forum], 200);
-    }
+    //     return response()->json(['message' => 'Forum archived successfully', 'forum' => $forum], 200);
+    // }
 
     /**
      * Trending forums (User).

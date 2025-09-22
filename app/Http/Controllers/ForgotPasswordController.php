@@ -33,7 +33,7 @@ class ForgotPasswordController extends Controller
         // delete any exiting reset tokens for the user
         DB::table('password_reset_tokens')
             ->where('email', $user->email)
-            ->orWhere('created_at', '<', Carbon::now()->subMinutes(60)) // delete tokens older than 60 minutes for the same user
+            ->orWhere('created_at', '<', Carbon::now()->subMinutes(60))
             ->delete();
 
         // store the reset token
@@ -89,7 +89,7 @@ class ForgotPasswordController extends Controller
         }
 
         // update the user password
-        DB::table('users_registration')->where('email', $request->email)
+        User::where('email', $request->email)
             ->update(['password' => bcrypt($request->password)]);
 
         // delete the token

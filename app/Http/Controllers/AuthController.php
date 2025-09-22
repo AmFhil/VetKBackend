@@ -108,6 +108,11 @@ class AuthController extends Controller
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
+        if (strlen($user->password) === 40) {
+            $user->password = Hash::make($validated['password']);
+            $user->save();
+        }
+
         if ($user->email_verified_at === null) {
             // Signed URL (valid for 5 minutes)
             $verificationUrl = URL::temporarySignedRoute(

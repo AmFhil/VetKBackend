@@ -39,11 +39,11 @@ class PetController extends Controller
         $request->validate([
             'pet_name' => 'required|string|max:50',
             'specie'   => 'required|string|max:50',
-            'breed'    => 'nullable|string|max:50',
-            'sex'      => 'nullable|string|max:5',
-            'age'      => 'nullable|numeric',
-            'location' => 'nullable|string|max:255',
-            'picture'  => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+            'breed'    => 'required|string|max:50',
+            'sex'      => 'required|string|max:5',
+            'age'      => 'required|numeric',
+            'location' => 'required|string|max:255',
+            'picture'  => 'required|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
         $user = auth()->user();
