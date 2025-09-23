@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Others;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +27,12 @@ class OthersController extends Controller
                 'role' => 'Others',
             ]);
 
-            $user->update(['active_role_id' => $other->id]);
+            $activeRole = Role::where('name', 'others')->first();
+            if(!$activeRole){
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->attach($activeRole->id);
+            $user->update(['active_role_id' => $activeRole->id]);
 
             DB::commit();
             return response()->json([

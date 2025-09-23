@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\livestock_farmer;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -27,7 +28,13 @@ class LivestockFarmerController extends Controller
                 'role' => 'Livestock Farmer',
             ]);
 
-            $user->update(['active_role_id' => $farmer->id]);
+            // update user's active role
+            $activeRole = Role::where('name', 'livestock_farmer')->first();
+            if(!$activeRole){
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->attach($activeRole->id);
+            $user->update(['active_role_id' => $activeRole->id]);
 
             DB::commit();
             return response()->json([

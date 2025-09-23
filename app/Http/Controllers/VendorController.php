@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\Vendor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,12 @@ class VendorController extends Controller
                 'role' => 'Vendor',
             ]);
 
-            $user->update(['active_role_id' => $vendor->id]);
+            $activeRole = Role::where('name', 'vendor')->first();
+            if(!$activeRole){
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->attach($activeRole->id);
+            $user->update(['active_role_id' => $activeRole->id]);
 
             DB::commit();
             $user->logActivity(
@@ -90,7 +96,7 @@ class VendorController extends Controller
         return response()->json($vendor, 200);
     }
 
-    
+
 
 
 }

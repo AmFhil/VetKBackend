@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\UserActivity;
 use App\Models\VeterinaryDoctor;
@@ -48,8 +49,13 @@ class VeterinaryDoctorController extends Controller
                 'created_at' => Carbon::now(),
             ]);
 
+            $activeRole = Role::where('name', 'veterinary_doctor')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->attach($activeRole->id);
             $user->update([
-                'active_role_id' => $veterinaryDoctor->id,
+                'active_role_id' => $activeRole->id,
             ]);
 
             DB::commit();

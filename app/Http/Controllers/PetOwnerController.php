@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pet_Owner;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,9 +30,13 @@ class PetOwnerController extends Controller
                 'role' => 'Pet Owner',
             ]);
 
-            // update user's active role
+             $activeRole = Role::where('name', 'pet_owner')->first();
+            if(!$activeRole){
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->attach($activeRole->id);
             $user->update([
-                'active_role_id' => $petOwner->id, // or store role name depending on your schema
+                'active_role_id' => $activeRole->id, // or store role name depending on your schema
             ]);
 
             DB::commit();
