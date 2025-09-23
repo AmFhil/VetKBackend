@@ -149,7 +149,7 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $pet = Pet::find($id)->with('user', 'user.activeRole', 'user.profile');
+        $pet = Pet::find($id);
         if (!$pet) {
             return response()->json(['message' => 'Pet not found.'], 404);
         }
