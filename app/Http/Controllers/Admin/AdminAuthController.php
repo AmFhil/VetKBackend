@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,34 +23,45 @@ class AdminAuthController extends Controller
                 'password' => 'required'
             ]);
 
-            $admin = DB::table('admin')->where('staff_id', $request->staff_id)->first();
+            // Use the Admin model for better functionality
+            $admin = Admin::where('staff_id', $request->staff_id)->first();
 
             if (!$admin) {
-                return response()->json(['error' => 'invalid credentials'], 401);
+                return response()->json(['error' => 'Invalid credentials'], 401);
             }
 
-            // check bcrypt
-            if (Hash::check($request->password, $admin->password)) {
-                $this->passwordMatches = true;
-            } elseif ($admin->password === sha1($request->password)) {
-                $this->passwordMatches = true;
+            // Check if password matches a bcrypt hash.
+            if (!Hash::check($request->password, $admin->password)) {
 
-                // update password to bcrypt
-                $admin->update([
-                    'password' => Hash::make($request->password)
-                ]);
+                // If not, check if the password matches a SHA1 hash.
+                if ($admin->password === sha1($request->password)) {
+                    // Update password to bcrypt.
+                    $admin->password = Hash::make($request->password);
+                    $admin->save();
+                } else {
+                    // If no match, return invalid credentials
+                    return response()->json(['error' => 'Invalid credentials'], 401);
+                }
             }
 
-            if (!$this->passwordMatches) {
-                return response()->json(['error' => 'invalid credentials'], 401);
-            }
-
+            // At this point, the password is confirmed to be correct.
+            // Generate the token and return a successful response.
             $token = $admin->createToken('admin_token')->plainTextToken;
             $admin->role = 'Admin';
             $admin->profile_picture = ('https://vetkonect.com/backend/storage/app/public/admin_pic/' . $admin->profile_picture);
-            return response()->json(['message' => 'Login successful', 'admin' => $admin, 'token' => $token], 200);
+
+            return response()->json([
+                'message' => 'Login successful',
+                'admin' => $admin,
+                'token' => $token
+            ], 200);
+
         } catch (\Throwable $th) {
-            return (['code' => 400, 'detail' => $th->errorInfo[2]]);
+            // A more specific error handling is recommended for production.
+            return response()->json([
+                'code' => 500,
+                'detail' => 'An unexpected error occurred.'
+            ], 500);
         }
     }
 

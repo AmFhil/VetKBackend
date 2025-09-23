@@ -4,34 +4,21 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
-use App\Mail\message;
-use App\Events\vet_notification;
-use App\Models\AdminActivity;
 use App\Models\Clinic;
 use App\Models\Farm;
-use App\Models\ForumChat;
 use App\Models\livestock_farmer;
 use App\Models\Others;
 use App\Models\Pet;
 use App\Models\Pet_Owner;
 use App\Models\Products;
-use App\Models\PromotionPlan;
 use App\Models\Store;
-use App\Models\Subscription;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
 use App\Models\VeterinaryParaprofessional;
-use App\Notifications\MessageNotification;
 use App\Traits\BroadcastsAdminEvents;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use stdClass;
-use Illuminate\Support\Str;
 
 class AdminControllers extends Controller
 {
