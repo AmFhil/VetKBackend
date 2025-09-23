@@ -7,6 +7,7 @@ use App\Models\livestock_farmer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class FarmController extends Controller
@@ -27,7 +28,7 @@ class FarmController extends Controller
             'location'       => 'required|string|max:255',
             'no_of_worker'   => 'required|numeric|min:0',
             'livestock_type' => 'required|string|max:50',
-            'no_of_livestock'=> 'required|numeric|min:0',
+            'no_of_livestock' => 'required|numeric|min:0',
             'sex'            => 'nullable|string',
             'age'            => 'nullable|numeric',
             'picture'        => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
@@ -58,7 +59,7 @@ class FarmController extends Controller
             'farm_id'        => $farmId,
             'no_of_worker'   => $request->no_of_worker,
             'livestock_type' => $request->livestock_type,
-            'no_of_livestock'=> $request->no_of_livestock,
+            'no_of_livestock' => $request->no_of_livestock,
             'sex'            => $request->sex,
             'age'            => $request->age,
             'picture'        => $imageName,
@@ -85,7 +86,7 @@ class FarmController extends Controller
             'location'       => 'sometimes|string|max:255',
             'no_of_worker'   => 'sometimes|numeric|min:0',
             'livestock_type' => 'sometimes|string|max:50',
-            'no_of_livestock'=> 'sometimes|numeric|min:0',
+            'no_of_livestock' => 'sometimes|numeric|min:0',
             'sex'            => 'sometimes|string',
             'age'            => 'sometimes|numeric',
             'picture'        => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
@@ -98,7 +99,7 @@ class FarmController extends Controller
         }
 
         $farm = Farm::findOrFail($id);
-        if ($farm->user_id !== $user->id) {
+        if ($farm->user_id != $user->id) {
             return response()->json(['message' => 'You are not authorized to update this farm.'], 403);
         }
 
@@ -110,8 +111,14 @@ class FarmController extends Controller
         }
 
         $farm->fill($request->only([
-            'farm_name', 'location', 'no_of_worker',
-            'livestock_type', 'no_of_livestock', 'sex', 'age', 'description'
+            'farm_name',
+            'location',
+            'no_of_worker',
+            'livestock_type',
+            'no_of_livestock',
+            'sex',
+            'age',
+            'description'
         ]));
         $farm->updated_at = Carbon::now();
         $farm->save();
@@ -137,7 +144,9 @@ class FarmController extends Controller
         }
 
         $farms = Cache::remember("user_farms_{$user->id}", now()->addMinutes(10), function () use ($user) {
-            return Farm::where('user_id', $user->id)->orderBy('created_at', 'asc')->paginate(10);
+            return Farm::where('user_id', $user->id)
+                ->with('user', 'user.activeRole', 'user.profile')
+                ->orderBy('created_at', 'asc')->paginate(10);
         });
 
         return response()->json(['farms' => $farms], 200);
@@ -150,13 +159,13 @@ class FarmController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $farm = Cache::remember("farm_{$id}", now()->addMinutes(10), fn() => Farm::find($id));
+        $farm = Cache::remember("farm_{$id}", now()->addMinutes(10), fn() => Farm::find($id)->with('user', 'user.activeRole', 'user.profile'));
 
         if (!$farm) {
             return response()->json(['message' => 'Farm not found.'], 404);
         }
 
-        if ($farm->user_id !== $user->id) {
+        if ($farm->user_id != $user->id) {
             return response()->json(['message' => 'You are not authorized to view this farm.'], 403);
         }
 
@@ -176,7 +185,7 @@ class FarmController extends Controller
                 return response()->json(['message' => 'Farm not found.'], 404);
             }
 
-            if ($farm->user_id !== $user->id) {
+            if ($farm->user_id != $user->id) {
                 return response()->json(['message' => 'You are not authorized to delete this farm.'], 403);
             }
 

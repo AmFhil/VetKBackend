@@ -102,7 +102,7 @@ class PetController extends Controller
         }
 
         $pet = Pet::findOrFail($id);
-        if ($pet->user_id !== $user->id) {
+        if ($pet->user_id != $user->id) {
             return response()->json(['message' => 'You are not authorized to update this pet.'], 403);
         }
 
@@ -133,7 +133,9 @@ class PetController extends Controller
         }
 
         $pets = Cache::remember("user_pets_{$user->id}", now()->addMinutes(30), function () use ($user) {
-            return Pet::where('user_id', $user->id)->orderBy('created_at', 'asc')->get();
+            return Pet::where('user_id', $user->id)
+                ->with('user', 'user.activeRole', 'user.profile')
+                ->orderBy('created_at', 'asc')->get();
         });
 
         return response()->json(['pets' => $pets], 200);
@@ -147,11 +149,11 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $pet = Pet::find($id);
+        $pet = Pet::find($id)->with('user', 'user.activeRole', 'user.profile');
         if (!$pet) {
             return response()->json(['message' => 'Pet not found.'], 404);
         }
-        if ($pet->user_id !== $user->id) {
+        if ($pet->user_id != $user->id) {
             return response()->json(['message' => 'You are not authorized to view this pet.'], 403);
         }
 
@@ -174,7 +176,7 @@ class PetController extends Controller
                 return response()->json(['message' => 'Pet not found.'], 404);
             }
 
-            if ($pet->user_id !== $user->id) {
+            if ($pet->user_id != $user->id) {
                 return response()->json(['message' => 'You are not authorized to delete this pet.'], 403);
             }
 

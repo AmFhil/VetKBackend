@@ -25,6 +25,7 @@ use App\Http\Controllers\RateController;
 use App\Http\Controllers\SocialLogin;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserPromotionPlanController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VeterinaryClinicController;
 use App\Http\Controllers\VeterinaryDoctorController;
@@ -178,6 +179,13 @@ Route::prefix('v3')->group(function () {
 
         Route::get('/get-user-activity', [UserController::class, 'getUserActivity']);
         Route::get('/get-user-notification', [UserController::class, 'getUserNotification']);
+
+        Route::get('/promotion-plans', [PromotionPlanController::class, 'getActivePlans']);
+
+
+        Route::get('/my', [UserPromotionPlanController::class, 'myPlans']);
+        // buy a plan (dummy activation, Paystack will plug here later)
+        Route::post('/buy', [UserPromotionPlanController::class, 'buyPlan']);
     });
 
     // User must have an active subscription
@@ -201,21 +209,21 @@ Route::prefix('v3')->group(function () {
 
 
     //  Admin routes
-    Route::middleware(['auth:admin'])->group(function () {
-        Route::post('/admin/create-category', [\App\Http\Controllers\CategoryController::class, 'store']);
-        Route::get('/admin/categories', [\App\Http\Controllers\CategoryController::class, 'adminCategories']);
-        Route::post('/admin/blogs', [BlogChatController::class, 'addBlog']);
-        Route::put('/admin/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
-        Route::delete('/admin/delete-blog/{id}', [BlogChatController::class, 'deleteBlog']);
-        Route::post('/admin/blogs/{id}/publish', [BlogChatController::class, 'publish']);
-        Route::post('/admin/blogs/{id}/archive', [BlogChatController::class, 'archive']);
-        Route::post('/admin/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
-        Route::post('/admin/blogs/{id}/reject', [BlogChatController::class, 'reject']);
-        Route::get('/admin/get-all-blog', [BlogChatController::class, 'getAllBlog']);
-        Route::get('/admin/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
-        Route::get('/admin/verify-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'verify']);
-        Route::get('/admin/verify-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'verify']);
-        Route::get('/admin/verify-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'verify']);
+    Route::middleware(['auth:admin',  'throttle:api'])->prefix('admin')->group(function () {
+        Route::post('/create-category', [\App\Http\Controllers\CategoryController::class, 'store']);
+        Route::get('/categories', [\App\Http\Controllers\CategoryController::class, 'adminCategories']);
+        Route::post('/blogs', [BlogChatController::class, 'addBlog']);
+        Route::put('/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
+        Route::delete('/delete-blog/{id}', [BlogChatController::class, 'deleteBlog']);
+        Route::post('/blogs/{id}/publish', [BlogChatController::class, 'publish']);
+        Route::post('/blogs/{id}/archive', [BlogChatController::class, 'archive']);
+        Route::post('/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
+        Route::post('/blogs/{id}/reject', [BlogChatController::class, 'reject']);
+        Route::get('/get-all-blog', [BlogChatController::class, 'getAllBlog']);
+        Route::get('/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
+        Route::get('/verify-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'verify']);
+        Route::get('/verify-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'verify']);
+        Route::get('/verify-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'verify']);
         Route::get('/filter-case', [CaseModelController::class, 'filterByDateForAdmin']);
         Route::get('/get-user-case', [CaseModelController::class, 'adminSeeAllCases']);
         Route::post('/subscriptions', [AdminSubscriptionController::class, 'addSubscription']);
@@ -224,11 +232,21 @@ Route::prefix('v3')->group(function () {
         Route::put('/subscriptions/{id}/update', [AdminSubscriptionController::class, 'updateSubscription']);
         Route::delete('/subscriptions/{id}/delete', [AdminSubscriptionController::class, 'deleteSubscription']);
 
-        Route::post('/promotion', [AdminPromotionController::class, 'addPromotion']);
-        Route::get('/promotion', [AdminPromotionController::class, 'listPromotion']);
-        Route::get('/promotion/{id}/view', [AdminPromotionController::class, 'viewPromotion']);
-        Route::put('/promotion/{id}/update', [AdminPromotionController::class, 'updatePromotion']);
-        Route::delete('/promotion/{id}/delete', [AdminPromotionController::class, 'deletePromotion']);
+        Route::get('/promotion-plans', [PromotionPlanController::class, 'getAllPlans']);
+        Route::post('/promotion-plans', [PromotionPlanController::class, 'createPlan']);
+        Route::put('/promotion-plans/{id}', [PromotionPlanController::class, 'updatePlan']);
+        Route::delete('/promotion-plans/{id}', [PromotionPlanController::class, 'deletePlan']);
+
+        // Admin promotion actions (user subscriptions & ads promotions)
+        Route::get('/user-promotions', [AdminPromotionController::class, 'listUserPromotions']);
+        Route::get('/user-promotions/{id}', [AdminPromotionController::class, 'viewUserPromotion']);
+        Route::post('/user-promotions/{id}/expire', [AdminPromotionController::class, 'expirePromotion']);
+        Route::get('/promotion-approvals', [AdminPromotionController::class, 'getPromotionApprovals']);
+        Route::get('/promotion-users/{title}', [AdminPromotionController::class, 'getUsersByPromotion']);
+        Route::post('/ads-promotions/activate', [AdminPromotionController::class, 'activatePromotion']);
+        Route::post('/ads-promotions/deactivate', [AdminPromotionController::class, 'deactivatePromotion']);
+
+        Route::patch('{id}/expire', [UserPromotionPlanController::class, 'expirePlan']);
     });
 });
 
