@@ -27,4 +27,16 @@ class PromotionPlan extends Model
     {
         return $this->hasMany(UserPromotionPlan::class, 'promotion_id');
     }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopeInActive($query)
+    {
+        return $query->where('status', 'inactive');
+    }
+
+    
 }

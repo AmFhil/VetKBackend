@@ -39,4 +39,22 @@ class UserPromotionPlan extends Model
     {
         return $this->hasMany(AdsPromotion::class, 'user_promotion_plan_id');
     }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active')
+            ->where('end_date', '>=', now());
+    }
+
+    public function scopeExpired($query)
+    {
+        return $query->where('status', 'expired')
+        ->where('end_date', '<', now());
+    }
+
+    // check if it still valid
+    public function isActive() : bool
+    {
+        return $this->status === 'active' && $this->end_date >= now();
+    }
 }

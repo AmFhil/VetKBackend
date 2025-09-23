@@ -10,93 +10,76 @@ use App\Models\UserPromotionPlan;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class AdminPromotionController extends Controller
 {
     use BroadcastsAdminEvents;
-    //
-    private function generatePromotionCode()
-    {
-        $promotionCount = PromotionPlan::all()->count();
-        $randomNumber = mt_rand(100000, 999999);
-        $letter = chr(97 + $promotionCount);
 
-        return "PP{$randomNumber}{$letter}";
-    }
-
-    public function addPromotion(Request $request)
-    {
-        $admin = auth('admin')->user();
-        if (!$admin || $admin->permission_level !== 1) return response()->json(['message' => "Unauthorized"], 403);
-
-        $validated = $request->validate([
-            'promotion_title' => 'required|string|max:50|unique:promotion_plan,title',
-            'currency' => 'required|string|max:10',
-            'price' => 'required|numeric|min:0',
-            'vat' => 'nullable|string|max:10',
-            'date_option' => 'required|in:Days,Months',
-            'duration' => 'required|numeric|min:1',
-            'no_of_products' => 'nullable|integer',
-            'status' => 'required|string|in:active,inactive',
-        ]);
-
-        $promotion_code = $this->generatePromotionCode();
-
-        $promotion = PromotionPlan::create([
-            'promotion_title' => $validated['promotion_title'],
-            'promotion_code' => $promotion_code,
-            'currency' => $validated['currency'],
-            'price' => $validated['price'],
-            'vat' => $validated['vat'],
-            'date_option' => $validated['date_option'],
-            'duration' => $validated['duration'],
-            'no_of_products' => $validated['no_of_products'],
-            'status' => $validated['status'],
-            'created_at' => Carbon::now()
-        ]);
-
-        $this->createAdminActivity(
-            $admin->id,
-            'Promotion Created',
-            "Added Promotion Plan",
-            "Admin {$admin->first_name} added new Promotion Plan '{$promotion->title}'.",
-            ['promotion_id' => $promotion->id, 'staff_id' => $admin->staff_id]
-        );
-
-        return response()->json(['message' => 'Promotion created successfully', 'data' => $promotion], 200);
-    }
-
-    // List subscriptions
-    public function listUserPromotions()
+    /**
+     * List user promotion plans (paginated) — cached per page for 5 minutes
+     */
+    public function listUserPromotions(Request $request)
     {
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $promotions = \App\Models\UserPromotionPlan::with(['user', 'promotionPlan'])
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $page = (int) $request->get('page', 1);
+        $cacheKey = "admin_user_promotions_page_{$page}";
+
+        $promotions = Cache::remember($cacheKey, now()->addMinutes(5), function () {
+            return UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
+                ->orderByDesc('created_at')
+                ->paginate(20);
+        });
 
         return response()->json($promotions);
     }
 
+    /**
+     * View a single user promotion plan
+     */
+    public function viewUserPromotion($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $plan = UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
+            ->findOrFail($id);
+
+        return response()->json($plan);
+    }
+
+    /**
+     * Expire a user's promotion plan (admin)
+     */
     public function expirePromotion($id)
     {
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $promo = \App\Models\UserPromotionPlan::findOrFail($id);
+        $promo = UserPromotionPlan::findOrFail($id);
+
         $promo->update([
             'status' => 'expired',
-            'end_date' => now()
+            'end_date' => now(),
         ]);
 
+        // clear relevant caches (we used page-based caching for listing — clear first 10 pages to be safe)
+        for ($i = 1; $i <= 10; $i++) {
+            Cache::forget("admin_user_promotions_page_{$i}");
+            Cache::forget("admin_promotion_approvals_page_{$i}");
+        }
+        Cache::forget("admin_users_by_promotion_" . md5($promo->promotion_title));
+
+        // admin activity & notification
         $this->createAdminActivity(
             $admin->id,
-            'expired',
+            'expire_promotion',
             "Promotion Plan Expired",
             "Admin {$admin->first_name} {$admin->last_name} expired promotion plan '{$promo->promotion_title}' for User {$promo->user_id}.",
-            ['promotion_id' => $id]
+            ['user_promotion_plan_id' => $promo->id, 'promotion_id' => $promo->promotion_id, 'staff_id' => $admin->staff_id ?? null]
         );
 
         $this->createAdminNotification(
@@ -104,182 +87,196 @@ class AdminPromotionController extends Controller
             "Promotion Expired",
             'promotion',
             "You expired promotion plan #{$id}.",
-            ['promotion_id' => $id]
+            ['user_promotion_plan_id' => $promo->id]
         );
 
         return response()->json(['message' => 'Promotion plan expired successfully']);
     }
 
-
-    // View single subscription
-    public function viewPromotion($id)
-    {
-        $promotion = PromotionPlan::findOrFail($id);
-        return response()->json($promotion);
-    }
-
-    // Update subscription
-    public function updatePromotion(Request $request, $id)
+    /**
+     * List promotion "approvals" — i.e. user promotion plans with computed active/expired status
+     * (cached per page for 5 minutes)
+     */
+    public function getPromotionApprovals(Request $request)
     {
         $admin = auth('admin')->user();
-        if (!$admin || $admin->permission_level !== 1) return response()->json(['message' => "Unauthorized"], 403);
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $promotion = PromotionPlan::findOrFail($id);
+        $page = (int) $request->get('page', 1);
+        $cacheKey = "admin_promotion_approvals_page_{$page}";
 
-        $validated = $request->validate([
-            'promotion_title' => 'required|string|max:50|unique:promotion_plan,title',
-            'currency' => 'required|string|max:10',
-            'price' => 'required|numeric|min:0',
-            'vat' => 'nullable|string|max:10',
-            'date_option' => 'required|in:Days,Months',
-            'duration' => 'required|numeric|min:1',
-            'no_of_products' => 'nullable|integer',
-            'status' => 'required|string|in:active,inactive',
-        ]);
+        $paginator = Cache::remember($cacheKey, now()->addMinutes(5), function () {
+            return UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
+                ->latest()
+                ->paginate(10);
+        });
 
-        $promotion->update([
-            'promotion_title' => $validated['promotion_title'],
-            'currency' => $validated['currency'],
-            'price' => $validated['price'],
-            'vat' => $validated['vat'],
-            'date_option' => $validated['date_option'],
-            'duration' => $validated['duration'],
-            'no_of_products' => $validated['no_of_products'],
-            'status' => $validated['status'],
-            'updated_at' => Carbon::now()
-        ]);
+        // ensure status is computed (active / expired)
+        $paginator->getCollection()->transform(function ($item) {
+            $item->computed_status = ($item->end_date && Carbon::parse($item->end_date)->isFuture()) ? 'active' : 'expired';
+            return $item;
+        });
 
-        $this->createAdminActivity(
-            $admin->id,
-            'Promotion Plan',
-            "Updated Promotion Updated",
-            "Admin {$admin->first_name} updated a Promotion Plan '{$promotion->title}'.",
-            ['promotion_id' => $promotion->id, 'staff_id' => $admin->staff_id]
-        );
-
-        return response()->json(['message' => 'Promotion updated successfully', 'data' => $promotion], 200);
+        return response()->json($paginator);
     }
 
-    // Delete subscription
-    public function deletePromotion($id)
+    /**
+     * Get users by promotion plan title (e.g. "Freemium", "Weekly", "Monthly")
+     * Returns grouped structure keyed by user_id with the user's promotions
+     */
+    public function getUsersByPromotion($title)
     {
         $admin = auth('admin')->user();
-        if (!$admin) return response()->json(['message' => "Unauthorized"], 403);
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        // check is user is using this promotion
-        $check = UserPromotionPlan::where('promotion_id', $id)->first();
+        $cacheKey = "admin_users_by_promotion_" . md5($title);
 
-        if ($check) {
-            return (['code' => 400, 'detail' => 'Users are attached to this plan, you can not delete the plan']);
-        } else {
-            $promotion = PromotionPlan::findOrFail($id);
-            $promotion->delete();
-
-
-            $this->createAdminActivity(
-                $admin->id,
-                'deleted',
-                "Promotion Deleted",
-                "Admin {$admin->first_name} deleted promotion '{$promotion->title}'.",
-                ['promotion_id' => $promotion->id, 'staff_id' => $admin->staff_id]
-            );
-
-            return response()->json(['message' => 'Promotion deleted successfully']);
-        }
-    }
-
-    public function getPromotionApprovals()
-    {
-        $promotions = PromotionPlan::with('user', 'user.profile', 'user.activeRole', 'user.activeRoleData', 'ratings')
-            ->latest()
-            ->paginate(10);
-
-        $promotions->getCollection()->transform(function ($promotion) {
-            $promotion->status = $promotion->end_date && Carbon::parse($promotion->end_date)->isFuture()
-                ? 'active'
-                : 'expired';
-            return $promotion;
+        $plans = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($title) {
+            return UserPromotionPlan::whereHas('promotionPlan', function ($q) use ($title) {
+                // PromotionPlan uses 'title' (per your schema)
+                $q->where('title', $title);
+            })
+                ->with(['user.profile', 'user.activeRole', 'promotionPlan'])
+                ->get();
         });
 
-        return response()->json($promotions);
-    }
+        // group by user_id and prepare a response array (user + their promotions)
+        $grouped = $plans->groupBy('user_id')->map(function ($group) {
+            $user = $group->first()->user;
+            $promotions = $group->map(function ($p) {
+                $p->computed_status = ($p->end_date && Carbon::parse($p->end_date)->isFuture()) ? 'active' : 'expired';
+                return $p;
+            })->values();
 
-    public function getUsersByPromotion($type)
-    {
-        $users = User::whereHas('promotions.plan', function ($q) use ($type) {
-            $q->where('promotion_title', $type);
-        })->with('promotions.plan')->get();
-
-        $users->each(function ($user) {
-            $user->promotions->each(function ($promotion) {
-                $promotion->status = $promotion->end_date && Carbon::parse($promotion->end_date)->isFuture()
-                    ? 'active'
-                    : 'expired';
-            });
-        });
+            return [
+                'user' => $user,
+                'promotions' => $promotions,
+            ];
+        })->values();
 
         return response()->json([
-            'type'  => $type,
-            'count' => $users->count(),
-            'users' => $users
+            'title' => $title,
+            'count' => $grouped->count(),
+            'data' => $grouped,
         ]);
     }
 
-    //suspend a user promotion
+    /**
+     * Activate ads for a user's promotions (unsuspend)
+     * Admin action: changes AdsPromotion.suspended => 0 and notifies user(s)
+     */
     public function activatePromotion(Request $request)
     {
-        $request->validate([
-            'user_id' => 'required|in:users_registration',
-            'role' => 'required|string'
-        ]);
-        try {
-            $success = AdsPromotion::where([['user_id', $request->user_id], ['role', $request->user_role]])->update([
-                'suspended' => 0
-            ]);
-            if ($success) {
-                return ['detail' => 'You successfully activated a promotion'];
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-                $user->sendNotification(
-                    'ad_promotion activated',
-                    'Ad Promoted Activated',
-                    "Your advertisement <strong>{$ad->product_title}</strong> has been activated and is now visible to buyers. Good Luck!",
-                    ['ad_id' => $ad->id]
+        $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users_registration,id',
+            'role' => 'nullable|string',
+        ]);
+
+        $userId = $validated['user_id'];
+        $role = $validated['role'] ?? null;
+
+        try {
+            $query = AdsPromotion::where('user_id', $userId);
+            if ($role !== null) $query->where('role', $role);
+
+            $updated = $query->update(['suspended' => 0]);
+
+            if ($updated) {
+                // notify the user (single notification per user)
+                $user = User::find($userId);
+                if ($user) {
+                    $user->sendNotification(
+                        'ad_promotion_activated',
+                        'Ad Promotion Activated',
+                        "Your promoted ads have been activated by admin and are now visible to buyers.",
+                        ['user_id' => $userId]
+                    );
+                }
+
+                // admin activity + notification
+                $this->createAdminActivity(
+                    $admin->id,
+                    'activate_ads_promotion',
+                    "Activated Ads Promotion",
+                    "Admin {$admin->first_name} activated ads for user_id {$userId}" . ($role ? " (role={$role})" : ""),
+                    ['user_id' => $userId, 'role' => $role, 'affected' => $updated]
                 );
-            } else {
-                return (['code' => 400, 'detail' => 'Something went wrong! Try again']);
+
+                $this->createAdminNotification(
+                    $admin->id,
+                    "Ads Activated",
+                    'promotion',
+                    "You activated promoted ads for user #{$userId}.",
+                    ['user_id' => $userId, 'affected' => $updated]
+                );
+
+                return response()->json(['detail' => 'You successfully activated promotion(s)', 'affected' => $updated]);
             }
+
+            return response()->json(['code' => 400, 'detail' => 'No ads updated.'], 400);
         } catch (\Throwable $th) {
-            return (['code' => 400, 'detail' => $th->errorInfo[2]]);
+            return response()->json(['code' => 500, 'detail' => $th->getMessage()], 500);
         }
     }
 
-    //activate a user promotion
+    /**
+     * Deactivate ads for a user's promotions (suspend)
+     */
     public function deactivatePromotion(Request $request)
     {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users_registration,id',
+            'role' => 'nullable|string',
+        ]);
+
+        $userId = $validated['user_id'];
+        $role = $validated['role'] ?? null;
+
         try {
-            $request->validate([
-                'user_id' => 'required|in:users_registration',
-                'role' => 'required|string'
-            ]);
-            $success = AdsPromotion::where([['user_id', $request->user_id], ['role', $request->user_role]])->update([
-                'suspended' => 1
-            ]);
-            if ($success) {
-                return ['detail' => 'You successfully deactivated a promotion'];
+            $query = AdsPromotion::where('user_id', $userId);
+            if ($role !== null) $query->where('role', $role);
 
-                $user = User::where('id', $request->user_id)->first();
+            $updated = $query->update(['suspended' => 1]);
 
-                $user->sendNotification(
-                    'ad_promotion de-activated',
-                    'Ad Promoted De-activated',
-                    "Your advertisement <strong>{$ad->product_title}</strong> has been de-activated and is not visible to buyers. Contact admin if mistaken!",
-                    ['ad_id' => $ad->id]
+            if ($updated) {
+                $user = User::find($userId);
+                if ($user) {
+                    $user->sendNotification(
+                        'ad_promotion_deactivated',
+                        'Ad Promotion Deactivated',
+                        "Your promoted ads have been de-activated by admin and are not visible to buyers. Contact support if you think this is an error.",
+                        ['user_id' => $userId]
+                    );
+                }
+
+                $this->createAdminActivity(
+                    $admin->id,
+                    'deactivate_ads_promotion',
+                    "Deactivated Ads Promotion",
+                    "Admin {$admin->first_name} deactivated ads for user_id {$userId}" . ($role ? " (role={$role})" : ""),
+                    ['user_id' => $userId, 'role' => $role, 'affected' => $updated]
                 );
-            } else {
-                return (['code' => 400, 'detail' => 'Something went wrong! Try again']);
+
+                $this->createAdminNotification(
+                    $admin->id,
+                    "Ads Deactivated",
+                    'promotion',
+                    "You deactivated promoted ads for user #{$userId}.",
+                    ['user_id' => $userId, 'affected' => $updated]
+                );
+
+                return response()->json(['detail' => 'You successfully deactivated promotion(s)', 'affected' => $updated]);
             }
+
+            return response()->json(['code' => 400, 'detail' => 'No ads updated.'], 400);
         } catch (\Throwable $th) {
-            return (['code' => 400, 'detail' => $th->errorInfo[2]]);
+            return response()->json(['code' => 500, 'detail' => $th->getMessage()], 500);
         }
     }
 }

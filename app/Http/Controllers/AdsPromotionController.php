@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Storage;
 
 class AdsPromotionController extends Controller
 {
-    // Promote new Ad
+    /**
+     * Promote new Ad
+     */
     public function promoteAd(Request $request)
     {
         $user = auth()->user();
@@ -23,7 +25,7 @@ class AdsPromotionController extends Controller
             'location' => 'required|string|max:255',
             'product_description' => 'nullable|string',
             'price' => 'required|numeric',
-            'available_unit' => 'required|numeric|min:0',
+            'available_units' => 'required|numeric|min:0',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
@@ -31,10 +33,9 @@ class AdsPromotionController extends Controller
             'latitude' => 'sometimes|numeric',
         ]);
 
-        // get active plan
-        $userPlan = UserPromotionPlan::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->where('end_date', '>=', now())
+        // get active promotion plan
+        $userPlan = UserPromotionPlan::active()
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$userPlan) {
@@ -42,8 +43,7 @@ class AdsPromotionController extends Controller
         }
 
         // check product limit
-        $adCount = AdsPromotion::where('user_promotion_plan_id', $userPlan->id)->count();
-        if ($adCount >= $userPlan->no_of_products) {
+        if ($userPlan->adsPromotions()->count() >= $userPlan->no_of_products) {
             return response()->json(['message' => 'Product promotion limit reached'], 403);
         }
 
@@ -51,8 +51,7 @@ class AdsPromotionController extends Controller
         $storedImages = [];
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $path = $image->store('ads_promotion_images', 'public');
-                $storedImages[] = $path;
+                $storedImages[] = $image->store('ads_promotion_images', 'public');
             }
         }
 
@@ -65,7 +64,7 @@ class AdsPromotionController extends Controller
             'location' => $request->location,
             'product_description' => $request->product_description,
             'price' => $request->price,
-            'available_unit' => $request->available_unit,
+            'available_units' => $request->available_units,
             'images' => $storedImages,
             'tags' => $request->tags ?? [],
             'longitude' => $request->longitude,
@@ -74,21 +73,14 @@ class AdsPromotionController extends Controller
             'user_promotion_plan_id' => $userPlan->id,
         ]);
 
-        // LOG ACTIVITY (action, title, detail, meta)
+        // Log + Notify
         $user->logActivity(
             'ad_promotion',
             "Promoted Ad: {$ad->product_title}",
-            "You published an advertisement titled '{$ad->product_title}' in category '{$ad->product_category}' at '{$ad->location}'. Price: {$ad->price}. Units: {$ad->available_unit}.",
-            [
-                'ad_id' => $ad->id,
-                'product_title' => $ad->product_title,
-                'product_category' => $ad->product_category,
-                'store_id' => $ad->store_id,
-                'user_promotion_plan_id' => $userPlan->id,
-            ]
+            "You published an advertisement titled '{$ad->product_title}' in category '{$ad->product_category}' at '{$ad->location}'. Price: {$ad->price}. Units: {$ad->available_units}.",
+            ['ad_id' => $ad->id, 'user_promotion_plan_id' => $userPlan->id]
         );
 
-        // SEND NOTIFICATION (type, title, content, meta)
         $user->sendNotification(
             'ad_promoted',
             'Ad Promoted Successfully',
@@ -99,7 +91,9 @@ class AdsPromotionController extends Controller
         return response()->json(['message' => 'Ad promoted successfully', 'ad' => $ad], 201);
     }
 
-    // Update Ad
+    /**
+     * Update Ad
+     */
     public function updateAd(Request $request, $id)
     {
         $user = Auth::user();
@@ -115,7 +109,7 @@ class AdsPromotionController extends Controller
             'location' => 'sometimes|string|max:255',
             'product_description' => 'sometimes|string',
             'price' => 'sometimes|numeric',
-            'available_unit' => 'sometimes|numeric|min:0',
+            'available_units' => 'sometimes|numeric|min:0',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
@@ -123,19 +117,14 @@ class AdsPromotionController extends Controller
             'latitude' => 'sometimes|numeric',
         ]);
 
-        // Handle image replacement
+        // replace images if new ones are uploaded
         if ($request->hasFile('images')) {
-            if (!empty($ad->images)) {
-                foreach ($ad->images as $oldImage) {
-                    Storage::disk('public')->delete($oldImage);
-                }
+            foreach ($ad->images ?? [] as $oldImage) {
+                Storage::disk('public')->delete($oldImage);
             }
-            $newImages = [];
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('ads_promotion_images', 'public');
-                $newImages[] = $path;
-            }
-            $ad->images = $newImages;
+            $ad->images = collect($request->file('images'))
+                ->map(fn($img) => $img->store('ads_promotion_images', 'public'))
+                ->toArray();
         }
 
         $oldTitle = $ad->product_title;
@@ -146,22 +135,20 @@ class AdsPromotionController extends Controller
             'location',
             'product_description',
             'price',
-            'available_unit',
+            'available_units',
             'tags',
             'longitude',
             'latitude',
-        ]));
-        $ad->save();
+        ]))->save();
 
-        // LOG ACTIVITY
+        // Log + Notify
         $user->logActivity(
             'ad_update',
             "Updated Ad: {$ad->product_title}",
-            "You updated your ad '{$oldTitle}'. Current title: '{$ad->product_title}', category: '{$ad->product_category}', price: {$ad->price}, units: {$ad->available_unit}.",
+            "You updated your ad '{$oldTitle}'. Current title: '{$ad->product_title}', category: '{$ad->product_category}', price: {$ad->price}, units: {$ad->available_units}.",
             ['ad_id' => $ad->id]
         );
 
-        // SEND NOTIFICATION
         $user->sendNotification(
             'ad_updated',
             'Ad Updated',
@@ -172,7 +159,9 @@ class AdsPromotionController extends Controller
         return response()->json(['message' => 'Ad updated successfully', 'ad' => $ad], 200);
     }
 
-    // Delete Ad
+    /**
+     * Delete Ad
+     */
     public function deleteAd($id)
     {
         $user = Auth::user();
@@ -182,17 +171,14 @@ class AdsPromotionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if (!empty($ad->images)) {
-            foreach ($ad->images as $oldImage) {
-                Storage::disk('public')->delete($oldImage);
-            }
+        foreach ($ad->images ?? [] as $oldImage) {
+            Storage::disk('public')->delete($oldImage);
         }
 
         $adTitle = $ad->product_title;
         $adId = $ad->id;
         $ad->delete();
 
-        // LOG ACTIVITY
         $user->logActivity(
             'ad_delete',
             "Deleted Ad: {$adTitle}",
@@ -200,7 +186,6 @@ class AdsPromotionController extends Controller
             ['ad_id' => $adId]
         );
 
-        // SEND NOTIFICATION
         $user->sendNotification(
             'ad_deleted',
             'Ad Deleted',
@@ -211,7 +196,9 @@ class AdsPromotionController extends Controller
         return response()->json(['message' => 'Ad deleted successfully'], 200);
     }
 
-    // Toggle availability
+    /**
+     * Toggle availability
+     */
     public function toggleAvailability($id)
     {
         $user = Auth::user();
@@ -222,13 +209,10 @@ class AdsPromotionController extends Controller
         }
 
         $ad->availability = !$ad->availability;
-
-
         $ad->save();
 
         $status = $ad->availability ? 'available' : 'unavailable';
 
-        // LOG ACTIVITY
         $user->logActivity(
             'ad_toggle',
             "Toggled availability for '{$ad->product_title}'",
@@ -236,7 +220,6 @@ class AdsPromotionController extends Controller
             ['ad_id' => $ad->id, 'availability' => $ad->availability]
         );
 
-        // SEND NOTIFICATION
         $user->sendNotification(
             'ad_availability_changed',
             'Ad Availability Changed',

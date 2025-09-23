@@ -62,4 +62,9 @@ class AdsPromotion extends Model
             return Storage::url($img);
         })->toArray();
     }
+
+    public function scopeActive($query)
+    {
+        return $query->where('suspended', false)->where('availability', true);
+    }
 }
