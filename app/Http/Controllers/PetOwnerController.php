@@ -36,7 +36,7 @@ class PetOwnerController extends Controller
             }
             $user->roles()->attach($activeRole->id);
             $user->update([
-                'active_role_id' => $activeRole->id, // or store role name depending on your schema
+                'active_role_id' => $activeRole->id,
             ]);
 
             DB::commit();
@@ -60,7 +60,8 @@ class PetOwnerController extends Controller
 
        public function getPetOwnerById($id)
     {
-        $petOwner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $petOwner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image', 'user.roles:name',
+        'user.activeRole:name'])
             ->select('id', 'user_id', 'role')
             ->where('id', $id)
             ->first();
@@ -81,7 +82,7 @@ class PetOwnerController extends Controller
 
         $petOwner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
             ->select('id', 'user_id', 'role')
-            ->where('id', $user->id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$petOwner) {

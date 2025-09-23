@@ -23,7 +23,9 @@ class ProfileController extends Controller
         $profile = $roleRelation
             ->with([
                 'ratings:id,rateable_id,rating,comment',
-                'user.profile:id,user_id,bio,profile_image,cover_page_image'
+                'user.profile:id,user_id,bio,profile_image,cover_page_image',
+                'user.roles:name',
+                'user.activeRole:name'
             ])
             ->first();
 

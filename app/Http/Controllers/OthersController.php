@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\DB;
 class OthersController extends Controller
 {
     //
-    public function addOthers(Request $request){
+    public function addOthers(Request $request)
+    {
         $user = auth()->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -28,7 +29,7 @@ class OthersController extends Controller
             ]);
 
             $activeRole = Role::where('name', 'others')->first();
-            if(!$activeRole){
+            if (!$activeRole) {
                 return response()->json(['message' => 'Role not found.'], 404);
             }
             $user->roles()->attach($activeRole->id);
@@ -39,16 +40,20 @@ class OthersController extends Controller
                 'message' => 'Other role activated successfully.',
                 'other' => $other,
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Error: '.$e->getMessage()], 500);
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-       public function getOtherById($id)
+    public function getOtherById($id)
     {
-        $other = Others::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $other = Others::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,bio,profile_image,cover_page_image',
+            'user.roles:name',
+            'user.activeRole:name'
+        ])
             ->select('id', 'user_id', 'role')
             ->where('id', $id)
             ->first();
@@ -63,13 +68,18 @@ class OthersController extends Controller
     public function otherProfile()
     {
         $user = auth()->user();
-        if (!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $other = Others::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $other = Others::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,bio,profile_image,cover_page_image',
+            'user.roles:name',
+            'user.activeRole:name'
+        ])
             ->select('id', 'user_id', 'role')
-            ->where('id', $user->id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$other) {

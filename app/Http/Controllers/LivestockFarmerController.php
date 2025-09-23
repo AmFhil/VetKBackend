@@ -50,7 +50,8 @@ class LivestockFarmerController extends Controller
 
        public function getLivestockFarmerById($id)
     {
-        $livestockFarmer = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $livestockFarmer = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image', 'user.roles:name',
+        'user.activeRole:name'])
             ->select('id', 'user_id', 'role')
             ->where('id', $id)
             ->first();
@@ -69,9 +70,10 @@ class LivestockFarmerController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $livestockFarmer = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $livestockFarmer = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image', 'user.roles:name',
+        'user.activeRole:name'])
             ->select('id', 'user_id', 'role')
-            ->where('id', $user->id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$livestockFarmer) {

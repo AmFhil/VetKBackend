@@ -40,7 +40,7 @@ class PetController extends Controller
             'pet_name' => 'required|string|max:50',
             'specie'   => 'required|string|max:50',
             'breed'    => 'required|string|max:50',
-            'sex'      => 'required|string|max:5',
+            'sex'      => 'required|string|max:10',
             'age'      => 'required|numeric',
             'location' => 'required|string|max:255',
             'picture'  => 'required|image|mimes:jpeg,png,jpg|max:2048'
@@ -90,7 +90,7 @@ class PetController extends Controller
             'pet_name' => 'sometimes|string|max:50',
             'specie'   => 'sometimes|string|max:50',
             'breed'    => 'sometimes|string|max:50',
-            'sex'      => 'sometimes|string|max:5',
+            'sex'      => 'sometimes|string|max:10',
             'age'      => 'sometimes|numeric',
             'location' => 'sometimes|string|max:255',
             'picture'  => 'sometimes|image|mimes:jpeg,png,jpg|max:2048'

@@ -29,7 +29,7 @@ class VendorController extends Controller
             ]);
 
             $activeRole = Role::where('name', 'vendor')->first();
-            if(!$activeRole){
+            if (!$activeRole) {
                 return response()->json(['message' => 'Role not found.'], 404);
             }
             $user->roles()->attach($activeRole->id);
@@ -56,7 +56,12 @@ class VendorController extends Controller
     // get veterinary clinic by id
     public function getVendorById($id)
     {
-        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $vendor = Vendor::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,bio,profile_image,cover_page_image',
+            'user.roles:name',
+            'user.activeRole:name'
+        ])
             ->select('id', 'user_id', 'role')
             ->where('id', $id)
             ->first();
@@ -75,9 +80,10 @@ class VendorController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image'])
+        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image', 'user.roles:name',
+        'user.activeRole:name'])
             ->select('id', 'user_id', 'role')
-            ->where('id', $user->id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$vendor) {
@@ -95,8 +101,4 @@ class VendorController extends Controller
 
         return response()->json($vendor, 200);
     }
-
-
-
-
 }
