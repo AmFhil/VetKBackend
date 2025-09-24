@@ -159,7 +159,10 @@ class FarmController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $farm = Cache::remember("farm_{$id}", now()->addMinutes(10), fn() => Farm::find($id)->with('user', 'user.activeRole', 'user.profile'));
+        $farm = Cache::remember("farm_{$id}", now()->addMinutes(10), function () use ($id) {
+            return Farm::with(['user', 'user.activeRole', 'user.profile'])->find($id);
+        });
+
 
         if (!$farm) {
             return response()->json(['message' => 'Farm not found.'], 404);

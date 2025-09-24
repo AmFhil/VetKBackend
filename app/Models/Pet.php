@@ -23,6 +23,7 @@ class Pet extends Model
         'sex',
         'age',
         'picture',
+        'location',
     ];
 
     protected $appends = ['picture_url'];
