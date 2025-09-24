@@ -14,6 +14,12 @@ class AdminForumController extends Controller
     // ✅ approve forum chat content
     public function approveForumChat(Request $request)
     {
+        $request->validate([
+            'forum_chat_id' => 'required|integer',
+            'user_id' => 'required|integer',
+            'user_role' => 'required|string'
+        ]);
+
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
@@ -56,6 +62,8 @@ class AdminForumController extends Controller
                 ['forum_id' => $content->id, 'staff_id' => $admin->staff_id, 'role' => $request->user_role]
             );
 
+            Cache::forget('admin_forums');
+
             return response()->json(['detail' => 'You successfully approved a Forum Chat Content']);
         } catch (\Throwable $th) {
             return response()->json(['code' => 400, 'detail' => $th->getMessage()]);
@@ -65,6 +73,12 @@ class AdminForumController extends Controller
     // ✅ reject forum chat content
     public function rejectForumChat(Request $request)
     {
+        $request->validate([
+            'forum_chat_id' => 'required|integer',
+            'user_id' => 'required|integer',
+            'user_role' => 'required|string'
+        ]);
+
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
@@ -103,13 +117,15 @@ class AdminForumController extends Controller
                 ['forum_id' => $content->id, 'staff_id' => $admin->staff_id, 'role' => $request->user_role]
             );
 
+            Cache::forget('admin_forums');
+
             return response()->json(['detail' => 'You successfully rejected a Forum Chat Content']);
         } catch (\Throwable $th) {
             return response()->json(['code' => 400, 'detail' => $th->getMessage()]);
         }
     }
 
-        public function getForumApprovals()
+    public function getForumApprovals()
     {
         $forums = Cache::remember('admin_forums', now()->addMinutes(10), function () {
             return ForumChat::where('status', 'published')
@@ -126,6 +142,29 @@ class AdminForumController extends Controller
                 ->latest()
                 ->paginate(10);
         });
+
+        return response()->json($forums);
+    }
+
+    // search forum chats
+    public function searchForumChats(Request $request)
+    {
+        $searchTerm = $request->input('query');
+
+        $forums = ForumChat::where('title', 'LIKE', '%' . $searchTerm . '%')
+            ->orWhere('content', 'LIKE', '%' . $searchTerm . '%')
+            ->with([
+                'user' => function ($morph) {
+                    $morph->morphWith([
+                        \App\Models\User::class => ['profile', 'activeRole'],
+                        \App\Models\Admin::class => [],
+                    ]);
+                },
+                'comments',
+                'likes'
+            ])
+            ->latest()
+            ->paginate(10);
 
         return response()->json($forums);
     }

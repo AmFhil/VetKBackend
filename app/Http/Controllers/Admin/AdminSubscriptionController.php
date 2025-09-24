@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Models\UserSubscription;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
@@ -11,11 +13,16 @@ use Carbon\Carbon;
 class AdminSubscriptionController extends Controller
 {
     use BroadcastsAdminEvents;
-    // Add a subscription
+
+    /**
+     * Add a new subscription plan
+     */
     public function addSubscription(Request $request)
     {
         $admin = auth('admin')->user();
-        if (!$admin || $admin->permission_level !== 1) return response()->json(['message' => "Unauthorized"], 403);
+        if (!$admin || $admin->permission_level !== 1) {
+            return response()->json(['message' => "Unauthorized"], 403);
+        }
 
         $validated = $request->validate([
             'subscription_title' => 'required|string|max:50',
@@ -42,32 +49,40 @@ class AdminSubscriptionController extends Controller
             $admin->id,
             'subscription Plan',
             "Added Subscription Plan",
-            "Admin {$admin->first_name} added new Subscription Plan '{$subscription->title}'.",
+            "Admin {$admin->first_name} added new Subscription Plan '{$subscription->subscription_title}'.",
             ['subscription_id' => $subscription->id, 'staff_id' => $admin->staff_id]
         );
 
-        return response()->json(['message' => 'Subscription created successfully', 'data' => $subscription]);
+        return response()->json(['message' => 'Subscription created successfully', 'data' => $subscription], 201);
     }
 
-    // List subscriptions
+    /**
+     * List all user subscriptions (with cache)
+     */
     public function listUserSubscriptions()
     {
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $subscriptions = \App\Models\UserSubscription::with(['user', 'subscription', 'user.profile', 'user.activeRole'])
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $page = (int) request()->get('page', 1);
+        $perPage = 20;
+
+
+        $subscriptions =  UserSubscription::getUsersBySubscription($page, $perPage);
+
 
         return response()->json($subscriptions);
     }
 
+    /**
+     * Deactivate a user subscription
+     */
     public function deactivateSubscription($id)
     {
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $userSub = \App\Models\UserSubscription::findOrFail($id);
+        $userSub = UserSubscription::findOrFail($id);
         $userSub->update(['status' => 'cancelled']);
 
         $this->createAdminActivity(
@@ -89,18 +104,24 @@ class AdminSubscriptionController extends Controller
         return response()->json(['message' => 'Subscription deactivated successfully']);
     }
 
-    // View single subscription
+    /**
+     *  View single subscription plan
+     */
     public function viewSubscription($id)
     {
         $subscription = Subscription::findOrFail($id);
         return response()->json($subscription);
     }
 
-    // Update subscription
+    /**
+     * Update subscription plan
+     */
     public function updateSubscription(Request $request, $id)
     {
         $admin = auth('admin')->user();
-        if (!$admin || $admin->permission_level !== 1) return response()->json(['message' => "Unauthorized"], 403);
+        if (!$admin || $admin->permission_level !== 1) {
+            return response()->json(['message' => "Unauthorized"], 403);
+        }
 
         $subscription = Subscription::findOrFail($id);
 
@@ -129,14 +150,16 @@ class AdminSubscriptionController extends Controller
             $admin->id,
             'subscription Plan',
             "Updated Subscription Plan",
-            "Admin {$admin->first_name} updated a Subscription Plan '{$subscription->title}'.",
+            "Admin {$admin->first_name} updated Subscription Plan '{$subscription->subscription_title}'.",
             ['subscription_id' => $subscription->id, 'staff_id' => $admin->staff_id]
         );
 
-        return response()->json(['message' => 'Subscription updated successfully', 'data' => $subscription]);
+        return response()->json(['message' => 'Subscription updated successfully', 'data' => $subscription], 200);
     }
 
-    // Delete subscription
+    /**
+     * Delete subscription plan (only if no users tied)
+     */
     public function deleteSubscription($id)
     {
         $admin = auth('admin')->user();
@@ -145,54 +168,69 @@ class AdminSubscriptionController extends Controller
         $check = UserSubscription::where('subscription_id', $id)->first();
 
         if ($check) {
-            return (['code' => 400, 'detail' => 'Users are attached to this plan, you can not delete the plan']);
-        } else {
-
-            $subscription = Subscription::findOrFail($id);
-            $subscriptionTitle = $subscription->title;
-            $subscriptionId = $subscription->id;
-            $subscription->delete();
-
-            $this->createAdminActivity(
-                $admin->id,
-                'deleted',
-                "Subscription Deleted",
-                "Admin {$admin->first_name} deleted subscription '{$subscriptionTitle}'.",
-                ['subscription_id' => $subscriptionId, 'staff_id' => $admin->staff_id]
-            );
-
-            return response()->json(['message' => 'Subscription deleted successfully']);
+            return response()->json([
+                'code' => 400,
+                'detail' => 'Users are attached to this plan, you cannot delete the plan'
+            ], 400);
         }
+
+        $subscription = Subscription::findOrFail($id);
+        $subscriptionTitle = $subscription->subscription_title;
+        $subscriptionId = $subscription->id;
+        $subscription->delete();
+
+        $this->createAdminActivity(
+            $admin->id,
+            'deleted',
+            "Subscription Deleted",
+            "Admin {$admin->first_name} deleted subscription '{$subscriptionTitle}'.",
+            ['subscription_id' => $subscriptionId, 'staff_id' => $admin->staff_id]
+        );
+
+        return response()->json(['message' => 'Subscription deleted successfully']);
     }
 
+    /**
+     * Get all user subscriptions with approval status
+     */
     public function getSubscriptionApprovals()
     {
-        $subscriptions = Subscription::with('user', 'user.profile', 'user.activeRole', 'user.activeRoleData', 'ratings')
-            ->latest()
-            ->paginate(10);
+        $page = (int) request()->get('page', 1);
+        $perPage = 10;
 
-        $subscriptions->getCollection()->transform(function ($subscription) {
-            $subscription->status = $subscription->end_date && Carbon::parse($subscription->end_date)->isFuture()
+        $subscriptions =  UserSubscription::getApprovalsCached($page, $perPage);
+
+
+        $subscriptions->getCollection()->transform(function ($userSub) {
+            $userSub->status = $userSub->end_date && Carbon::parse($userSub->end_date)->isFuture()
                 ? 'active'
                 : 'expired';
-            return $subscription;
+            return $userSub;
         });
 
         return response()->json($subscriptions);
     }
 
+    /**
+     * 🟢 Get users by subscription type (title)
+     */
     public function getUsersBySubscription($type)
     {
-        $users = User::whereHas('subscriptions.plan', function ($q) use ($type) {
-            $q->where('subscription_title', $type);
-        })->with('subscriptions.plan')->get();
+        $cacheKey = "users_by_subscription_{$type}";
+
+        $users = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($type) {
+            return User::whereHas('subscription.subscription', function ($q) use ($type) {
+                $q->where('subscription_title', $type);
+            })->with('subscription.subscription')->get();
+        });
 
         $users->each(function ($user) {
-            $user->subscriptions->each(function ($subscription) {
-                $subscription->status = $subscription->end_date && Carbon::parse($subscription->end_date)->isFuture()
+            if ($user->subscription) {
+                $user->subscription->status = $user->subscription->end_date &&
+                    Carbon::parse($user->subscription->end_date)->isFuture()
                     ? 'active'
                     : 'expired';
-            });
+            }
         });
 
         return response()->json([
