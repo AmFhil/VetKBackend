@@ -3,14 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
+use App\Traits\HasAuthorAttribute;
 
 class ForumChatLike extends Model
 {
-    //
+    use HasAuthorAttribute;
+
     protected $table = 'forum_chat_likes';
 
     protected $fillable = [
-        'blog_chat_id',
+        'forum_chat_id',
         'user_id',
         'user_type',
     ];
@@ -20,40 +23,40 @@ class ForumChatLike extends Model
     protected static function booted()
     {
         static::created(function ($like) {
-            $like->blog->increment('likes_count');
+            $like->forum->increment('likes_count');
+            self::clearCaches($like);
         });
 
         static::deleted(function ($like) {
-            $like->blog->decrement('likes_count');
+            $like->forum->decrement('likes_count');
+            self::clearCaches($like);
         });
     }
 
-    public function getAuthorAttribute()
+    /**
+     * Clear forum caches (index, trending, show)
+     */
+    private static function clearCaches(?self $like = null): void
     {
-        if ($this->user instanceof \App\Models\Admin) {
-            return [
-                'id'    => $this->user->id,
-                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => $this->user->profile_picture_url,
-                'type'  => 'admin',
-            ];
+        // Forget index and admin listing
+        Cache::forget("forum_chats_index");
+        Cache::forget("forum_chats_admin");
+
+        // trending
+        Cache::forget("trending_forums_chat");
+
+        // single forum
+        if ($like?->forum?->slug) {
+            Cache::forget("forum_show_{$like->forum->slug}");
         }
 
-        if ($this->user instanceof \App\Models\User) {
-            return [
-                'id'    => $this->user->id,
-                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => optional($this->user->profile)->profile_image_url,
-                'type'  => 'user',
-            ];
-        }
-
-        return null;
+        Cache::forget('admin_forums');
     }
 
-    public function blog()
+    // Relationships
+    public function forum()
     {
-        return $this->belongsTo(BlogChat::class, 'blog_chat_id');
+        return $this->belongsTo(ForumChat::class, 'forum_chat_id');
     }
 
     public function user()

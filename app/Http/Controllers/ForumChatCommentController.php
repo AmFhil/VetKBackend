@@ -14,18 +14,9 @@ class ForumChatCommentController extends Controller
 {
     use BroadcastsAdminEvents;
 
-    // Clear forum caches (index, trending, show)
-    private function clearForumCaches($forumId): void
-    {
-        Cache::forget("forum_show_{$forumId}");
-        Cache::forget("trending_forums");
-
-        for ($page = 1; $page <= 10; $page++) {
-            Cache::forget("forums_index_page_{$page}");
-        }
-    }
-
-    // Add comment
+    /**
+     * Add comment
+     */
     public function addComment(Request $request, $forumId)
     {
         $user = auth()->user();
@@ -38,12 +29,11 @@ class ForumChatCommentController extends Controller
 
         $forum = ForumChat::findOrFail($forumId);
 
-        $comment = ForumChatComment::create([
-            'forum_chat_id' => $forum->id,
-            'user_id'       => $user->id,
-            'user_type'     => get_class($user),
-            'comment'       => $request->comment,
-            'parent_id'     => $request->parent_id,
+        $comment = $forum->comments()->create([
+            'user_id'   => $user->id,
+            'user_type' => get_class($user),
+            'comment'   => $request->comment,
+            'parent_id' => $request->parent_id,
         ]);
 
         $user->logActivity(
@@ -60,15 +50,15 @@ class ForumChatCommentController extends Controller
             ['forum_id' => $forum->id, 'comment_id' => $comment->id]
         );
 
-        $this->clearForumCaches($forum->id);
-
         return response()->json([
             'message' => 'Comment added successfully',
-            'comment' => $comment
+            'comment' => $comment->load('user'),
         ], 200);
     }
 
-    // Fetch comments with nested replies
+    /**
+     * Fetch comments with nested replies
+     */
     public function fetchComments($forumId)
     {
         $comments = ForumChatComment::where('forum_chat_id', $forumId)
@@ -80,11 +70,11 @@ class ForumChatCommentController extends Controller
                 'user.profile:id,user_id,profile_image',
                 'replies' => function ($q) {
                     $q->where('flag', '!=', 'hidden')
-                      ->with([
-                          'user.roles:id,name',
-                          'user.activeRole:id,name',
-                          'user.profile:id,user_id,profile_image',
-                      ]);
+                        ->with([
+                            'user.roles:id,name',
+                            'user.activeRole:id,name',
+                            'user.profile:id,user_id,profile_image',
+                        ]);
                 }
             ])
             ->latest()
@@ -93,7 +83,9 @@ class ForumChatCommentController extends Controller
         return response()->json($comments);
     }
 
-    // Delete comment
+    /**
+     * Delete comment
+     */
     public function deleteComment($commentId)
     {
         $user = auth()->user();
@@ -105,7 +97,6 @@ class ForumChatCommentController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $forumId = $comment->forum_chat_id;
         $commentContent = $comment->comment;
         $comment->delete();
 
@@ -123,12 +114,12 @@ class ForumChatCommentController extends Controller
             ['comment_id' => $commentId]
         );
 
-        $this->clearForumCaches($forumId);
-
         return response()->json(['message' => 'Comment deleted successfully']);
     }
 
-    // Edit comment
+    /**
+     * Edit comment
+     */
     public function editComment(Request $request, $commentId)
     {
         $user = auth()->user();
@@ -160,15 +151,15 @@ class ForumChatCommentController extends Controller
             ['comment_id' => $commentId]
         );
 
-        $this->clearForumCaches($comment->forum_chat_id);
-
         return response()->json([
             'message' => 'Comment updated successfully',
             'comment' => $comment
         ], 200);
     }
 
-    // User flag
+    /**
+     * User flag
+     */
     public function flag(Request $request, $id)
     {
         $user = auth()->user();
@@ -215,12 +206,42 @@ class ForumChatCommentController extends Controller
             ]
         );
 
-        $this->clearForumCaches($comment->forum_chat_id);
+        // notify all admins
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            $this->createAdminActivity(
+                $admin->id,
+                'forum_comment_flagged',
+                'Forum comment flagged',
+                "User {$user->first_name} {$user->last_name} flagged comment #{$comment->id} (forum #{$comment->forum_chat_id}) as '{$request->flag}'. Previous flag: '{$oldFlag}'.",
+                [
+                    'comment_id' => $comment->id,
+                    'forum_id'   => $comment->forum_chat_id,
+                    'user_id'    => $user->id,
+                    'flag'       => $request->flag
+                ]
+            );
+
+            $this->createAdminNotification(
+                $admin->id,
+                'Forum Comment Flagged',
+                'forum_comment_flag',
+                "Comment #{$comment->id} was flagged as '{$request->flag}' by {$user->first_name} {$user->last_name}.",
+                [
+                    'comment_id' => $comment->id,
+                    'forum_id'   => $comment->forum_chat_id,
+                    'user_id'    => $user->id,
+                    'flag'       => $request->flag
+                ]
+            );
+        }
 
         return response()->json(['message' => 'Comment flagged as ' . $request->flag]);
     }
 
-    // Admin flag
+    /**
+     * Admin flag
+     */
     public function updateFlag(Request $request, $id)
     {
         $actor = auth('admin')->user();
@@ -289,8 +310,6 @@ class ForumChatCommentController extends Controller
                 );
             }
         }
-
-        $this->clearForumCaches($comment->forum_chat_id);
 
         return response()->json([
             'message' => 'Forum comment flag updated by admin',

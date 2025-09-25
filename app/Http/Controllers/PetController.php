@@ -72,6 +72,7 @@ class PetController extends Controller
         ]);
 
         Cache::forget("user_pets_{$user->id}");
+        Cache::forget("pet_{$pet->id}");
 
         $user->logActivity('pet_created', 'Pet Created', "You added a new pet: {$pet->pet_name}", [
             'pet_id' => $pet->id,
@@ -149,7 +150,10 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $pet = Pet::find($id);
+        $pet = Cache::remember("pet_{$id}", now()->addMinutes(10), function () use ($id) {
+            return Pet::with(['user', 'user.activeRole', 'user.profile'])->find($id);
+        });
+
         if (!$pet) {
             return response()->json(['message' => 'Pet not found.'], 404);
         }
@@ -157,7 +161,6 @@ class PetController extends Controller
             return response()->json(['message' => 'You are not authorized to view this pet.'], 403);
         }
 
-        Cache::remember("pet_{$id}", now()->addMinutes(30), fn() => $pet);
 
         return response()->json(['pet' => $pet], 200);
     }

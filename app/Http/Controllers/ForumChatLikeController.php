@@ -8,7 +8,9 @@ use Illuminate\Http\Request;
 
 class ForumChatLikeController extends Controller
 {
-    //
+    /**
+     * Toggle like/unlike
+     */
     public function toggleLike($forumId)
     {
         $user = auth()->user();
@@ -27,15 +29,15 @@ class ForumChatLikeController extends Controller
         if ($like) {
             $like->delete();
 
-            // LOG ACTIVITY
+            // log
             $user->logActivity(
                 'forum_unlike',
-                "UnLiked Forum Chat",
-                "You unLiked the forum chat titled '{$forum->title}'.",
+                'Unliked forum chat',
+                "You unliked the forum chat titled '{$forum->title}'.",
                 ['forum_id' => $forum->id, 'action' => 'unlike']
             );
 
-            // SEND NOTIFICATION
+            // notify
             $user->sendNotification(
                 'forum_unliked',
                 'Forum Chat Unliked',
@@ -47,19 +49,19 @@ class ForumChatLikeController extends Controller
         } else {
             ForumChatLike::create([
                 'forum_chat_id' => $forum->id,
-                'user_id' => $user->id,
-                'user_type' => get_class($user),
+                'user_id'       => $user->id,
+                'user_type'     => get_class($user),
             ]);
 
-            // LOG ACTIVITY
+            // log
             $user->logActivity(
                 'forum_like',
-                "Liked Forum Chat",
+                'Liked forum chat',
                 "You liked the forum chat titled '{$forum->title}'.",
                 ['forum_id' => $forum->id, 'action' => 'like']
             );
 
-            // SEND NOTIFICATION
+            // notify
             $user->sendNotification(
                 'forum_liked',
                 'Forum Chat Liked',

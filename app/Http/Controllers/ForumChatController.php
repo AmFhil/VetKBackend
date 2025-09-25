@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admin;
 use App\Models\ForumChat;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
@@ -13,24 +12,6 @@ use Illuminate\Support\Facades\Storage;
 class ForumChatController extends Controller
 {
     use BroadcastsAdminEvents;
-
-    /**
-     * Clear forum-related caches.
-     */
-    private function clearForumCaches($forumId = null, $slug = null): void
-    {
-        Cache::forget('forum_chats_index');
-        Cache::forget('trending_forums_chat');
-        Cache::forget('forum_chats_admin');
-
-        if ($slug) {
-            Cache::forget("forum_show_{$slug}");
-        }
-
-        if ($forumId) {
-            Cache::forget("forum_show_id_{$forumId}");
-        }
-    }
 
     /**
      * Create Forum Post.
@@ -63,8 +44,6 @@ class ForumChatController extends Controller
             'status'    => 'archived',
         ]);
 
-        $this->clearForumCaches();
-
         try {
             $user->logActivity(
                 'created',
@@ -80,7 +59,7 @@ class ForumChatController extends Controller
                 ['forum_id' => $forum->id]
             );
         } catch (\Throwable $e) {
-            // Optional: log this silently
+            // Optionally log silently
         }
 
         return response()->json([
@@ -164,7 +143,7 @@ class ForumChatController extends Controller
         if (!Cache::has($viewCacheKey)) {
             $forum->increment('views_count');
             Cache::put($viewCacheKey, true, now()->addDay());
-            Cache::forget($cacheKey);
+            Cache::forget($cacheKey); // ✅ still needed for updated view count
         }
 
         return response()->json($forum);
@@ -207,8 +186,6 @@ class ForumChatController extends Controller
             'images'  => $imagePaths,
         ]);
 
-        $this->clearForumCaches($forum->id, $forum->slug);
-
         $user->logActivity('forum_updated', "Updated forum '{$forum->title}'", null, ['forum_id' => $forum->id]);
         $user->sendNotification('forum', "Your forum '{$forum->title}' was updated.", null, ['forum_id' => $forum->id]);
 
@@ -227,48 +204,13 @@ class ForumChatController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $slug = $forum->slug;
         $forum->delete();
-
-        $this->clearForumCaches($id, $slug);
 
         $user->logActivity('forum_deleted', "Deleted forum '{$forum->title}'", null, ['forum_id' => $id]);
         $user->sendNotification('forum', "Your forum '{$forum->title}' was deleted.", null, ['forum_id' => $id]);
 
         return response()->json(['message' => 'Forum chat deleted successfully']);
     }
-
-    /**
-     * Archive forum post (Admin only).
-     */
-    // public function archive($id)
-    // {
-    //     $admin = auth('admin')->user();
-    //     if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
-
-    //     $forum = ForumChat::findOrFail($id);
-    //     $forum->status = 'archived';
-    //     $forum->save();
-
-    //     $this->clearForumCaches($forum->id, $forum->slug);
-
-    //     $this->createAdminActivity(
-    //         $admin->id,
-    //         'archived',
-    //         "Forum Archived",
-    //         "Admin {$admin->first_name} archived forum '{$forum->title}'.",
-    //         ['forum_id' => $forum->id, 'staff_id' => $admin->staff_id]
-    //     );
-    //     $this->createAdminNotification(
-    //         $admin->id,
-    //         "Forum Archived",
-    //         'forum',
-    //         "Forum '{$forum->title}' has been archived.",
-    //         ['forum_id' => $forum->id, 'staff_id' => $admin->staff_id]
-    //     );
-
-    //     return response()->json(['message' => 'Forum archived successfully', 'forum' => $forum], 200);
-    // }
 
     /**
      * Trending forums (User).
@@ -328,7 +270,8 @@ class ForumChatController extends Controller
         $forum = ForumChat::findOrFail($id);
         $forum->increment('shares_count');
 
-        $this->clearForumCaches($id, $forum->slug);
+        // ✅ model events don’t fire on increment, so clear manually
+        Cache::forget("forum_show_{$forum->slug}");
 
         return response()->json(['message' => 'Share recorded']);
     }

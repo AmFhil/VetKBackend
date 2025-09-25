@@ -11,7 +11,7 @@ class AdminForumController extends Controller
 {
     use \App\Traits\BroadcastsAdminEvents;
 
-    // ✅ approve forum chat content
+    // approve forum chat content
     public function approveForumChat(Request $request)
     {
         $request->validate([
@@ -61,8 +61,6 @@ class AdminForumController extends Controller
                 "Hi user, your content with title: {$content->title} has been approved to be on our platform.",
                 ['forum_id' => $content->id, 'staff_id' => $admin->staff_id, 'role' => $request->user_role]
             );
-
-            Cache::forget('admin_forums');
 
             return response()->json(['detail' => 'You successfully approved a Forum Chat Content']);
         } catch (\Throwable $th) {
@@ -117,7 +115,6 @@ class AdminForumController extends Controller
                 ['forum_id' => $content->id, 'staff_id' => $admin->staff_id, 'role' => $request->user_role]
             );
 
-            Cache::forget('admin_forums');
 
             return response()->json(['detail' => 'You successfully rejected a Forum Chat Content']);
         } catch (\Throwable $th) {

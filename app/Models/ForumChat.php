@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
+use App\Traits\HasAuthorAttribute;
 
 class ForumChat extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasAuthorAttribute;
 
     protected $table = 'forum_chats';
 
@@ -30,7 +32,8 @@ class ForumChat extends Model
         'images' => 'array',
     ];
 
-    // Auto-generate slug on create
+    protected $appends = ['author'];
+
     protected static function boot()
     {
         parent::boot();
@@ -58,36 +61,32 @@ class ForumChat extends Model
             $chat->comments()->withTrashed()->restore();
             $chat->likes()->withTrashed()->restore();
         });
+
+        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
+            static::$event(fn($chat) => self::clearCaches($chat));
+        }
     }
 
-
-    protected $appends = ['author'];
-
-    public function getAuthorAttribute()
+    /**
+     * Clear forum-related caches
+     */
+    private static function clearCaches(?self $chat = null): void
     {
-        if ($this->user instanceof \App\Models\Admin) {
-            return [
-                'id'    => $this->user->id,
-                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => $this->user->profile_picture_url,
-                'type'  => 'admin',
-            ];
+
+        // Forget index and admin listing
+        Cache::forget("forum_chats_index");
+        Cache::forget("forum_chats_admin");
+
+        // Forget trending caches
+        Cache::forget("trending_forums_chat");
+
+        // Forget single forum show cache (if slug available)
+        if ($chat?->slug) {
+            Cache::forget("forum_show_{$chat->slug}");
         }
 
-        if ($this->user instanceof \App\Models\User) {
-            return [
-                'id'          => $this->user->id,
-                'name'        => $this->user->first_name . ' ' . $this->user->last_name,
-                'image'       => optional($this->user->profile)->profile_image_url,
-                'type'        => 'user',
-                'roles'       => $this->user->roles->pluck('name'),
-                'active_role' => $this->user->activeRole?->name,
-            ];
-        }
-
-        return null;
+        Cache::forget('admin_forums');
     }
-
 
     // Relationships
     public function user()
@@ -104,10 +103,4 @@ class ForumChat extends Model
     {
         return $this->hasMany(ForumChatComment::class, 'forum_chat_id');
     }
-
-
-    // public function shares()
-    // {
-    //     return $this->hasMany(ForumChatShare::class, 'forum_chat_id');
-    // }
 }

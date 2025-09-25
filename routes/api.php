@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminForumController;
 use App\Http\Controllers\Admin\AdminPromotionController;
 use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
@@ -13,6 +14,9 @@ use App\Http\Controllers\ContactUsController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FarmController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\ForumChatCommentController;
+use App\Http\Controllers\ForumChatController;
+use App\Http\Controllers\ForumChatLikeController;
 use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\OthersController;
@@ -186,6 +190,26 @@ Route::prefix('v3')->group(function () {
         Route::get('/my', [UserPromotionPlanController::class, 'myPlans']);
         // buy a plan (dummy activation, Paystack will plug here later)
         Route::post('/buy', [UserPromotionPlanController::class, 'buyPlan']);
+
+        Route::prefix('forums')->group(function () {
+            Route::get('/', [ForumChatController::class, 'index']);          // List published forums
+            Route::get('/trending', [ForumChatController::class, 'trending']); // Trending forums
+            Route::get('/{slug}', [ForumChatController::class, 'show']);     // Show single forum
+            Route::post('/', [ForumChatController::class, 'store']);         // Create forum
+            Route::put('/{id}', [ForumChatController::class, 'update']);     // Update forum
+            Route::delete('/{id}', [ForumChatController::class, 'destroy']); // Delete forum
+            Route::post('/{id}/share', [ForumChatController::class, 'share']); // Share forum
+            Route::prefix('{forumId}/comments')->group(function () {
+                Route::get('/', [ForumChatCommentController::class, 'fetchComments']);  // List comments
+                Route::post('/', [ForumChatCommentController::class, 'addComment']);    // Add comment
+            });
+            Route::prefix('comments')->group(function () {
+                Route::put('/{id}', [ForumChatCommentController::class, 'editComment']);   // Edit comment
+                Route::delete('/{id}', [ForumChatCommentController::class, 'deleteComment']); // Delete comment
+                Route::post('/{id}/flag', [ForumChatCommentController::class, 'flag']);   // User flag
+            });
+            Route::post('/{id}/like', [ForumChatLikeController::class, 'toggleLike']);   // Like/Unlike
+        });
     });
 
     // User must have an active subscription
@@ -247,6 +271,15 @@ Route::prefix('v3')->group(function () {
         Route::post('/ads-promotions/deactivate', [AdminPromotionController::class, 'deactivatePromotion']);
 
         Route::patch('{id}/expire', [UserPromotionPlanController::class, 'expirePlan']);
+
+        Route::prefix('admin/forums')->group(function () {
+            Route::get('/', [ForumChatController::class, 'getAllForumChat']); // All forums for admin
+            Route::put('/comments/{id}/flag', [ForumChatCommentController::class, 'updateFlag']); // Admin flag
+            Route::post('/approve', [AdminForumController::class, 'approveForumChat']); // Approve forum
+            Route::post('/reject', [AdminForumController::class, 'rejectForumChat']); // Reject forum
+            Route::get('/search', [ForumChatController::class, 'searchForumChats']); // Search forums
+            Route::get('forum-approvals', [AdminForumController::class, 'getForumApprovals']); // pending forums
+        });
     });
 });
 

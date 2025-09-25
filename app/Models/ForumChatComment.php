@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
+use App\Traits\HasAuthorAttribute;
 
 class ForumChatComment extends Model
 {
-    //
+    use HasAuthorAttribute;
+
     protected $table = 'forum_chat_comments';
 
     protected $fillable = [
@@ -24,36 +27,41 @@ class ForumChatComment extends Model
     {
         static::created(function ($comment) {
             $comment->forum->increment('comments_count');
+            self::clearCaches($comment);
         });
 
         static::deleted(function ($comment) {
             $comment->forum->decrement('comments_count');
+            self::clearCaches($comment);
+        });
+
+        static::updated(function ($comment) {
+            self::clearCaches($comment);
         });
     }
 
-    public function getAuthorAttribute()
+    /**
+     * Clear forum-related caches
+     */
+    private static function clearCaches(?self $comment = null): void
     {
-        if ($this->user instanceof \App\Models\Admin) {
-            return [
-                'id'    => $this->user->id,
-                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => $this->user->profile_picture_url,
-                'type'  => 'admin',
-            ];
+
+        // Forget index and admin listing
+        Cache::forget("forum_chats_index");
+        Cache::forget("forum_chats_admin");
+
+        Cache::forget("forum_trending_page");
+        Cache::forget("trending_forums_chat");
+
+        // specific forum show cache
+        if ($comment?->forum?->slug) {
+            Cache::forget("forum_show_{$comment->forum->slug}");
         }
 
-        if ($this->user instanceof \App\Models\User) {
-            return [
-                'id'    => $this->user->id,
-                'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-                'image' => optional($this->user->profile)->profile_image_url,
-                'type'  => 'user',
-            ];
-        }
-
-        return null;
+        Cache::forget('admin_forums');
     }
 
+    // Relationships
     public function forum()
     {
         return $this->belongsTo(ForumChat::class, 'forum_chat_id');
@@ -66,8 +74,7 @@ class ForumChatComment extends Model
 
     public function replies()
     {
-        return $this->hasMany(ForumChatComment::class, 'parent_id')
-            ->with('replies');
+        return $this->hasMany(ForumChatComment::class, 'parent_id')->with('replies');
     }
 
     public function user()
