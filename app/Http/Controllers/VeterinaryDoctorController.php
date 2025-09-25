@@ -195,7 +195,8 @@ class VeterinaryDoctorController extends Controller
         $veterinaryDoctor = VeterinaryDoctor::with([
             'user:id,email,first_name,last_name,phone_num,state,country',
             'ratings:id,rateable_id,rating,comment',
-            'user.profile:id,user_id,bio,profile_image,cover_page_image'
+            'user.profile:id,user_id,bio,profile_image,cover_page_image',
+            'user.media:id,user_id,file_path'
         ])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'view', 'created_at')
             ->where('id', $id)

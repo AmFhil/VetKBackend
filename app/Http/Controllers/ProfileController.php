@@ -25,7 +25,8 @@ class ProfileController extends Controller
                 'ratings:id,rateable_id,rating,comment',
                 'user.profile:id,user_id,bio,profile_image,cover_page_image',
                 'user.roles:name',
-                'user.activeRole:name'
+                'user.activeRole:name',
+                'user.media:id,user_id,file_path'
             ])
             ->first();
 

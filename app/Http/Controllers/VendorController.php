@@ -60,7 +60,8 @@ class VendorController extends Controller
             'user:id,email,first_name,last_name,phone_num,state,country',
             'user.profile:id,bio,profile_image,cover_page_image',
             'user.roles:name',
-            'user.activeRole:name'
+            'user.activeRole:name',
+            'user.media:id,user_id,file_path'
         ])
             ->select('id', 'user_id', 'role')
             ->where('id', $id)
