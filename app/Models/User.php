@@ -131,6 +131,11 @@ class User extends Authenticatable
         return $this->hasOne(Profiles::class, 'user_id');
     }
 
+    public function media()
+    {
+        return $this->hasMany(Media::class, 'user_id');
+    }
+
     public function ratingsGiven()
     {
         return $this->hasMany(Rate::class, 'user_id');
