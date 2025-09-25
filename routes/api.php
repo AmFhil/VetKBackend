@@ -238,7 +238,9 @@ Route::prefix('v3')->group(function () {
         Route::get('/categories', [\App\Http\Controllers\CategoryController::class, 'adminCategories']);
         Route::post('/blogs', [BlogChatController::class, 'addBlog']);
         Route::put('/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
-        Route::delete('/delete-blog/{id}', [BlogChatController::class, 'deleteBlog']);
+        Route::delete('/delete-blog/{id}', [BlogChatController::class, 'delete']);
+        Route::get('/blogs/deleted', [BlogChatController::class, 'getDeletedBlogs']);
+        Route::get('/blogs/restore/{id}', [BlogChatController::class, 'restore']);
         Route::post('/blogs/{id}/publish', [BlogChatController::class, 'publish']);
         Route::post('/blogs/{id}/archive', [BlogChatController::class, 'archive']);
         Route::post('/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);

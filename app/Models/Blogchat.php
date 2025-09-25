@@ -2,10 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\HasAuthorAttribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class BlogChat extends Model
 {
+    use SoftDeletes, HasAuthorAttribute;
+
     protected $table = 'blog_chats';
 
     protected $fillable = [
@@ -13,37 +18,41 @@ class BlogChat extends Model
         'content',
         'user_id',
         'user_type',
+        'slug',
+        'category',
+        'section',
+        'status',
+        'picture',
         'likes_count',
+        'views_count',
+        'shares_count',
         'comments_count',
     ];
 
     protected $appends = ['author'];
 
-    public function getAuthorAttribute()
-{
-    if ($this->user instanceof \App\Models\Admin) {
-        return [
-            'id'    => $this->user->id,
-            'name'  => $this->user->first_name . ' ' . $this->user->last_name,
-            'image' => $this->user->profile_picture_url,
-            'type'  => 'admin',
-        ];
+    protected static function booted()
+    {
+        static::deleting(function ($chat) {
+            if ($chat->isForceDeleting()) {
+                $chat->comments()->forceDelete();
+                $chat->likes()->forceDelete();
+            } else {
+                $chat->comments()->delete();
+                $chat->likes()->delete();
+            }
+        });
+
+        static::restoring(function ($chat) {
+            $chat->comments()->withTrashed()->restore();
+            $chat->likes()->withTrashed()->restore();
+        });
     }
 
-    if ($this->user instanceof \App\Models\User) {
-        return [
-            'id'          => $this->user->id,
-            'name'        => $this->user->first_name . ' ' . $this->user->last_name,
-            'image'       => optional($this->user->profile)->profile_image_url,
-            'type'        => 'user',
-            'roles'       => $this->user->roles->pluck('name'),
-            'active_role' => $this->user->activeRole?->name,
-        ];
+    // get picture url
+    public function getPictureAttribute(){
+        return $this->picture ? Storage::url($this->picture) : null;
     }
-
-    return null;
-}
-
 
     public function user()
     {

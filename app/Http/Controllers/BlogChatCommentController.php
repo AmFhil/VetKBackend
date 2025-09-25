@@ -20,7 +20,12 @@ class BlogChatCommentController extends Controller
         Cache::forget("blog_show_{$blogId}");
         Cache::forget("trending_blogs");
 
-        for ($page = 1; $page <= 10; $page++) {
+        // Match the same pagination as BlogChatController@index
+        $perPage = 10;
+        $totalBlogs = BlogChat::count();
+        $lastPage = ceil($totalBlogs / $perPage);
+
+        for ($page = 1; $page <= $lastPage; $page++) {
             Cache::forget("blogs_index_page_{$page}");
         }
     }
@@ -60,6 +65,31 @@ class BlogChatCommentController extends Controller
             ['blog_id' => $blog->id, 'comment_id' => $comment->id]
         );
 
+        // notify blog author if not the same user
+        if ($blog->user_id !== $user->id || get_class($blog->user) !== get_class($user)) {
+            $blog->user->sendNotification(
+                'blog_commented_by_other',
+                'New Comment on Your Blog Chat',
+                "<strong>{$user->first_name} {$user->last_name}</strong> commented on your blog chat titled <strong>{$blog->title}</strong>: \"{$comment->comment}\"",
+                ['blog_id' => $blog->id, 'commenter_id' => $user->id, 'comment_id' => $comment->id]
+            );
+        }
+
+        // notify admin authors
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            $this->createAdminNotification(
+                $admin->id,
+                'New Blog Comment',
+                'blog_comment',
+                "Blog chat #{$blog->id} titled '{$blog->title}' received a new comment from {$user->first_name} {$user->last_name}.",
+                ['blog_id' => $blog->id, 'comment_id' => $comment->id]
+            );
+        }
+
+
+
+
         $this->clearBlogCaches($blog->id);
 
         return response()->json([
@@ -80,11 +110,11 @@ class BlogChatCommentController extends Controller
                 'user.profile:id,user_id,profile_image',
                 'replies' => function ($q) {
                     $q->where('flag', '!=', 'hidden')
-                      ->with([
-                          'user.roles:id,name',
-                          'user.activeRole:id,name',
-                          'user.profile:id,user_id,profile_image',
-                      ]);
+                        ->with([
+                            'user.roles:id,name',
+                            'user.activeRole:id,name',
+                            'user.profile:id,user_id,profile_image',
+                        ]);
                 }
             ])
             ->latest()
@@ -214,6 +244,23 @@ class BlogChatCommentController extends Controller
                 'flag'       => $request->flag,
             ]
         );
+
+        // notify all admins
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            
+            $this->createAdminNotification(
+                $admin->id,
+                'Comment Flagged',
+                'comment_flag',
+                "Comment #{$comment->id} was flagged as '{$request->flag}' by {$user->first_name} {$user->last_name}.",
+                [
+                    'comment_id' => $comment->id,
+                    'blog_id'    => $comment->blog_chat_id,
+                    'flag'       => $request->flag
+                ]
+            );
+        }
 
         $this->clearBlogCaches($comment->blog_chat_id);
 

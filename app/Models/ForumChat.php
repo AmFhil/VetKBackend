@@ -32,7 +32,7 @@ class ForumChat extends Model
         'images' => 'array',
     ];
 
-    protected $appends = ['author'];
+    protected $appends = ['author', 'images'];
 
     protected static function boot()
     {
@@ -43,6 +43,13 @@ class ForumChat extends Model
                 $forumChat->slug = Str::slug($forumChat->title) . '-' . uniqid();
             }
         });
+    }
+
+    // get image url
+    public function getImagesAttribute($value)
+    {
+        $images = $value ? json_decode($value, true) : [];
+        return array_map(fn($image) => asset('storage/' . $image), $images);
     }
 
     protected static function booted()

@@ -13,18 +13,31 @@ class BlogChatController extends Controller
 {
     use BroadcastsAdminEvents;
 
+
     /**
      * Clear blog-related caches.
      */
     private function clearBlogCaches($blogId = null): void
     {
-        Cache::forget('blogs_index');
+        // Clear paginated index caches (first 5 pages by default)
+        $perPage = 10;
+            $totalBlogs = BlogChat::count();
+            $lastPage = ceil($totalBlogs / $perPage);
+            $lastPage = min($lastPage, 5); // Limit to first 5 pages
+
+        for ($i = 1; $i <= $lastPage; $i++) {
+            Cache::forget("blogs_index_page_{$i}");
+        }
+
+        // Clear trending blogs
         Cache::forget('trending_blogs');
 
+        // Clear specific blog show cache
         if ($blogId) {
             Cache::forget("blog_show_{$blogId}");
         }
     }
+
 
     /**
      * Create a new blog post (Admin only).
@@ -196,9 +209,6 @@ class BlogChatController extends Controller
 
         $blog = BlogChat::findOrFail($id);
 
-        if ($blog->picture && Storage::disk('public')->exists($blog->picture)) {
-            Storage::disk('public')->delete($blog->picture);
-        }
 
         $title = $blog->title;
         $blog->delete();
@@ -214,6 +224,50 @@ class BlogChatController extends Controller
         );
 
         return response()->json(['message' => 'Blog deleted successfully']);
+    }
+
+    /**
+     * get deleted blog (Admin).
+     */
+    public function getDeletedBlogs()
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $blogs = BlogChat::onlyTrashed()
+            ->with([
+                'user',
+                'comments.user',
+                'comments.replies.user',
+            ])
+            ->orderBy('deleted_at', 'desc')
+            ->paginate(10);
+
+        return response()->json($blogs);
+    }
+
+    /**
+     * Restore a blog (Admin).
+     */
+    public function restore($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $blog = BlogChat::withTrashed()->findOrFail($id);
+        $blog->restore();
+
+        $this->clearBlogCaches($id);
+
+        $this->createAdminActivity(
+            $admin->id,
+            'restored',
+            "Blog Restored",
+            "Admin {$admin->first_name} restored blog '{$blog->title}'.",
+            ['blog_id' => $blog->id]
+        );
+
+        return response()->json(['message' => 'Blog restored successfully', 'blog' => $blog]);
     }
 
     /**
@@ -322,12 +376,15 @@ class BlogChatController extends Controller
     /**
      * Index of blogs (User).
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $blogs = Cache::remember('blogs_index', now()->addMinutes(5), function () {
+        $page = $request->get('page', 1); // current page
+        $cacheKey = "blogs_index_page_{$page}";
+
+        $blogs = Cache::remember($cacheKey, now()->addMinutes(5), function () {
             return BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
@@ -341,6 +398,7 @@ class BlogChatController extends Controller
 
         return response()->json($blogs);
     }
+
 
     /**
      * Private helper to load blog with comments & track views.
