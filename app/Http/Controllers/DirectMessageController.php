@@ -178,4 +178,29 @@ class DirectMessageController extends Controller
 
         return response()->json(['message' => 'Message flagged, admins and sender notified']);
     }
+
+    // get messages between auth user and another user
+    public function conversation($userId)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $messages = DirectMessage::where(function ($query) use ($user, $userId) {
+            $query->where('sender_id', $user->id)
+                  ->where('receiver_id', $userId);
+        })->orWhere(function ($query) use ($user, $userId) {
+            $query->where('sender_id', $userId)
+                  ->where('receiver_id', $user->id);
+        })->orderBy('created_at', 'asc')->get();
+
+        // mark messages as read if receiver is auth user
+        DirectMessage::where('receiver_id', $user->id)
+            ->where('sender_id', $userId)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json($messages);
+    }
 }

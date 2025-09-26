@@ -512,4 +512,33 @@ class ProductsController extends Controller
 
         return response()->json(['message' => 'Product disabled'], 200);
     }
+
+    public function getProductById($id){
+        try {
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            $product = Cache::remember("product_{$id}", now()->addMinutes(15), function () use ($id) {
+                $product = Products::where('id', $id)
+                    ->with('ratings:id,rating,comment,rateable_id', 'tags')
+                    ->first();
+
+                if ($product) {
+                    $product->average_rating = $product->averageRating();
+                }
+
+                return $product;
+            });
+
+            if (!$product) {
+                return response()->json(['message' => 'Product not found.'], 404);
+            }
+
+            return response()->json(['message' => 'Product retrieved successfully.', 'product' => $product], 200);
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'An error occurred while retrieving the product.', 'error' => $th->getMessage()], 500);
+        }
+    }
 }

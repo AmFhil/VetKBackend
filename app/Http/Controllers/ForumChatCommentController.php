@@ -36,25 +36,53 @@ class ForumChatCommentController extends Controller
             'parent_id' => $request->parent_id,
         ]);
 
+        // Log activity for commenter
         $user->logActivity(
             'forum_comment_add',
-            'Added a comment',
-            "You commented on '{$forum->title}': \"{$comment->comment}\"",
+            'Comment Added',
+            "You commented on forum '{$forum->title}': \"{$comment->comment}\"",
             ['forum_id' => $forum->id, 'comment_id' => $comment->id]
         );
 
-        $user->sendNotification(
-            'forum_comment_added',
-            'Comment added',
-            "Your comment on <strong>{$forum->title}</strong> was posted successfully.",
-            ['forum_id' => $forum->id, 'comment_id' => $comment->id]
-        );
+        // Notify the forum owner if not the same person
+        if ($forum->user_id !== $user->id) {
+            $forum->user->sendNotification(
+                'forum_comment_received',
+                'New Comment on Your Forum',
+                "{$user->first_name} {$user->last_name} commented on your forum <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                [
+                    'forum_id'   => $forum->id,
+                    'comment_id' => $comment->id,
+                    'from_user'  => $user->id,
+                ]
+            );
+        }
+
+        // If this is a reply, notify the parent comment owner
+        if ($request->parent_id) {
+            $parentComment = $forum->comments()->find($request->parent_id);
+
+            if ($parentComment && $parentComment->user_id !== $user->id) {
+                $parentComment->user->sendNotification(
+                    'forum_comment_reply',
+                    'Reply to Your Comment',
+                    "{$user->first_name} {$user->last_name} replied to your comment on <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                    [
+                        'forum_id'     => $forum->id,
+                        'comment_id'   => $comment->id,
+                        'parent_id'    => $parentComment->id,
+                        'from_user'    => $user->id,
+                    ]
+                );
+            }
+        }
 
         return response()->json([
-            'message' => 'Comment added successfully',
+            'message' => 'Comment added successfully.',
             'comment' => $comment->load('user'),
         ], 200);
     }
+
 
     /**
      * Fetch comments with nested replies
