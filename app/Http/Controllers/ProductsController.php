@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Products;
 use App\Models\Tag;
+use App\Models\User;
 use App\Models\Vendor;
+use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -12,6 +14,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductsController extends Controller
 {
+    use BroadcastsAdminEvents;
+
     private function handleImageUpload(Request $request, Products $product = null)
     {
         $images = [];
@@ -123,19 +127,19 @@ class ProductsController extends Controller
 
             //  Log activity
             $user->logActivity(
-                'create_product',
+                'product_created',
                 'Product Created',
-                "Product {$product->product_name} was created.",
+                "A new product '{$product->product_name}' (ID: {$product->product_id}) was created by {$user->first_name}.",
                 ['product_id' => $product->id]
             );
 
-            //  Send notification
             $user->sendNotification(
                 'product',
-                'New Product Added',
-                "Your product '{$product->product_name}' has been successfully added.",
+                'Product Created',
+                "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been successfully added.",
                 ['product_id' => $product->id]
             );
+
 
             return response()->json(['message' => 'Product created successfully.', 'product' => $product], 201);
         } catch (\Throwable $th) {
@@ -229,19 +233,19 @@ class ProductsController extends Controller
 
             //  Log activity
             $user->logActivity(
-                'update_product',
+                'product_updated',
                 'Product Updated',
-                "Product {$product->product_name} was updated.",
+                "Product '{$product->product_name}' (ID: {$product->product_id}) was updated by {$user->first_name}.",
                 ['product_id' => $product->id]
             );
 
-            //  Send notification
             $user->sendNotification(
                 'product',
                 'Product Updated',
-                "Your product '{$product->product_name}' has been updated successfully.",
+                "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been updated successfully.",
                 ['product_id' => $product->id]
             );
+
 
             return response()->json(['message' => 'Product updated successfully.', 'product' => $product], 200);
         } catch (\Throwable $th) {
@@ -287,19 +291,19 @@ class ProductsController extends Controller
 
             //  Log activity
             $user->logActivity(
-                'delete_product',
+                'product_deleted',
                 'Product Deleted',
-                "Product {$name} was deleted.",
+                "Product '{$name}' (ID: {$product->product_id}) was deleted by {$user->first_name}.",
                 ['product_id' => $id]
             );
 
-            //  Send notification
             $user->sendNotification(
                 'product',
                 'Product Deleted',
-                "Your product {$name} has been deleted.",
+                "Your product <strong>{$name}</strong> (ID: {$product->product_id}) has been permanently deleted.",
                 ['product_id' => $id]
             );
+
 
             return response()->json(['message' => 'Product deleted successfully.'], 200);
         } catch (\Throwable $th) {
@@ -458,5 +462,54 @@ class ProductsController extends Controller
         } catch (\Throwable $th) {
             return response()->json(['message' => 'Error fetching related products.', 'error' => $th->getMessage()], 500);
         }
+    }
+
+    public function disableProduct($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $product = Products::findOrFail($id);
+        $user = User::find($product->user_id);
+
+        if ($user) {
+            $product->disabled = true;
+            $product->save();
+            // Notify the user
+            $user->sendNotification(
+                'product',
+                'Product Disabled',
+                "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been disabled by an administrator. Please contact support for assistance.",
+                ['product_id' => $product->id, 'user_id' => $user->id]
+            );
+
+            $user->logActivity(
+                'product_disabled',
+                'Product Disabled',
+                "Your product '{$product->product_name}' (ID: {$product->product_id}) was disabled by an admin.",
+                ['product_id' => $product->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Product Disabled by Administrator',
+                'Dear ' . $user->first_name . ', we regret to inform you that your product "' . $product->product_name . '" (ID: ' . $product->product_id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
+            ));
+
+            // Admin-facing
+            $this->createAdminActivity(
+                $admin->id,
+                'product_disabled',
+                'Product Disabled',
+                "Admin {$admin->name} disabled product '{$product->product_name}' (ID: {$product->product_id}) belonging to {$user->first_name}.",
+                ['product_id' => $product->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+            ); 
+        }
+
+        Cache::forget("product_{$product->id}");
+        Cache::forget("products_by_user_{$user->id}");
+        Cache::forget("products_by_store_{$product->store_id}");
+        Cache::forget("related_products_{$product->id}");
+
+        return response()->json(['message' => 'Product disabled'], 200);
     }
 }

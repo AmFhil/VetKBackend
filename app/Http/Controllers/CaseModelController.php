@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
+use App\Models\User;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CaseModelController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     private function generateCaseId($userId)
     {
@@ -112,15 +115,14 @@ class CaseModelController extends Controller
         $user->sendNotification(
             'case_created',
             'New Case Created',
-            "You created a new case: {$case->case_title}.",
+            "You created a new case titled \"{$case->case_title}\" (Case ID: {$case->case_id}).",
             ['case_id' => $case->id]
         );
 
-        // 📝 Log user activity
         $user->logActivity(
             'case_created',
-            'New Case Created',
-            "Created case {$case->case_title} (ID: {$case->case_id})",
+            'Case Created',
+            "A new case \"{$case->case_title}\" (ID: {$case->case_id}) was created.",
             ['case_id' => $case->id]
         );
 
@@ -160,8 +162,9 @@ class CaseModelController extends Controller
 
         $case = CaseModel::findOrFail($id);
 
-        $userId = Auth::id();
-        if ($userId !== $case->user_id) {
+        $user = Auth::user();
+
+        if (!$user || $user->id !== $case->user_id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -204,21 +207,21 @@ class CaseModelController extends Controller
         $case->touch();
         $case->save();
 
-        Cache::forget("user_cases_{$userId}");
+        Cache::forget("user_cases_{$user->id}");
 
         // After saving updates
         $user = Auth::user();
         $user->sendNotification(
             'case_updated',
             'Case Updated',
-            "You updated case {$case->case_title}.",
+            "Your case titled \"{$case->case_title}\" (ID: {$case->case_id}) has been updated successfully.",
             ['case_id' => $case->id]
         );
 
         $user->logActivity(
             'case_updated',
             'Case Updated',
-            "Updated case {$case->case_title} (ID: {$case->case_id})",
+            "Case \"{$case->case_title}\" (ID: {$case->case_id}) was updated.",
             ['case_id' => $case->id]
         );
 
@@ -251,14 +254,14 @@ class CaseModelController extends Controller
         $user->sendNotification(
             'case_deleted',
             'Case Deleted',
-            "You deleted case {$case_title}.",
+            "Your case \"{$case_title}\" (ID: {$case_id}) has been deleted.",
             ['case_id' => $caseId]
         );
 
         $user->logActivity(
             'case_deleted',
             'Case Deleted',
-            "Deleted case {$case_title} (ID: {$case_id})",
+            "Case \"{$case_title}\" (ID: {$case_id}) was deleted.",
             ['case_id' => $caseId]
         );
 
@@ -362,5 +365,52 @@ class CaseModelController extends Controller
         }
 
         return response()->json(['case' => $case], 200);
+    }
+
+    public function disableCase($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $case = CaseModel::findOrFail($id);
+        $user = User::find($case->user_id);
+
+        if ($user) {
+            $case->disabled = true;
+            $case->save();
+            // Notify the user
+            $user->sendNotification(
+                'case_disabled',
+                'Case Disabled',
+                "Your case titled \"{$case->case_title}\" (ID: {$case->case_id}) has been disabled by an administrator.",
+                ['case_id' => $case->id, 'user_id' => $user->id]
+            );
+
+            $user->logActivity(
+                'case_disabled',
+                'Case Disabled',
+                "Your case \"{$case->case_title}\" (ID: {$case->case_id}) was disabled by an administrator.",
+                ['case_id' => $case->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Case Disabled by Administrator',
+                'Dear ' . $user->first_name . ', we regret to inform you that your case "' . $case->case_title . '" (Case ID: ' . $case->case_id . ') has been disabled by an administrator. If you believe this is an error, please contact support for further assistance.'
+            ));
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'case_disabled',
+            'CASE',
+            "Admin {$admin->name} disabled {$user->first_name} case (ID: {$case->id}).",
+            ['case_id' => $case->id, 'user_id' => $case->user_id, 'staff_id' => $admin->staff_id]
+        );
+
+        Cache::forget("user_cases_{$user->id}");
+        Cache::forget("cases_{$id}");
+
+        return response()->json(['message' => 'Case disabled'], 200);
     }
 }

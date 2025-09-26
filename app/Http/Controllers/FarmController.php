@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Farm;
 use App\Models\livestock_farmer;
+use App\Models\User;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -12,6 +14,8 @@ use Illuminate\Support\Facades\Storage;
 
 class FarmController extends Controller
 {
+    use BroadcastsAdminEvents;
+
     private function generateFarmId($userId)
     {
         $farmCount = Farm::where('user_id', $userId)->count();
@@ -69,12 +73,20 @@ class FarmController extends Controller
         Cache::forget("user_farms_{$user->id}");
 
         // Log + Notify
-        $user->logActivity('farm_created', 'Farm Created', "You created a new farm: {$farm->farm_name}", [
-            'farm_id' => $farm->id,
-        ]);
-        $user->sendNotification('farm', 'New Farm Added', "Your farm {$farm->farm_name} has been added.", [
-            'farm_id' => $farm->id,
-        ]);
+        $user->logActivity(
+            'farm_created',
+            'Farm Created',
+            "A new farm '{$farm->farm_name}' (ID: {$farm->farm_id}) was created by {$user->first_name}.",
+            ['farm_id' => $farm->id]
+        );
+
+        $user->sendNotification(
+            'farm',
+            'Farm Created',
+            "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been successfully added.",
+            ['farm_id' => $farm->id]
+        );
+
 
         return response()->json(['message' => "A new farm created", 'farm' => $farm], 201);
     }
@@ -126,12 +138,20 @@ class FarmController extends Controller
         Cache::forget("user_farms_{$user->id}");
 
         // Log + Notify
-        $user->logActivity('farm_updated', 'Farm Updated', "Farm {$farm->farm_name} updated successfully.", [
-            'farm_id' => $farm->id,
-        ]);
-        $user->sendNotification('farm', 'Farm Updated', "Your farm {$farm->farm_name} has been updated.", [
-            'farm_id' => $farm->id,
-        ]);
+        $user->logActivity(
+            'farm_updated',
+            'Farm Updated',
+            "Farm '{$farm->farm_name}' (ID: {$farm->farm_id}) was updated by {$user->first_name}.",
+            ['farm_id' => $farm->id]
+        );
+
+        $user->sendNotification(
+            'farm',
+            'Farm Updated',
+            "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been updated successfully.",
+            ['farm_id' => $farm->id]
+        );
+
 
         return response()->json(['message' => "Farm {$farm->farm_id} updated successfully.", 'farm' => $farm]);
     }
@@ -203,12 +223,20 @@ class FarmController extends Controller
             Cache::forget("farm_{$id}");
 
             // Log + Notify
-            $user->logActivity('farm_deleted', 'Farm Deleted', "Farm {$farmName} deleted successfully.", [
-                'farm_id' => $id,
-            ]);
-            $user->sendNotification('farm', 'Farm Deleted', "Your farm {$farmName} has been deleted.", [
-                'farm_id' => $id,
-            ]);
+            $user->logActivity(
+                'farm_deleted',
+                'Farm Deleted',
+                "Farm '{$farmName}' (ID: {$farm->farm_id}) was deleted by {$user->first_name}.",
+                ['farm_id' => $id]
+            );
+
+            $user->sendNotification(
+                'farm',
+                'Farm Deleted',
+                "Your farm <strong>{$farmName}</strong> (ID: {$farm->farm_id}) has been permanently deleted.",
+                ['farm_id' => $id]
+            );
+
 
             return response()->json(['message' => 'Farm deleted successfully.'], 200);
         } catch (\Throwable $th) {
@@ -217,5 +245,56 @@ class FarmController extends Controller
                 'error'   => $th->getMessage()
             ], 500);
         }
+    }
+
+    public function disableFarm($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $farm = Farm::findOrFail($id);
+        $user = User::find($farm->user_id);
+
+        if ($user) {
+            $farm->disabled = true;
+            $farm->save();
+
+            // Notify the user
+            $user->sendNotification(
+                'farm',
+                'Farm Disabled',
+                "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been disabled by an administrator. Please contact support for further details.",
+                ['farm_id' => $farm->id, 'user_id' => $user->id]
+            );
+
+            // Log user activity
+            $user->logActivity(
+                'farm_disabled',
+                'Farm Disabled',
+                "Your farm '{$farm->farm_name}' (ID: {$farm->farm_id}) was disabled by an administrator.",
+                ['farm_id' => $farm->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Farm Disabled by Administrator',
+                'Dear ' . $user->first_name . ', we regret to inform you that your farm "' . $farm->farm_name . '" (ID: ' . $farm->farm_id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
+            ));
+
+            // Log admin activity
+            $this->createAdminActivity(
+                $admin->id,
+                'farm_disabled',
+                'Farm Disabled',
+                "Admin {$admin->name} disabled farm '{$farm->farm_name}' (ID: {$farm->farm_id}) belonging to {$user->first_name}.",
+                ['farm_id' => $farm->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+            );
+        }
+
+
+        Cache::forget("user_farms_{$user->id}");
+        Cache::forget("farm_{$id}");
+
+
+        return response()->json(['message' => 'Farm disabled'], 200);
     }
 }

@@ -69,15 +69,17 @@ class ClinicController extends Controller
         $user->logActivity(
             'clinic_created',
             'Clinic Created',
-            "You created a new clinic: {$clinic->clinic_name}",
+            "A new clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) was created by {$user->first_name}.",
             ['clinic_id' => $clinic->id]
         );
+
         $user->sendNotification(
             'clinic',
-            'New Clinic Added',
-            "Your clinic {$clinic->clinic_name} has been created and is pending approval.",
+            'Clinic Created',
+            "Your clinic <strong>{$clinic->clinic_name}</strong> has been created and is pending license verification.",
             ['clinic_id' => $clinic->id]
         );
+
 
         // Admin Notifications + Activities
         $admins = Admin::all();
@@ -92,7 +94,7 @@ class ClinicController extends Controller
 
             $this->createAdminActivity(
                 $admin->id,
-                "vet_profile_review",
+                "clinic_review",
                 "New Clinic Created",
                 "Review clinic {$clinic->clinic_name} created by user {$user->first_name}",
                 ['clinic_id' => $clinic->id]
@@ -153,15 +155,17 @@ class ClinicController extends Controller
         $user->logActivity(
             'clinic_updated',
             'Clinic Updated',
-            "Clinic {$clinic->clinic_name} updated successfully.",
+            "Clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) was updated by {$user->first_name}.",
             ['clinic_id' => $clinic->id]
         );
+
         $user->sendNotification(
             'clinic',
             'Clinic Updated',
-            "Your clinic {$clinic->clinic_name} has been updated.",
+            "Your clinic <strong>{$clinic->clinic_name}</strong> (ID: {$clinic->id}) has been updated successfully.",
             ['clinic_id' => $clinic->id]
         );
+
 
         return response()->json(['message' => "Clinic {$clinic->clinic_name} updated successfully.", 'clinic' => $clinic], 200);
     }
@@ -197,15 +201,17 @@ class ClinicController extends Controller
             $user->logActivity(
                 'clinic_deleted',
                 'Clinic Deleted',
-                "Clinic {$clinicName} deleted successfully.",
+                "Clinic '{$clinicName}' (ID: {$clinic->id}) was deleted by {$user->first_name}.",
                 ['clinic_id' => $id]
             );
+
             $user->sendNotification(
                 'clinic',
                 'Clinic Deleted',
-                "Your clinic {$clinicName} has been deleted.",
+                "Your clinic <strong>{$clinicName}</strong> (ID: {$clinic->id}) has been permanently deleted.",
                 ['clinic_id' => $id]
             );
+
 
             return response()->json(['message' => 'Clinic deleted successfully.'], 200);
         } catch (\Throwable $th) {
@@ -283,17 +289,16 @@ class ClinicController extends Controller
         if ($user) {
             // Notify the user
             $user->sendNotification(
-                'clinic_verified',
+                'clinic',
                 'Clinic Verified',
-                "Your clinic {$clinic->clinic_name} has been verified.",
+                "Your clinic <strong>{$clinic->clinic_name}</strong> (ID: {$clinic->id}) has been successfully verified and is now visible on the platform.",
                 ['clinic_id' => $clinic->id, 'user_id' => $user->id]
             );
 
-            // Log user activity
             $user->logActivity(
                 'clinic_verified',
                 'Clinic Verified',
-                "Your clinic {$clinic->clinic_name} was approved by admin.",
+                "Clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) was verified by Admin {$admin->name}.",
                 ['clinic_id' => $clinic->id]
             );
 
@@ -301,17 +306,69 @@ class ClinicController extends Controller
                 'License Number Verified',
                 'Congratulations ' . $user->first_name . ', We are so pleased to inform you that your Clinic License Number has been verified and your clinic is now visible on our platform.'
             ));
+
+            $this->createAdminActivity(
+                $admin->id,
+                'clinic_verified',
+                'Clinic License Verified',
+                "Admin {$admin->name} verified clinic '{$clinic->clinic_name}' (ID: {$clinic->id}).",
+                ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id, 'staff_id' => $admin->staff_id]
+            );
+        }
+
+
+        Cache::forget("user_clinics_{$user->id}");
+        Cache::forget("clinic_{$id}");
+
+        return response()->json(['message' => 'Clinic Verified']);
+    }
+
+    public function disableClinic($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $clinic = Clinic::findOrFail($id);
+        $user = User::find($clinic->user_id);
+
+        if ($user) {
+            $clinic->disabled = true;
+            $clinic->save();
+            // Notify the user
+            $user->sendNotification(
+                'clinic',
+                'Clinic Disabled',
+                "Your clinic <strong>{$clinic->clinic_name}</strong> (ID: {$clinic->id}) has been disabled by an administrator. Please contact support for further details.",
+                ['clinic_id' => $clinic->id, 'user_id' => $user->id]
+            );
+
+            // Log user activity
+            $user->logActivity(
+                'clinic_disabled',
+                'Clinic Disabled',
+                "Your clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) was disabled by an administrator.",
+                ['clinic_id' => $clinic->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Clinic Disabled by Administrator',
+                'Dear ' . $user->first_name . ', we regret to inform you that your clinic "' . $clinic->clinic_name . '" (ID: ' . $clinic->id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
+            ));
         }
 
         // Log admin activity
         $this->createAdminActivity(
             $admin->id,
-            'clinic_verified',
-            'Clinic License Verified',
-            "Admin {$admin->name} verified clinic {$clinic->clinic_name} (ID: {$clinic->id}).",
+            'clinic_disabled',
+            'Clinic Disabled',
+            "Admin {$admin->name} disabled clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) belonging to {$user->first_name}.",
             ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id, 'staff_id' => $admin->staff_id]
         );
 
-        return response()->json(['message' => 'Clinic Verified']);
+        Cache::forget("user_clinics_{$user->id}");
+        Cache::forget("clinic_{$id}");
+
+
+        return response()->json(['message' => 'Clinic disabled'], 200);
     }
 }

@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Products;
 use App\Models\Store;
+use App\Models\User;
 use App\Models\Vendor;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     public function addNewStore(Request $request)
     {
@@ -62,89 +65,75 @@ class StoreController extends Controller
         ]);
 
         $user->logActivity(
-            action: 'create_store',
-            title: 'Store Created',
-            detail: "Store '{$store->store_name}' was created successfully.",
-            meta: ['store_id' => $store->id]
+            'store_created',
+            'Store Created',
+            "Created store '{$store->store_name}'.",
+            ['store_id' => $store->id]
         );
 
         $user->sendNotification(
-            type: 'store',
-            title: 'Store Created',
-            content: "Your store '{$store->store_name}' has been created successfully."
+            'store_created',
+            'Store Created',
+            "Your store '{$store->store_name}' has been successfully created.",
+            ['store_id' => $store->id]
         );
 
         // return response
         return response()->json(['message' => 'Store created successfully.', 'store' => $store], 200);
     }
 
-    public function updateStore(Request $request, $id)
+   public function updateStore(Request $request, $id)
     {
-        // validate the request
         $request->validate([
-            'store_name' => 'sometimes|string|unique:store,store_name,' . $id . '|max:100',
-            'email' => 'sometimes|email|unique:store,email,' . $id . '|max:100',
+            'store_name'   => 'sometimes|string|unique:store,store_name,' . $id . '|max:100',
+            'email'        => 'sometimes|email|unique:store,email,' . $id . '|max:100',
             'phone_number' => 'sometimes|string',
-            'location' => 'sometimes|string|max:255',
-            'picture' => 'sometimes|image|mimes:jpeg,png,jpg,svg|max:2048',
+            'location'     => 'sometimes|string|max:255',
+            'picture'      => 'sometimes|image|mimes:jpeg,png,jpg,svg|max:2048',
             'availability' => 'sometimes|in:true,false',
-            'longitude' => 'sometimes|string|max:50',
-            'latitude' => 'sometimes|string|max:50',
+            'longitude'    => 'sometimes|string|max:50',
+            'latitude'     => 'sometimes|string|max:50',
         ]);
 
-        // check if user is authenticated
         $user = auth()->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        };
+        if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
 
-        // find store
-        $store = Store::find($id);
-        if (!$store) {
-            return response()->json(['message' => 'Store not found.'], 404);
-        };
-
-        // check if the authenticated user is not the owner of the store
+        $store = Store::findOrFail($id);
         if ($store->user_id !== $user->id) {
-            return response()->json(['message' => 'You are not authorized to update this store.'], 403);
-        };
+            return response()->json(['message' => 'Forbidden: not your store.'], 403);
+        }
 
-        // upload picture if exists
+        // Replace picture if uploaded
         if ($request->hasFile('picture')) {
-            // delete old picture
             if ($store->picture) {
                 Storage::disk('public')->delete($store->picture);
             }
-            $imageName = $request->file('picture')->store('store_pictures', 'public');
-            $store->picture = $imageName;
+            $store->picture = $request->file('picture')->store('store_pictures', 'public');
         }
 
-        // update store
-        if ($request->has('store_name')) $store->store_name = $request->store_name;
-        if ($request->has('email')) $store->email = $request->email;
-        if ($request->has('phone_number')) $store->phone_number = $request->phone_number;
-        if ($request->has('location')) $store->location = $request->location;
-        if ($request->has('availability')) $store->availability = $request->availability;
-        if ($request->has('longitude')) $store->longitude = $request->longitude;
-        if ($request->has('latitude')) $store->latitude = $request->latitude;
+        $store->fill($request->only([
+            'store_name', 'email', 'phone_number', 'location',
+            'availability', 'longitude', 'latitude'
+        ]));
         $store->updated_at = Carbon::now();
         $store->save();
 
+        // Log & notify
         $user->logActivity(
-            action: 'update_store',
-            title: 'Store Updated',
-            detail: "Store '{$store->store_name}' was updated successfully.",
-            meta: ['store_id' => $store->id]
+            'store_updated',
+            'Store Updated',
+            "Updated store '{$store->store_name}'.",
+            ['store_id' => $store->id]
         );
 
         $user->sendNotification(
-            type: 'store',
-            title: 'Store Updated',
-            content: "Your store '{$store->store_name}' details have been updated."
+            'store_updated',
+            'Store Updated',
+            "Your store '{$store->store_name}' details have been updated.",
+            ['store_id' => $store->id]
         );
 
-        // return response
-        return response()->json(['message' => 'Store updated successfully.', 'store' => $store]);
+        return response()->json(['message' => 'Store updated successfully.', 'store' => $store], 200);
     }
 
     // get vendor stores
@@ -276,76 +265,96 @@ class StoreController extends Controller
     // delete store
     public function deleteStore($id)
     {
-        try {
-            // check if user is authenticated
-            $user = auth()->user();
-            if (!$user) {
-                return response()->json(['message' => 'Unauthorized.'], 403);
-            }
+        $user = auth()->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
 
-            // find the store
-            $store = Store::find($id);
-            if (!$store) {
-                return response()->json(['message' => 'Store not found.'], 404);
-            }
+        $store = Store::findOrFail($id);
+        if ($store->user_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden: not your store.'], 403);
+        }
 
-            // check if the authenticated user is the owner of the store
-            if ($store->user_id !== $user->id) {
-                return response()->json(['message' => 'You are not authorized to delete this store.'], 403);
-            }
+        // Delete store picture
+        if ($store->picture) {
+            Storage::disk('public')->delete($store->picture);
+        }
 
-            // delete store picture
-            if ($store->picture) {
-                Storage::disk('public')->delete($store->picture);
-            }
-
-            // get all products related to this store
-            $products = Products::where('store_id', $store->id)->get();
-
-            foreach ($products as $product) {
-                // delete product images
-                if ($product->image1) {
-                    Storage::disk('public')->delete($product->image1);
+        // Delete products and their images
+        $products = Products::where('store_id', $store->id)->get();
+        foreach ($products as $product) {
+            foreach (['image1', 'image2', 'image3', 'image4'] as $field) {
+                if ($product->$field) {
+                    Storage::disk('public')->delete($product->$field);
                 }
-                if ($product->image2) {
-                    Storage::disk('public')->delete($product->image2);
-                }
-                if ($product->image3) {
-                    Storage::disk('public')->delete($product->image3);
-                }
-                if ($product->image4) {
-                    Storage::disk('public')->delete($product->image4);
-                }
-
-                // delete the product
-                $product->delete();
             }
+            $product->delete();
+        }
 
+        $storeName = $store->store_name;
+        $storeId = $store->id;
+        $store->delete();
+
+        // Log & notify
+        $user->logActivity(
+            'store_deleted',
+            'Store Deleted',
+            "Deleted store '{$storeName}' and all related products.",
+            ['store_id' => $storeId]
+        );
+
+        $user->sendNotification(
+            'store_deleted',
+            'Store Deleted',
+            "Your store '{$storeName}' and its products have been removed.",
+            ['store_id' => $storeId]
+        );
+
+        return response()->json(['message' => 'Store and related products deleted successfully.'], 200);
+    }
+
+
+    public function disableStore($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized.'], 403);
+
+        $store = Store::findOrFail($id);
+        $user  = User::find($store->user_id);
+
+        if ($user) {
+            $store->disabled = true;
+            $store->save();
+
+            // Notify user
+            $user->sendNotification(
+                'store_disabled',
+                'Store Disabled',
+                "Your store '{$store->store_name}' has been disabled by an administrator.",
+                ['store_id' => $store->id, 'user_id' => $user->id]
+            );
 
             $user->logActivity(
-                action: 'delete_store',
-                title: 'Store Deleted',
-                detail: "Store '{$store->store_name}' and all related products were deleted.",
-                meta: ['store_id' => $store->id]
+                'store_disabled',
+                'Store Disabled',
+                "Your store '{$store->store_name}' was disabled by an administrator.",
+                ['store_id' => $store->id]
             );
 
-            $user->sendNotification(
-                type: 'store',
-                title: 'Store Deleted',
-                content: "Your store '{$store->store_name}' and its products have been removed."
-            );
-
-
-            // delete the store itself
-            $store->delete();
-
-            // return response
-            return response()->json(['message' => 'Store and all related products deleted successfully.'], 200);
-        } catch (\Throwable $th) {
-            return response()->json([
-                'message' => 'An error occurred while deleting the store.',
-                'error' => $th->getMessage()
-            ], 500);
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Store Disabled by Administrator',
+                'Dear ' . $user->first_name . ', your store "' . $store->store_name .
+                    '" has been disabled by an administrator. If you believe this is an error, please contact support.'
+            ));
         }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'store_disabled',
+            'STORE',
+            "Admin {$admin->name} disabled {$user->first_name}'s store '{$store->store_name}' (ID: {$store->id}).",
+            ['store_id' => $store->id, 'user_id' => $store->user_id, 'staff_id' => $admin->staff_id]
+        );
+
+        return response()->json(['message' => 'Store disabled successfully.'], 200);
     }
 }

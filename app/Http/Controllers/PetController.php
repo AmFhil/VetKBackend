@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Pet;
 use App\Models\Pet_Owner;
+use App\Models\User;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -11,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 class PetController extends Controller
 {
+    use BroadcastsAdminEvents;
     // generate pet_id
     private function generatePetId($userId)
     {
@@ -74,12 +77,20 @@ class PetController extends Controller
         Cache::forget("user_pets_{$user->id}");
         Cache::forget("pet_{$pet->id}");
 
-        $user->logActivity('pet_created', 'Pet Created', "You added a new pet: {$pet->pet_name}", [
-            'pet_id' => $pet->id,
-        ]);
-        $user->sendNotification('pet', 'New Pet Added', "Your pet {$pet->pet_name} has been added.", [
-            'pet_id' => $pet->id,
-        ]);
+        $user->logActivity(
+            'pet_created',
+            'Pet Created',
+            "A new pet '{$pet->pet_name}' (ID: {$pet->pet_id}) was created by {$user->first_name}.",
+            ['pet_id' => $pet->id]
+        );
+
+        $user->sendNotification(
+            'pet',
+            'Pet Created',
+            "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been successfully added to your account.",
+            ['pet_id' => $pet->id]
+        );
+
 
         return response()->json(['message' => "A new pet created", 'pet' => $pet], 201);
     }
@@ -115,12 +126,20 @@ class PetController extends Controller
         Cache::forget("user_pets_{$user->id}");
         Cache::forget("pet_{$id}");
 
-        $user->logActivity('pet_updated', 'Pet Updated', "Pet {$pet->pet_name} updated.", [
-            'pet_id' => $pet->id,
-        ]);
-        $user->sendNotification('pet', 'Pet Updated', "Your pet {$pet->pet_name} has been updated.", [
-            'pet_id' => $pet->id,
-        ]);
+        $user->logActivity(
+            'pet_updated',
+            'Pet Updated',
+            "Pet '{$pet->pet_name}' (ID: {$pet->pet_id}) was updated by {$user->first_name}.",
+            ['pet_id' => $pet->id]
+        );
+
+        $user->sendNotification(
+            'pet',
+            'Pet Updated',
+            "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been updated successfully.",
+            ['pet_id' => $pet->id]
+        );
+
 
         return response()->json(['message' => "Pet {$pet->pet_id} updated successfully.", 'pet' => $pet]);
     }
@@ -192,12 +211,20 @@ class PetController extends Controller
             Cache::forget("user_pets_{$user->id}");
             Cache::forget("pet_{$id}");
 
-            $user->logActivity('pet_deleted', 'Pet Deleted', "Pet {$pet_name} deleted.", [
-                'pet_id' => $pet->id,
-            ]);
-            $user->sendNotification('pet', 'Pet Deleted', "Your pet {$pet_name} has been deleted.", [
-                'pet_id' => $pet->id,
-            ]);
+            $user->logActivity(
+                'pet_deleted',
+                'Pet Deleted',
+                "Pet '{$pet_name}' (ID: {$pet->pet_id}) was deleted by {$user->first_name}.",
+                ['pet_id' => $pet->id]
+            );
+
+            $user->sendNotification(
+                'pet',
+                'Pet Deleted',
+                "Your pet <strong>{$pet_name}</strong> (ID: {$pet->pet_id}) has been permanently deleted.",
+                ['pet_id' => $pet->id]
+            );
+
 
             return response()->json(['message' => 'Pet deleted successfully.'], 200);
         } catch (\Throwable $th) {
@@ -206,5 +233,52 @@ class PetController extends Controller
                 'error'   => $th->getMessage()
             ], 500);
         }
+    }
+
+    public function disablePet($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $pet = Pet::findOrFail($id);
+        $user = User::where('user_id', $pet->user_id)->exist();
+
+        if ($user) {
+            $pet->disabled = true;
+            $pet->save();
+            // Notify the user
+            $user->sendNotification(
+                'pet',
+                'Pet Disabled',
+                "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been disabled by an administrator. Please contact support for more details.",
+                ['pet_id' => $pet->id, 'user_id' => $user->id]
+            );
+
+            $user->logActivity(
+                'pet_disabled',
+                'Pet Disabled',
+                "Your pet '{$pet->pet_name}' (ID: {$pet->pet_id}) was disabled by an admin.",
+                ['pet_id' => $pet->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Pet Disabled by Administrator',
+                'Dear ' . $user->first_name . ', we regret to inform you that your pet "' . $pet->pet_name . '" (ID: ' . $pet->pet_id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
+            ));
+
+            // Admin-facing
+            $this->createAdminActivity(
+                $admin->id,
+                'pet_disabled',
+                'Pet Disabled',
+                "Admin {$admin->name} disabled pet '{$pet->pet_name}' (ID: {$pet->pet_id}) belonging to {$user->first_name}.",
+                ['pet_id' => $pet->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+            );
+        }
+
+        Cache::forget("user_pets_{$user->id}");
+        Cache::forget("pet_{$id}");
+
+        return response()->json(['message' => 'Pet disabled'], 200);
     }
 }
