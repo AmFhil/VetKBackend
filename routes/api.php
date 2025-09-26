@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminForumController;
 use App\Http\Controllers\Admin\AdminPromotionController;
 use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
@@ -210,6 +211,13 @@ Route::prefix('v3')->group(function () {
             });
             Route::post('/{id}/like', [ForumChatLikeController::class, 'toggleLike']);   // Like/Unlike
         });
+
+        Route::prefix('appointment')->group(function () {
+            Route::post('/', [AppointmentController::class, 'makeAppointment']);
+            Route::get('/{id}', [AppointmentController::class, 'getAppointment']);
+            Route::get('/{id}/cancel', [AppointmentController::class, 'cancelAppointment']);
+            Route::get('/{id}/complete', [AppointmentController::class, 'completeAppointment']);
+        });
     });
 
     // User must have an active subscription
@@ -282,6 +290,13 @@ Route::prefix('v3')->group(function () {
             Route::get('/search', [ForumChatController::class, 'searchForumChats']); // Search forums
             Route::get('forum-approvals', [AdminForumController::class, 'getForumApprovals']); // pending forums
         });
+
+        Route::get('/disable/{id}/store', [StoreController::class, 'disableStore']);
+        Route::get('/disable/{id}/case', [CaseModelController::class, 'disableCase']);
+        Route::get('/disable/{id}/clinic', [ClinicController::class, 'disableClinic']);
+        Route::get('/disable/{id}/farm', [FarmController::class, 'disableFarm']);
+        Route::get('/disable/{id}/product', [ProductsController::class, 'disableProduct']);
+        Route::get('/disable/{id}/pet', [PetController::class, 'disablePet']);
     });
 });
 
