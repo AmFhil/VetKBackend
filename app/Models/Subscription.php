@@ -40,7 +40,7 @@ class Subscription extends Model
 
     public function userSubscriptions(): HasMany
     {
-        return $this->hasMany(UserSubscription::class, 'subscription_id');
+        return $this->hasMany(UserSubscriptions::class, 'subscription_id');
     }
 
     /**

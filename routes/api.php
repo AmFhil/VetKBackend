@@ -6,7 +6,7 @@ use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminForumController;
 use App\Http\Controllers\Admin\AdminManageUserController;
 use App\Http\Controllers\Admin\AdminPromotionController;
-use App\Http\Controllers\AdminSubscriptionController;
+use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
@@ -14,6 +14,7 @@ use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
 use App\Http\Controllers\CaseModelController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\ContactUsController;
 use App\Http\Controllers\DirectMessageController;
@@ -39,7 +40,6 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VeterinaryClinicController;
 use App\Http\Controllers\VeterinaryDoctorController;
 use App\Http\Controllers\VeterinaryParaprofessionalController;
-use App\Models\AdsPromotion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -248,9 +248,9 @@ Route::prefix('v3')->group(function () {
     Route::post('admin/login', [AdminAuthController::class, 'adminLogin']);
 
     //  Admin routes
-    Route::middleware(['auth:admin',  'throttle:api'])->prefix('admin')->group(function () {
-        Route::post('/create-category', [\App\Http\Controllers\CategoryController::class, 'store']);
-        Route::get('/categories', [\App\Http\Controllers\CategoryController::class, 'adminCategories']);
+    Route::middleware(['auth:admin',  'throttle:api', 'token.expiry'])->prefix('admin')->group(function () {
+        Route::post('/create-category', [CategoryController::class, 'store']);
+        Route::get('/categories', [CategoryController::class, 'adminCategories']);
         Route::post('/blogs', [BlogChatController::class, 'addBlog']);
         Route::match(['post', 'patch'], '/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
         Route::delete('/delete-blog/{id}', [BlogChatController::class, 'delete']);
@@ -290,7 +290,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/promotion-users/{title}', [AdminPromotionController::class, 'getUsersByPromotion']);
         Route::post('/ads-promotions/activate', [AdminPromotionController::class, 'activatePromotion']);
         Route::post('/ads-promotions/deactivate', [AdminPromotionController::class, 'deactivatePromotion']);
-        
+
 
         Route::patch('plan/{id}/expire', [UserPromotionPlanController::class, 'expirePlan']);
 
@@ -311,7 +311,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/disable/{id}/pet', [PetController::class, 'disablePet']);
 
         Route::get('/logout', [AdminAuthController::class, 'adminLogout']);
-        Route::match(['post', 'patch'],'/update-details', [AdminAuthController::class, 'updateAdminDetails']);
+        Route::match(['post', 'patch'], '/update-details', [AdminAuthController::class, 'updateAdminDetails']);
 
         Route::get('get-count', [AdminAnalyticsController::class, 'adminGetUserCount']);
         Route::get('refresh-count-cache', [AdminAnalyticsController::class, 'refreshCountsCache']);
@@ -324,21 +324,21 @@ Route::prefix('v3')->group(function () {
         Route::get('get-all-veterinary-clinic', [AdminManageUserController::class, 'getAllVeterinaryClinics']);
 
         Route::get('search-veterinary-paraprofessionals', [AdminManageUserController::class, 'searchVeterinaryParaprofessionals']);
-        Route::get('search-veterinary-doctors', AdminManageUserController::class, 'searchVeterinaryDoctors');
-        Route::get('search-veterinary-clinics', AdminManageUserController::class, 'searchVeterinaryClinics');
+        Route::get('search-veterinary-doctors', [AdminManageUserController::class, 'searchVeterinaryDoctors']);
+        Route::get('search-veterinary-clinics', [AdminManageUserController::class, 'searchVeterinaryClinics']);
 
-        Route::get('get-vendor', AdminManageUserController::class, 'getVendor');
-        Route::get('get-other', AdminManageUserController::class, 'getOther');
-        Route::get('get-pet-owner', AdminManageUserController::class, 'getPetOwner');
-        Route::get('get-livestock-farmer', AdminManageUserController::class, 'getLifeStockFarmer');
-        Route::get('get-stores', AdminManageUserController::class, 'getStores');
-        Route::get('get-products', AdminManageUserController::class, 'getProducts');
-        Route::get('get-farms', AdminManageUserController::class, 'getFarms');
+        Route::get('get-vendor', [AdminManageUserController::class, 'getVendor']);
+        Route::get('get-other', [AdminManageUserController::class, 'getOther']);
+        Route::get('get-pet-owner', [AdminManageUserController::class, 'getPetOwner']);
+        Route::get('get-livestock-farmer', [AdminManageUserController::class, 'getLifeStockFarmer']);
+        Route::get('get-stores', [AdminManageUserController::class, 'getStores']);
+        Route::get('get-products', [AdminManageUserController::class, 'getProducts']);
+        Route::get('get-farms',[ AdminManageUserController::class, 'getFarms']);
         Route::get('get-pets', [AdminManageUserController::class, 'getPets']);
         Route::get('get-clinics', [AdminManageUserController::class, 'getClinics']);
 
-        Route::get('search-stores', AdminManageUserController::class, 'searchStores');
-        Route::get('search-products', AdminManageUserController::class, 'searchProducts');
+        Route::get('search-stores', [AdminManageUserController::class, 'searchStores']);
+        Route::get('search-products', [AdminManageUserController::class, 'searchProducts']);
         Route::get('search-clinics', [AdminManageUserController::class, 'searchClinics']);
 
         // Route::get('get-promotion-approvals', [AdminManageUserController::class, 'getPromotionApprovals']);

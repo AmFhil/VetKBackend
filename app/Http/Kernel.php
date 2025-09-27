@@ -26,7 +26,7 @@ class Kernel extends HttpKernel
     // Empty aliases—now in bootstrap/app.php
     protected $routeMiddleware = [
         // Keep custom ones if not aliased elsewhere
-        'token.expiry' => CheckTokenExpiry::class,
-        'subscription' => \App\Http\Middleware\CheckSubscription::class,
+        // 'token.expiry' => CheckTokenExpiry::class,
+        // 'subscription' => \App\Http\Middleware\CheckSubscription::class,
     ];
 }

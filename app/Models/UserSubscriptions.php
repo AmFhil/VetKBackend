@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Cache;
 
-class UserSubscription extends Model
+class UserSubscriptions extends Model
 {
     protected $table = 'user_subscriptions';
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Providers\BroadcastServiceProvider;
+use App\Providers\RateLimiterServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -75,5 +76,6 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withProviders([
         BroadcastServiceProvider::class,
+        RateLimiterServiceProvider::class
     ])
     ->create();

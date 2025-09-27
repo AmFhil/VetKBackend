@@ -23,8 +23,10 @@ class CheckTokenExpiry
         }
 
         // Refresh idle timeout → extend expiry 1h from now
-        $accessToken->expires_at = now()->addHours(1);
-        $accessToken->save();
+        if ($accessToken->expires_at && $accessToken->expires_at->diffInMinutes(now()) < 10) {
+            $accessToken->expires_at = now()->addHours(1);
+            $accessToken->save();
+        }
 
         return $next($request);
     }
