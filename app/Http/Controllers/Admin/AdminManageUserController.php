@@ -19,6 +19,7 @@ use App\Models\Farm;
 use App\Models\Pet;
 use App\Models\User;
 use App\Models\PromotionPlan;
+use App\Models\UserSubscriptions;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -370,7 +371,7 @@ class AdminManageUserController extends Controller
     {
         $this->guardAdmin();
 
-        $subscriptions = \App\Models\UserSubscription::with('user','subscription','user.profile','user.activeRole','user.activeRoleData','ratings')
+        $subscriptions = UserSubscriptions::with('user','subscription','user.profile','user.activeRole','user.activeRoleData','ratings')
             ->latest()
             ->paginate(10);
 

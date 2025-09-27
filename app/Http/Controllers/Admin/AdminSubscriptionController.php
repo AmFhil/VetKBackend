@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Subscription;
 use App\Models\User;
-use App\Models\UserSubscription;
+use App\Models\UserSubscriptions;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 
@@ -68,7 +69,7 @@ class AdminSubscriptionController extends Controller
         $perPage = 20;
 
 
-        $subscriptions =  UserSubscription::getUsersBySubscription($page, $perPage);
+        $subscriptions =  UserSubscriptions::getUsersBySubscription($page, $perPage);
 
 
         return response()->json($subscriptions);
@@ -82,7 +83,7 @@ class AdminSubscriptionController extends Controller
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $userSub = UserSubscription::findOrFail($id);
+        $userSub = UserSubscriptions::findOrFail($id);
         $userSub->update(['status' => 'cancelled']);
 
         $this->createAdminActivity(
@@ -165,7 +166,7 @@ class AdminSubscriptionController extends Controller
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => "Unauthorized"], 403);
 
-        $check = UserSubscription::where('subscription_id', $id)->first();
+        $check = UserSubscriptions::where('subscription_id', $id)->first();
 
         if ($check) {
             return response()->json([
@@ -198,7 +199,7 @@ class AdminSubscriptionController extends Controller
         $page = (int) request()->get('page', 1);
         $perPage = 10;
 
-        $subscriptions =  UserSubscription::getApprovalsCached($page, $perPage);
+        $subscriptions =  UserSubscriptions::getApprovalsCached($page, $perPage);
 
 
         $subscriptions->getCollection()->transform(function ($userSub) {
