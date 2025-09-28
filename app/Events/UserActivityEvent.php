@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\UserActivity;
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Queue\SerializesModels;
@@ -10,7 +11,7 @@ use Illuminate\Foundation\Events\Dispatchable;
 
 class UserActivityEvent implements ShouldBroadcast
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $activity;
 
@@ -21,7 +22,7 @@ class UserActivityEvent implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new PrivateChannel('user.' . $this->activity->user_id);
+        return new PrivateChannel('App.Models.User.' . $this->activity->user_id);
     }
 
     public function broadcastWith()

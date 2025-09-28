@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\UserNotification;
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Queue\SerializesModels;
@@ -10,7 +11,7 @@ use Illuminate\Foundation\Events\Dispatchable;
 
 class UserNotificationEvent implements ShouldBroadcast
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $notification;
 
@@ -22,7 +23,7 @@ class UserNotificationEvent implements ShouldBroadcast
     public function broadcastOn()
     {
         // Private channel per user
-        return new PrivateChannel('user.' . $this->notification->user_id);
+        return new PrivateChannel('App.Models.User.' . $this->notification->user_id);
     }
 
     public function broadcastWith()
