@@ -110,7 +110,7 @@ class VeterinaryClinicController extends Controller
             return $clinic;
         });
 
-        return response()->json(['clinics' => $clinics], 200);
+        return response()->json(['message' => "success", 'clinics' => $clinics], 200);
     }
 
     // get veterinary clinics base on search query
@@ -147,54 +147,27 @@ class VeterinaryClinicController extends Controller
     {
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
-        $radius = $request->input('radius', 10); // default to 10 km if not provided
 
         if (!$latitude || !$longitude) {
             return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
         }
 
-        // Haversine formula to calculate distance
-        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_clinic.latitude)) * cos(radians(veterinary_clinic.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_clinic.latitude))))";
-
-        $veterinaryClinics = VeterinaryClinic::join('users_registration', 'veterinary_clinic.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'veterinary_clinic.user_id', '=', 'rating.rateable_id')
-            ->leftJoin('profile', 'veterinary_clinic.user_id', '=', 'profile.user_id')
-            ->select(
-                'veterinary_clinic.id',
-                'veterinary_clinic.user_id',
-                'veterinary_clinic.name_of_clinic',
-                'veterinary_clinic.specialty',
-                'veterinary_clinic.list_them',
-                'veterinary_clinic.contact_num',
-                'veterinary_clinic.address',
-                'veterinary_clinic.longitude',
-                'veterinary_clinic.latitude',
-                'veterinary_clinic.role',
-                'veterinary_clinic.availability',
-                'users_registration.email',
-                'users_registration.first_name',
-                'users_registration.last_name',
-                'users_registration.phone_num',
-                'users_registration.state',
-                'users_registration.country',
-                'profile.profile_image',
-                'profile.id',
-                'profile.bio',
-                'profile.cover_page_image',
-                DB::raw('AVG(rating.rating) as average_rating'),
-                DB::raw("$haversine AS distance")
-            )
-            ->whereNotNull('veterinary_clinic.latitude')
-            ->whereNotNull('veterinary_clinic.longitude')
-            ->having('distance', '<=', $radius)
-            ->orderBy('distance', 'asc')
+        $veterinaryClinics = VeterinaryClinic::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image,bio,cover_page_image',
+            'ratings:id,rateable_id,rating,comment'
+        ])
+            ->where('is_approved', 1)
+            ->nearest($latitude, $longitude)
             ->paginate(10);
 
-        if ($veterinaryClinics === 0) {
-            return response()->json(['message' => 'No veterinary clinics found within the specified radius.'], 200);
-        }
+        // attach average rating
+        $veterinaryClinics->transform(function ($veterinaryClinic) {
+            $veterinaryClinic->average_rating = $veterinaryClinic->averageRating();
+            return $veterinaryClinic;
+        });
 
-        return response()->json(['veterinary_clinics' => $veterinaryClinics], 200);
+        return response()->json(['message' => 'success', 'veterinary_clinics' => $veterinaryClinics], 200);
     }
 
     // get veterinary clinic by id
@@ -243,7 +216,7 @@ class VeterinaryClinicController extends Controller
 
         $clinic->average_rating = $clinic->averageRating();
 
-        return response()->json(['veterinary_clinic' => $clinic], 200);
+        return response()->json(['message' => "success", 'veterinary_clinic' => $clinic], 200);
     }
 
     public function verify($id)
@@ -290,6 +263,6 @@ class VeterinaryClinicController extends Controller
             ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id, 'staff_id' => $admin->staff_id]
         );
 
-        return response()->json(['message' => 'Veterinary Clinic Verified']);
+        return response()->json(['message' => 'Veterinary Clinic Verified'], 200);
     }
 }

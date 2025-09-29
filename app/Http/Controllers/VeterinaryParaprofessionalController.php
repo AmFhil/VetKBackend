@@ -142,50 +142,30 @@ class VeterinaryParaprofessionalController extends Controller
     // get veterinary paraprofessional by longitude and latitude
     public function getVeterinaryParaprofessionalsByLocation(Request $request)
     {
-        $latitude = $request->input('latitude');
+         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
+
         if (!$latitude || !$longitude) {
-            return response()->json(['message' => 'Latitude and Longitude parameters are required.'], 400);
+            return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
         }
 
-        // Haversine formula to calculate distance
-        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_paraprofessional.latitude)) * cos(radians(veterinary_paraprofessional.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_paraprofessional.latitude))))";
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image,bio,cover_page_image',
+            'ratings:id,rateable_id,rating,comment'
+        ])
+            ->where('is_approved', 1)
+            ->nearest($latitude, $longitude)
+            ->paginate(10);
 
-        $veterinaryParaprofessionals = VeterinaryParaprofessional::join('users_registration', 'veterinary_paraprofessional.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'veterinary_paraprofessional.user_id', '=', 'rating.rateable_id')
-            ->leftJoin('profile', 'veterinary_paraprofessional.user_id', '=', 'profile.user_id')
-            ->select(
-                'veterinary_paraprofessional.id',
-                'veterinary_paraprofessional.user_id',
-                'veterinary_paraprofessional.name_of_institution',
-                'veterinary_paraprofessional.specialty',
-                'veterinary_paraprofessional.list_them',
-                'veterinary_paraprofessional.contact_num',
-                'veterinary_paraprofessional.address',
-                'veterinary_paraprofessional.longitude',
-                'veterinary_paraprofessional.latitude',
-                'veterinary_paraprofessional.role',
-                'veterinary_paraprofessional.availability',
-                'users_registration.email',
-                'users_registration.first_name',
-                'users_registration.last_name',
-                'users_registration.phone_num',
-                'users_registration.state',
-                'users_registration.country',
-                'profile.profile_image',
-                'profile.id',
-                'profile.bio',
-                'profile.cover_page_image',
-                DB::raw('AVG(rating.rating) as average_rating'),
-                DB::raw("$haversine AS distance")
-            )
-            ->whereNotNull('veterinary_paraprofessional.latitude')
-            ->whereNotNull('veterinary_paraprofessional.longitude')
-            ->orderBy('distance', 'asc')
-            ->limit(10)
-            ->get();
+        // attach average rating
+        $veterinaryParaprofessionals->transform(function ($paraprofessional) {
+            $paraprofessional->average_rating = $paraprofessional->averageRating();
+            return $paraprofessional;
+        });
 
-        return response()->json(['veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
+
+        return response()->json(['message' => 'success', 'veterinary_paraprofessionals' => $veterinaryParaprofessionals], 200);
     }
 
     // get veterinary paraprofessional by id
@@ -214,7 +194,7 @@ class VeterinaryParaprofessionalController extends Controller
 
 
         // return veterinary paraprofessional
-        return response()->json(['veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
+        return response()->json(['message' => "success", 'veterinary_paraprofessional' => $veterinaryParaprofessional], 200);
     }
 
     public function verify($id)
@@ -261,6 +241,6 @@ class VeterinaryParaprofessionalController extends Controller
             ['paraprofessional_id' => $paraprofessional->id, 'user_id' => $paraprofessional->user_id, 'staff_id' => $admin->staff_id]
         );
 
-        return response()->json(['message' => 'Veterinary Paraprofessional Verified']);
+        return response()->json(['message' => 'Veterinary Paraprofessional Verified'], 200);
     }
 }

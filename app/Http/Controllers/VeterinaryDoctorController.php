@@ -108,7 +108,7 @@ class VeterinaryDoctorController extends Controller
             return $doctor;
         });
 
-        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+        return response()->json(['message' => "success", 'veterinary_doctors' => $veterinaryDoctors], 200);
     }
 
     // get veterinary doctor base on search query
@@ -135,7 +135,7 @@ class VeterinaryDoctorController extends Controller
             return $doctor;
         });
 
-        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+        return response()->json(['message' => "success", 'veterinary_doctors' => $veterinaryDoctors], 200);
     }
 
     // get veterinary doctor by longitude and latitude
@@ -143,50 +143,30 @@ class VeterinaryDoctorController extends Controller
     {
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
+
         if (!$latitude || !$longitude) {
             return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
         }
 
-        // Haversine formula to calculate distance
-        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_doctor.latitude)) * cos(radians(veterinary_doctor.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_doctor.latitude))))";
+        $doctors = VeterinaryDoctor::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image,bio,cover_page_image',
+            'ratings:id,rateable_id,rating,comment'
+        ])
+            ->where('is_approved', 1)
+            ->nearest($latitude, $longitude)
+            ->paginate(10);
 
-        $veterinaryDoctors = DB::table('veterinary_doctor')
-            ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rateable_id')
-            ->leftJoin('profile', 'veterinary_doctor.user_id', '=', 'profile.user_id')
-            ->select(
-                'veterinary_doctor.id',
-                'veterinary_doctor.user_id',
-                'veterinary_doctor.specialty',
-                'veterinary_doctor.list_them',
-                'veterinary_doctor.address',
-                'veterinary_doctor.longitude',
-                'veterinary_doctor.latitude',
-                'veterinary_doctor.role',
-                'veterinary_doctor.availability',
-                'users_registration.email',
-                'users_registration.first_name',
-                'users_registration.last_name',
-                'users_registration.phone_num',
-                'users_registration.state',
-                'users_registration.country',
-                'profile.profile_image',
-                'profile.bio',
-                'profile.id',
-                'profile.cover_page_image',
-                DB::raw('AVG(rating.rating) as average_rating'),
-                DB::raw("$haversine AS distance")
-            )
-            ->whereNotNull('veterinary_doctor.latitude')
-            ->whereNotNull('veterinary_doctor.longitude')
-            ->orderBy('distance', 'asc')
-            ->limit(10)
-            ->get();
+        // attach average rating
+        $doctors->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
 
-        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+        return response()->json(['message' => "success", 'veterinary_doctors' => $doctors], 200);
     }
 
-    // get veterinary doctor by id
+
     // get veterinary doctor by id
     public function getVeterinaryDoctorById($id)
     {
@@ -284,6 +264,6 @@ class VeterinaryDoctorController extends Controller
             ['doctor_id' => $doctor->id, 'user_id' => $doctor->user_id, 'staff_id' => $admin->staff_id]
         );
 
-        return response()->json(['message' => 'Veterinary Doctor Verified']);
+        return response()->json(['message' => 'Veterinary Doctor Verified'], 200);
     }
 }

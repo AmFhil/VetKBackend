@@ -45,4 +45,17 @@ class VeterinaryParaprofessional extends Model
     {
         return round($this->ratings()->avg('rating') ?? 0, 1);
     }
+
+    public function scopeNearest($query, float $latitude, float $longitude)
+    {
+        $haversine = "(6371 * acos(cos(radians(?))
+                    * cos(radians(latitude))
+                    * cos(radians(longitude) - radians(?))
+                    + sin(radians(?))
+                    * sin(radians(latitude))))";
+
+        return $query->select('veterinary_paraprofessional.*')
+            ->selectRaw("$haversine as distance", [$latitude, $longitude, $latitude])
+            ->orderBy('distance', 'asc');
+    }
 }

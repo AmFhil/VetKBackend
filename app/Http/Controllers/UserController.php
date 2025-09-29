@@ -177,47 +177,40 @@ class UserController extends Controller
     }
 
     // use long and lati to get nearest veterinary doctor
+    // In VeterinaryDoctorController.php
     public function getNearestVeterinaryDoctor(Request $request)
     {
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
+        $page = (int) $request->input('page', 1);
+
         if (!$latitude || !$longitude) {
             return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
         }
 
-        // Haversine formula to calculate distance
-        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(veterinary_doctor.latitude)) * cos(radians(veterinary_doctor.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(veterinary_doctor.latitude))))";
+        // Apply auth if page > 1
+        if ($page > 1 && !auth('sanctum')->check()) {
+            return response()->json(['message' => 'Unauthorized. Please log in.'], 401);
+        }
 
-        $veterinaryDoctors = DB::table('veterinary_doctor')
-            ->join('users_registration', 'veterinary_doctor.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'veterinary_doctor.user_id', '=', 'rating.rateable_id')
-            ->select(
-                'veterinary_doctor.id',
-                'veterinary_doctor.user_id',
-                'veterinary_doctor.specialty',
-                'veterinary_doctor.list_them',
-                'veterinary_doctor.address',
-                'veterinary_doctor.longitude',
-                'veterinary_doctor.latitude',
-                'veterinary_doctor.role',
-                'veterinary_doctor.availability',
-                'users_registration.email',
-                'users_registration.first_name',
-                'users_registration.last_name',
-                'users_registration.phone_num',
-                'users_registration.state',
-                'users_registration.country',
-                DB::raw('AVG(rating.rating) as average_rating'),
-                DB::raw("$haversine AS distance")
-            )
-            ->whereNotNull('veterinary_doctor.latitude')
-            ->whereNotNull('veterinary_doctor.longitude')
-            ->orderBy('distance', 'asc')
-            ->limit(5)
-            ->get();
+        $doctors = VeterinaryDoctor::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image,bio,cover_page_image',
+            'ratings:id,rateable_id,rating,comment'
+        ])
+            ->where('is_approved', 1)
+            ->nearest($latitude, $longitude)
+            ->paginate(5);
 
-        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+        $doctors->getCollection()->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
+
+        return response()->json(['message' => 'success', 'veterinary_doctors' => $doctors], 200);
     }
+
+
 
     // get nearest location by search
     public function searchLocation(Request $request)
@@ -239,7 +232,7 @@ class UserController extends Controller
             return $doctor;
         });
 
-        return response()->json(['veterinary_doctors' => $veterinaryDoctors], 200);
+        return response()->json(['message' => 'success', 'veterinary_doctors' => $veterinaryDoctors], 200);
     }
 
     //update profile
@@ -483,7 +476,7 @@ class UserController extends Controller
 
 
 
-        return response()->json(['message' => 'Profile updated successfully']);
+        return response()->json(['message' => 'Profile updated successfully'], 200);
     }
 
     public function secureEndpoint($email): JsonResponse
@@ -503,7 +496,8 @@ class UserController extends Controller
     }
 
     // get user activity
-    public function getUserActivity(){
+    public function getUserActivity()
+    {
         $user = Auth::user();
 
         $userActivity = UserActivity::where('user_id', $user->id)
@@ -514,7 +508,8 @@ class UserController extends Controller
     }
 
     // get user notification
-    public function getUserNotification(){
+    public function getUserNotification()
+    {
         $user = Auth::user();
 
         $userNotification = UserNotification::where('user_id', $user->id)
