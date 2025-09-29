@@ -187,6 +187,8 @@ Route::prefix('v3')->group(function () {
         Route::match(['post', 'patch'], '/messages/{id}/edit', [DirectMessageController::class, 'edit']);
         Route::delete('/messages/{id}/delete', [DirectMessageController::class, 'destroy']);
         Route::patch('/messages/{id}/flag', [DirectMessageController::class, 'flag']);
+        Route::get('/message/sent', [DirectMessageController::class, 'getAllSentMessage']);
+        Route::get('/message/received', [DirectMessageController::class, 'getAllReceivedMessage']);
 
         Route::get('/get-user-activity', [UserController::class, 'getUserActivity']);
         Route::get('/get-user-notification', [UserController::class, 'getUserNotification']);
