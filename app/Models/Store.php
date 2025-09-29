@@ -26,6 +26,10 @@ class Store extends Model
         'latitude',
     ];
 
+    protected $casts = [
+        'availability' => 'boolean',
+    ];
+
     protected $appends = ['picture_url'];
 
     public function getPictureUrlAttribute()
@@ -52,5 +56,18 @@ class Store extends Model
     public function products()
     {
         return $this->hasMany(Products::class, 'store_id');
+    }
+
+    public function scopeNearest($query, float $latitude, float $longitude)
+    {
+        $haversine = "(6371 * acos(cos(radians(?))
+                    * cos(radians(latitude))
+                    * cos(radians(longitude) - radians(?))
+                    + sin(radians(?))
+                    * sin(radians(latitude))))";
+
+        return $query->select('store.*')
+            ->selectRaw("$haversine as distance", [$latitude, $longitude, $latitude])
+            ->orderBy('distance', 'asc');
     }
 }

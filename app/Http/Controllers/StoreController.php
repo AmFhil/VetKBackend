@@ -19,22 +19,27 @@ class StoreController extends Controller
     //
     public function addNewStore(Request $request)
     {
+        $request->merge([
+            'availability' => filter_var($request->availability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+        ]);
+
         // validate the request
         $request->validate([
-            'user_id' => 'required|exists:users_registration,id',
             'role' => 'required|string|in:Vendor',
             'store_name' => 'required|string|unique:store,store_name|max:100',
             'email' => 'required|email|unique:store,email|max:100',
             'phone_number' => 'required|string',
             'location' => 'required|string|max:255',
             'picture' => 'required|image|mimes:jpeg,png,jpg,svg|max:2048',
-            'availability' => 'required|in:true,false',
+            'availability' => 'required|boolean',
             'longitude' => 'required|string|max:50',
             'latitude' => 'required|string|max:50',
+        ], [
+            'role.in' => 'Only vendors are allowed to create stores.',
         ]);
 
         // check if user is authenticated
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         };
@@ -82,20 +87,24 @@ class StoreController extends Controller
         return response()->json(['message' => 'Store created successfully.', 'store' => $store], 200);
     }
 
-   public function updateStore(Request $request, $id)
+    public function updateStore(Request $request, $id)
     {
+        $request->merge([
+            'availability' => filter_var($request->availability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+        ]);
+
         $request->validate([
             'store_name'   => 'sometimes|string|unique:store,store_name,' . $id . '|max:100',
             'email'        => 'sometimes|email|unique:store,email,' . $id . '|max:100',
             'phone_number' => 'sometimes|string',
             'location'     => 'sometimes|string|max:255',
             'picture'      => 'sometimes|image|mimes:jpeg,png,jpg,svg|max:2048',
-            'availability' => 'sometimes|in:true,false',
+            'availability' => 'sometimes|boolean',
             'longitude'    => 'sometimes|string|max:50',
             'latitude'     => 'sometimes|string|max:50',
         ]);
 
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
 
         $store = Store::findOrFail($id);
@@ -112,8 +121,13 @@ class StoreController extends Controller
         }
 
         $store->fill($request->only([
-            'store_name', 'email', 'phone_number', 'location',
-            'availability', 'longitude', 'latitude'
+            'store_name',
+            'email',
+            'phone_number',
+            'location',
+            'availability',
+            'longitude',
+            'latitude'
         ]));
         $store->updated_at = Carbon::now();
         $store->save();
@@ -140,7 +154,7 @@ class StoreController extends Controller
     public function getVendorStores()
     {
         // check if user is authenticated
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         };
@@ -164,7 +178,7 @@ class StoreController extends Controller
     public function getStoreByUserId($user_id)
     {
         // check if user is authenticated
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         };
@@ -217,49 +231,27 @@ class StoreController extends Controller
     {
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
+
         if (!$latitude || !$longitude) {
             return response()->json(['message' => 'Latitude and Longitude are required.'], 400);
         }
 
-        // Haversine formula to calculate distance
-        $haversine = "(6371 * acos(cos(radians($latitude)) * cos(radians(store.latitude)) * cos(radians(store.longitude) - radians($longitude)) + sin(radians($latitude)) * sin(radians(store.latitude))))";
+        $store = Store::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image,bio,cover_page_image',
+            'ratings:id,rateable_id,rating,comment'
+        ])
+            ->where('is_approved', 1)
+            ->nearest($latitude, $longitude)
+            ->paginate(10);
 
-        $store = DB::table('store')
-            ->join('users_registration', 'store.user_id', '=', 'users_registration.id')
-            ->leftJoin('rating', 'store.user_id', '=', 'rating.rateable_id')
-            ->leftJoin('profile', 'store.user_id', '=', 'profile.user_id')
-            ->select(
-                'store.id',
-                'store.user_id',
-                'store.role',
-                'store.store_name',
-                'store.email',
-                'store.longitude',
-                'store.latitude',
-                'store.phone_number',
-                'store.location',
-                'store.picture',
-                'store.availability',
-                'users_registration.email',
-                'users_registration.first_name',
-                'users_registration.last_name',
-                'users_registration.phone_num',
-                'users_registration.state',
-                'users_registration.country',
-                'profile.profile_image',
-                'profile.bio',
-                'profile.id',
-                'profile.cover_page_image',
-                DB::raw('AVG(rating.rating) as average_rating'),
-                DB::raw("$haversine AS distance")
-            )
-            ->whereNotNull('store.latitude')
-            ->whereNotNull('store.longitude')
-            ->orderBy('distance', 'asc')
-            ->limit(10)
-            ->get();
+        // attach average rating
+        $store->transform(function ($doctor) {
+            $doctor->average_rating = $doctor->averageRating();
+            return $doctor;
+        });
 
-        return response()->json(['store' => $store], 200);
+        return response()->json(['message' => 'success', 'store' => $store], 200);
     }
 
     // delete store

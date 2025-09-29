@@ -19,27 +19,38 @@ class ProductsController extends Controller
     private function handleImageUpload(Request $request, Products $product = null)
     {
         $images = [];
-        foreach (['image1', 'image2', 'image3', 'image4'] as $imageField) {
-            if ($request->hasFile($imageField)) {
-                // Delete old image if updating
-                if ($product && $product->$imageField) {
-                    Storage::disk('public')->delete($product->$imageField);
+
+        // If new images are uploaded
+        if ($request->hasFile('images')) {
+            // Delete old images if updating
+            if ($product && $product->images) {
+                foreach ($product->images as $oldImage) {
+                    Storage::disk('public')->delete($oldImage);
                 }
-                $images[$imageField] = $request->file($imageField)->store('product_images', 'public');
-            } elseif ($product) {
-                $images[$imageField] = $product->$imageField; // retain old if not updating
             }
+
+            // Store new images
+            foreach ($request->file('images') as $image) {
+                $images[] = $image->store('product_images', 'public');
+            }
+        } elseif ($product) {
+            // Retain old images if no new ones uploaded
+            $images = $product->images ?? [];
         }
-        return $images ?? [];
+
+        return $images;
     }
+
+
+
 
     private function generateProductId($userId)
     {
-        $farmCount = Products::where('user_id', $userId)->count();
+        $productCount = Products::where('user_id', $userId)->count();
         $randomNumber = mt_rand(100000, 999999);
-        $letter = chr(97 + $farmCount);
+        $letter = chr(97 + $productCount);
 
-        return "FM{$randomNumber}{$letter}";
+        return "PT{$randomNumber}{$letter}";
     }
 
 
@@ -47,6 +58,10 @@ class ProductsController extends Controller
     public function addNewProduct(Request $request)
     {
         try {
+            $request->merge([
+                'availability' => filter_var($request->availability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            ]);
+
             $request->validate([
                 'store_id' => 'nullable|exists:store,id',
                 'product_name' => 'required|string|max:100',
@@ -56,10 +71,8 @@ class ProductsController extends Controller
                 'price' => 'required|numeric|min:0',
                 'tags'   => 'required|array',
                 'tags.*' => 'string|max:50',
-                'image1' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-                'image2' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-                'image3' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-                'image4' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+                'images' => 'required|array',
+                'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
                 'availability' => 'required|boolean',
                 'available_unit' => 'required|integer|min:0',
             ]);
@@ -72,33 +85,12 @@ class ProductsController extends Controller
             // Check if user is a vendor
             $isVendor = Vendor::where('user_id', $user->id)->exists();
 
-            // Upload images
-            // $image1Name = $request->file('image1')->store('product_images', 'public');
-            // $image2Name = $request->file('image2')?->store('product_images', 'public');
-            // $image3Name = $request->file('image3')?->store('product_images', 'public');
-            // $image4Name = $request->file('image4')?->store('product_images', 'public');
 
             $images = $this->handleImageUpload($request);
+
             $productId = $this->generateProductId($user->id);
 
-            // Create new product
-            // $product = Products::create([
-            //     'user_id' => $user->id, // always take from auth
-            //     'store_id' => $request->store_id,
-            //     'product_type' => $isVendor ? 1 : 0,
-            //     'product_name' => $request->product_name,
-            //     'category' => $request->category,
-            //     'description' => $request->description,
-            //     'location' => $request->location,
-            //     'price' => $request->price,
-            //     'image1' => $image1Name,
-            //     'image2' => $image2Name,
-            //     'image3' => $image3Name,
-            //     'image4' => $image4Name,
-            //     'availability' => $request->availability,
-            //     'available_unit' => $request->available_unit,
-            // ]);
-            $product = Products::create(array_merge([
+            $product = Products::create([
                 'user_id' => $user->id,
                 'store_id' => $request->store_id,
                 'product_id' => $productId,
@@ -110,7 +102,8 @@ class ProductsController extends Controller
                 'price' => $request->price,
                 'availability' => $request->availability,
                 'available_unit' => $request->available_unit,
-            ], $images));
+                'images' => $images,
+            ]);
 
             if ($request->has('tags')) {
                 $tags = collect($request->tags)->map(function ($tag) {
@@ -151,6 +144,10 @@ class ProductsController extends Controller
     public function updateProduct(Request $request, $id)
     {
         try {
+            $request->merge([
+                'availability' => filter_var($request->availability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            ]);
+
             $request->validate([
                 'product_name' => 'sometimes|string|max:100',
                 'category' => 'sometimes|string|max:100',
@@ -159,10 +156,8 @@ class ProductsController extends Controller
                 'price' => 'sometimes|numeric|min:0',
                 'tags'   => 'sometimes|nullable|array',
                 'tags.*' => 'string|max:50',
-                'image1' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
-                'image2' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
-                'image3' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
-                'image4' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
+                'images' => 'sometimes|array',
+                'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
                 'availability' => 'sometimes|boolean',
                 'available_unit' => 'sometimes|integer|min:0',
             ]);
@@ -177,32 +172,12 @@ class ProductsController extends Controller
                 return response()->json(['message' => 'Product not found.'], 404);
             }
 
-            // Only the owner of the product can update
             if ($product->user_id !== $user->id) {
                 return response()->json(['message' => 'You are not authorized to update this product.'], 403);
             }
 
-            // Handle image replacements
-            // foreach (['image1', 'image2', 'image3', 'image4'] as $imageField) {
-            //     if ($request->hasFile($imageField)) {
-            //         if ($product->$imageField) {
-            //             Storage::disk('public')->delete($product->$imageField);
-            //         }
-            //         $product->$imageField = $request->file($imageField)->store('product_images', 'public');
-            //     }
-            // }
-
+            // Handle images: delete old ones if replaced, keep if not
             $images = $this->handleImageUpload($request, $product);
-
-            // Update other fields
-            // $fields = ['product_name', 'category', 'description', 'location', 'price', 'availability', 'available_unit'];
-            // foreach ($fields as $field) {
-            //     if ($request->has($field)) {
-            //         $product->$field = $request->$field;
-            //     }
-            // }
-
-
 
             $product->update(array_merge($request->only([
                 'product_name',
@@ -212,26 +187,26 @@ class ProductsController extends Controller
                 'price',
                 'availability',
                 'available_unit'
-            ]), $images));
+            ]), [
+                'images' => $images
+            ]));
 
             if ($request->has('tags')) {
                 $tags = collect($request->tags)->map(function ($tag) {
                     return Tag::firstOrCreate(['name' => $tag])->id;
                 });
-
                 $product->tags()->sync($tags);
             }
+
             $product->touch();
 
-            $product->save();
-
-            // clear related caches
+            // Clear caches
             Cache::forget("product_{$product->id}");
             Cache::forget("products_by_user_{$user->id}");
             Cache::forget("products_by_store_{$product->store_id}");
             Cache::forget("related_products_{$product->id}");
 
-            //  Log activity
+            // Log & notify
             $user->logActivity(
                 'product_updated',
                 'Product Updated',
@@ -246,12 +221,15 @@ class ProductsController extends Controller
                 ['product_id' => $product->id]
             );
 
-
             return response()->json(['message' => 'Product updated successfully.', 'product' => $product], 200);
         } catch (\Throwable $th) {
-            return response()->json(['message' => 'An error occurred while updating the product.', 'error' => $th->getMessage()], 500);
+            return response()->json([
+                'message' => 'An error occurred while updating the product.',
+                'error' => $th->getMessage()
+            ], 500);
         }
     }
+
 
     //delete product
     public function deleteProduct($id)
@@ -271,11 +249,9 @@ class ProductsController extends Controller
                 return response()->json(['message' => 'You are not authorized to delete this product.'], 403);
             }
 
-            // Delete stored images
-            foreach (['image1', 'image2', 'image3', 'image4'] as $imageField) {
-                if ($product->$imageField) {
-                    Storage::disk('public')->delete($product->$imageField);
-                }
+            // Delete stored images (all paths from array)
+            foreach ($product->images ?? [] as $path) {
+                Storage::disk('public')->delete($path);
             }
 
             $name = $product->product_name;
@@ -289,7 +265,7 @@ class ProductsController extends Controller
             Cache::forget("products_by_store_{$product->store_id}");
             Cache::forget("related_products_{$product->id}");
 
-            //  Log activity
+            // Log activity
             $user->logActivity(
                 'product_deleted',
                 'Product Deleted',
@@ -304,12 +280,15 @@ class ProductsController extends Controller
                 ['product_id' => $id]
             );
 
-
             return response()->json(['message' => 'Product deleted successfully.'], 200);
         } catch (\Throwable $th) {
-            return response()->json(['message' => 'An error occurred while deleting the product.', 'error' => $th->getMessage()], 500);
+            return response()->json([
+                'message' => 'An error occurred while deleting the product.',
+                'error' => $th->getMessage()
+            ], 500);
         }
     }
+
 
     // get products by store
     public function getProductsByStore($store_id)
@@ -502,7 +481,7 @@ class ProductsController extends Controller
                 'Product Disabled',
                 "Admin {$admin->name} disabled product '{$product->product_name}' (ID: {$product->product_id}) belonging to {$user->first_name}.",
                 ['product_id' => $product->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
-            ); 
+            );
         }
 
         Cache::forget("product_{$product->id}");
@@ -513,7 +492,8 @@ class ProductsController extends Controller
         return response()->json(['message' => 'Product disabled'], 200);
     }
 
-    public function getProductById($id){
+    public function getProductById($id)
+    {
         try {
             $user = auth()->user();
             if (!$user) {

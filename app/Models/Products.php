@@ -12,15 +12,13 @@ class Products extends Model
     protected $fillable = [
         'user_id',
         'store_id',
+        'product_id',
         'product_name',
         'category',
         'description',
         'location',
         'price',
-        'image1',
-        'image2',
-        'image3',
-        'image4',
+        'images',
         'availability',
         'available_unit',
         'is_featured',
@@ -33,28 +31,16 @@ class Products extends Model
         'is_featured' => 'boolean',
         'is_verified' => 'boolean',
         'price' => 'decimal:2',
+        'images' => 'array'
     ];
 
-    protected $appends = ['image1_url', 'image2_url', 'image3_url', 'image4_url'];
+    protected $appends = ['images_url'];
 
-    public function getImage1UrlAttribute()
+    public function getImagesUrlAttribute()
     {
-        return $this->image1 ? Storage::url($this->image1_url) : null;
-    }
-
-    public function getImage2UrlAttribute()
-    {
-        return $this->image2 ? Storage::url($this->image2_url) : null;
-    }
-
-    public function getImage3UrlAttribute()
-    {
-        return $this->image3 ? Storage::url($this->image3_url) : null;
-    }
-
-    public function getImage4UrlAttribute()
-    {
-        return $this->image4 ? Storage::url($this->image4_url) : null;
+        return collect($this->images ?? [])
+            ->map(fn($image) => Storage::url($image))
+            ->toArray();
     }
 
     public function store()
@@ -80,7 +66,7 @@ class Products extends Model
 
     public function tags()
     {
-        return $this->belongsToMany(Tag::class, 'product_tag')
+        return $this->belongsToMany(Tag::class, 'product_tag', 'product_id', 'tag_id')
             ->withTimestamps();
     }
 }
