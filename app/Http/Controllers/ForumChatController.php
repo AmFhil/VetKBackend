@@ -26,6 +26,7 @@ class ForumChatController extends Controller
             'content'  => 'required|string',
             'images'   => 'nullable|array',
             'images.*' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+            'visibility' => 'sometimes|string|in:everyone,veterinary_doctors,veterinary_clinics,veterinary_paraprofessionals,pet_owner/livestock_farmer,vendor,students'
         ]);
 
         $imagePaths = [];
@@ -42,6 +43,7 @@ class ForumChatController extends Controller
             'content'   => $validated['content'],
             'images'    => $imagePaths,
             'status'    => 'archived',
+            'visibility' => $validated['visibility'] ?? 'everyone'
         ]);
 
         try {
@@ -166,6 +168,7 @@ class ForumChatController extends Controller
             'content'  => 'sometimes|string',
             'images'   => 'nullable|array',
             'images.*' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+            'visibility' => 'sometimes|string|in:everyone,veterinary_doctors,veterinary_clinics,veterinary_paraprofessionals,pet_owner/livestock_farmer,vendor,students'
         ]);
 
         $imagePaths = $forum->images ?? [];
@@ -184,6 +187,7 @@ class ForumChatController extends Controller
             'title'   => $validated['title'] ?? $forum->title,
             'content' => $validated['content'] ?? $forum->content,
             'images'  => $imagePaths,
+            'visibility' => $validated['visibility'] ?? $forum->visibility
         ]);
 
         $user->logActivity('forum_updated', "Updated forum '{$forum->title}'", null, ['forum_id' => $forum->id]);
@@ -274,5 +278,26 @@ class ForumChatController extends Controller
         Cache::forget("forum_show_{$forum->slug}");
 
         return response()->json(['message' => 'Share recorded']);
+    }
+
+    // get forums through visibility
+    public function getForumsByVisibility($visibility){
+        $user = auth()->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $forums = ForumChat::where('status', 'published')
+            ->where('visibility', $visibility)
+            ->with([
+                'user' => function ($morph) {
+                    $morph->morphWith([
+                        \App\Models\User::class  => ['profile', 'activeRole'],
+                        \App\Models\Admin::class => [],
+                    ]);
+                }
+            ])
+            ->latest()
+            ->paginate(10);
+
+        return response()->json($forums, 200);
     }
 }
