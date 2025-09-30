@@ -21,6 +21,14 @@ return [
 
     'allowed_origins' => ['*'],
 
+    'allowed_origins' => ['*'],
+    // 'allowed_origins' => [
+    //     'https://nextjs-frontend-beta-drab.vercel.app',
+    //     'https://vetkonect.text.dev.vetkonect.com',
+    //     'http://localhost:3000',
+    //     'http://localhost:3001',
+    // ],
+
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],

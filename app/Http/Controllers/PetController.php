@@ -54,8 +54,10 @@ class PetController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $petOwner = Pet_Owner::where('user_id', $user->id)->exists();
-        if (!$petOwner) {
+        $isPetOwner = $user->activeRole && $user->activeRole->role === 'pet_owner';
+        $isOther = $user->activeRole && $user->activeRole->role === 'others';
+
+        if (!($isPetOwner || $isOther)) {
             return response()->json(['message' => 'You are not authorized to create a pet'], 403);
         }
 

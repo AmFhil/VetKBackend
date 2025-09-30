@@ -63,7 +63,7 @@ class ProductsController extends Controller
             ]);
 
             $request->validate([
-                'store_id' => 'nullable|exists:store,id',
+                'store_id' => 'required|exists:store,id',
                 'product_name' => 'required|string|max:100',
                 'category' => 'required|string|max:100',
                 'description' => 'required|string|max:1000',
@@ -77,7 +77,7 @@ class ProductsController extends Controller
                 'available_unit' => 'required|integer|min:0',
             ]);
 
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
@@ -162,7 +162,7 @@ class ProductsController extends Controller
                 'available_unit' => 'sometimes|integer|min:0',
             ]);
 
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
@@ -294,7 +294,7 @@ class ProductsController extends Controller
     public function getProductsByStore($store_id)
     {
         try {
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
@@ -323,7 +323,7 @@ class ProductsController extends Controller
     public function getProductByUserId($user_id)
     {
         try {
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }

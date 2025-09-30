@@ -25,7 +25,7 @@ class StoreController extends Controller
 
         // validate the request
         $request->validate([
-            'role' => 'required|string|in:Vendor',
+            'role' => 'required|string|in:vendor,pet_owner,others,livestock_owner,veterinary_doctor,veterinary_clinic,veterinary_paraprofessional',
             'store_name' => 'required|string|unique:store,store_name|max:100',
             'email' => 'required|email|unique:store,email|max:100',
             'phone_number' => 'required|string',
@@ -34,8 +34,8 @@ class StoreController extends Controller
             'availability' => 'required|boolean',
             'longitude' => 'required|string|max:50',
             'latitude' => 'required|string|max:50',
-        ], [
-            'role.in' => 'Only vendors are allowed to create stores.',
+        ],[
+            'role.in' => 'The selected role is invalid. Valid roles are: vendor, pet owner, other, livestock owner, veterinary doctor, veterinary clinic, veterinary paraprofessional.'
         ]);
 
         // check if user is authenticated
@@ -43,13 +43,6 @@ class StoreController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         };
-
-        // check if role is vendor
-        $vendor = Vendor::where('user_id', $user->id)->exists();
-
-        if (!$vendor) {
-            return response()->json(['message' => 'You can not create a store'], 403);
-        }
 
         // upload picture
         $imageName = $request->file('picture')->store('store_pictures', 'public');

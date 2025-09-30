@@ -7,6 +7,7 @@ use App\Models\Clinic;
 use App\Models\User;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
+use App\Models\VeterinaryParaprofessional;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,6 +20,10 @@ class ClinicController extends Controller
 
     public function addNewClinic(Request $request)
     {
+        $request->merge([
+            'availability' => filter_var($request->availability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+        ]);
+
         $request->validate([
             'license_number'   => 'required|string|max:50',
             'clinic_name'      => 'required|string|max:50',
@@ -37,10 +42,11 @@ class ClinicController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $isVeterinaryClinic = VeterinaryClinic::where('user_id', $user->id)->exists();
-        $isVeterinaryDoctor = VeterinaryDoctor::where('user_id', $user->id)->exists();
+        $isVeterinaryClinic = $user->activeRole && $user->activeRole->role === 'veterinary_clinic';
+        $isVeterinaryDoctor = $user->activeRole && $user->activeRole->role === 'veterinary_doctor';
+        $isVeterinaryParaprofessional = $user->activeRole && $user->activeRole->role === 'veterinary_paraprofessional';
 
-        if (!($isVeterinaryClinic || $isVeterinaryDoctor)) {
+        if (!($isVeterinaryClinic || $isVeterinaryDoctor || $isVeterinaryParaprofessional)) {
             return response()->json(['message' => 'You are not authorized to create a clinic'], 403);
         }
 
@@ -106,6 +112,10 @@ class ClinicController extends Controller
 
     public function updateClinic(Request $request, $id)
     {
+        $request->merge([
+            'availability' => filter_var($request->availability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+        ]);
+
         $request->validate([
             'license_number'   => 'sometimes|string|max:50',
             'clinic_name'      => 'sometimes|string|max:50',

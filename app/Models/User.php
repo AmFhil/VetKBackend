@@ -200,6 +200,16 @@ class User extends Authenticatable
             $user->subscription()->delete();
             $user->sentMessages()->delete();
             $user->receivedMessages()->delete();
+            $user->profile()->delete();
+            $user->media()->delete();
+            $user->roles()->detach();
+            $user->veterinaryClinic()->delete();
+            $user->veterinaryDoctor()->delete();
+            $user->veterinaryParaprofessional()->delete();
+            $user->petOwner()->delete();
+            $user->livestockFarmer()->delete();
+            $user->vendor()->delete();
+            $user->others()->delete(); 
         });
 
 

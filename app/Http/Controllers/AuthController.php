@@ -131,6 +131,9 @@ class AuthController extends Controller
             return response()->json(['error' => "Your account isn't verified yet. Please check your inbox for the verification link and complete verification to log in."], 401);
         }
 
+        // delete old tokens
+        $user->tokens()->delete();
+
         $token = $this->issueToken($user);
 
         return response()->json([
