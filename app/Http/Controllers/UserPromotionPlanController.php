@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\PromotionPlan;
+use App\Models\User;
 use App\Models\UserPromotionPlan;
+use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class UserPromotionPlanController extends Controller
 {
+    use BroadcastsAdminEvents;
     //
     /**
      * Get all plans user has purchased
@@ -97,6 +100,8 @@ class UserPromotionPlanController extends Controller
      */
     public function expirePlan(Request $request, $id)
     {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => "Unauthorized"], 401);
         $userPlan = UserPromotionPlan::findOrFail($id);
 
         $userPlan->update([
@@ -105,6 +110,22 @@ class UserPromotionPlanController extends Controller
         ]);
 
         Cache::forget("user_{$userPlan->user_id}_promotion_plans");
+
+        $this->createAdminActivity(
+            $admin->id,
+            'expire_user_promotion',
+            "Expire User Promotion",
+            "Admin {$admin->first_name} manually expired promotion for user_id {$userPlan->user_id}" . ($userPlan->role ? " (role={$userPlan->role})" : ""),
+            ['user_id' => $userPlan->user_id, 'role' => $userPlan->role, 'affected' => $userPlan]
+        );
+
+        $this->createAdminNotification(
+            $admin->id,
+            "Expire Promotion",
+            'promotion',
+            "You manually expired promotion plan for user #{$userPlan->user_id}.",
+            ['user_id' => $userPlan->user_id, 'affected' => $userPlan]
+        );
 
         return response()->json(['message' => 'Promotion plan expired successfully']);
     }

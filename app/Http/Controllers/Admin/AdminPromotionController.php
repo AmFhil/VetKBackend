@@ -34,7 +34,7 @@ class AdminPromotionController extends Controller
                 ->paginate(20);
         });
 
-        return response()->json($promotions);
+        return response()->json([$promotions, 'message' => 'User promotions retrieved successfully'], 200);
     }
 
     /**
@@ -48,7 +48,7 @@ class AdminPromotionController extends Controller
         $plan = UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
             ->findOrFail($id);
 
-        return response()->json($plan);
+        return response()->json([$plan, 'message' => 'User promotion plan retrieved successfully'], 200);
     }
 
     /**
@@ -172,7 +172,7 @@ class AdminPromotionController extends Controller
 
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users_registration,id',
-            'role' => 'nullable|string',
+            'role' => 'required|string',
         ]);
 
         $userId = $validated['user_id'];

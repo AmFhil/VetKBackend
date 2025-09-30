@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subscription;
-use App\Models\UserSubscription;
+use App\Models\UserSubscriptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -45,12 +45,12 @@ class UserSubscriptionsController extends Controller
         };
 
         // expire old active subs
-        UserSubscription::where('user_id', $user->id)
+        UserSubscriptions::where('user_id', $user->id)
             ->where('status', 'active')
             ->update(['status' => 'expired']);
 
         // create new
-        $subscription = UserSubscription::create([
+        $subscription = UserSubscriptions::create([
             'user_id'         => $user->id,
             'subscription_id' => $plan->id,
             'start_date'      => $startDate,
@@ -152,7 +152,7 @@ class UserSubscriptionsController extends Controller
         $cacheKey = "user_{$user->id}_subscriptions_page_{$page}_per_{$perPage}";
 
         $history = cache()->remember($cacheKey, now()->addMinutes(30), function () use ($user, $perPage) {
-            return UserSubscription::with('subscription')
+            return UserSubscriptions::with('subscription')
                 ->where('user_id', $user->id)
                 ->orderByDesc('created_at')
                 ->paginate($perPage);

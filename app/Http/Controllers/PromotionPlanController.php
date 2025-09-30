@@ -36,7 +36,7 @@ class PromotionPlanController extends Controller
         $cacheKey = "promotion_plans_all_page_{$page}";
 
         $plans = Cache::remember($cacheKey, now()->addMinutes(10), function () {
-            return PromotionPlan::latest()->paginate(20);
+            return PromotionPlan::latest()->paginate(10);
         });
 
         return response()->json(['plans' => $plans], 200);
