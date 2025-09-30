@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ForumCommentAdded;
+use App\Events\ForumCommentDeleted;
+use App\Events\ForumCommentUpdated;
 use App\Models\ForumChat;
 use App\Models\ForumChatComment;
 use App\Models\Admin;
@@ -35,6 +38,8 @@ class ForumChatCommentController extends Controller
             'comment'   => $request->comment,
             'parent_id' => $request->parent_id,
         ]);
+
+        event(new ForumCommentAdded($comment));
 
         // Log activity for commenter
         $user->logActivity(
@@ -128,6 +133,9 @@ class ForumChatCommentController extends Controller
         $commentContent = $comment->comment;
         $comment->delete();
 
+        event(new ForumCommentDeleted($commentId, $comment->forum_chat_id));
+
+
         $user->logActivity(
             'forum_comment_delete',
             'Deleted a comment',
@@ -164,6 +172,9 @@ class ForumChatCommentController extends Controller
 
         $oldComment = $comment->comment;
         $comment->update(['comment' => $request->comment]);
+
+        event(new ForumCommentUpdated($comment));
+
 
         $user->logActivity(
             'forum_comment_edit',

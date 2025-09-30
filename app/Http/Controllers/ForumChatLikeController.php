@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ForumLiked;
 use App\Models\ForumChat;
 use App\Models\ForumChatLike;
 use Illuminate\Http\Request;
@@ -27,6 +28,8 @@ class ForumChatLikeController extends Controller
             // Unlike (no notification sent, only activity logged)
             $like->delete();
 
+            event(new ForumLiked($forum->id, $user));
+
             $user->logActivity(
                 'forum_unlike',
                 'Forum Unliked',
@@ -42,6 +45,8 @@ class ForumChatLikeController extends Controller
                 'user_id'       => $user->id,
                 'user_type'     => get_class($user),
             ]);
+
+            event(new ForumLiked($forum->id, $user));
 
             $user->logActivity(
                 'forum_like',
