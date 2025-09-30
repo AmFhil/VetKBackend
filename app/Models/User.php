@@ -235,7 +235,7 @@ class User extends Authenticatable
     // for subscriptions
     public function subscription(): HasOne
     {
-        return $this->hasOne(UserSubscription::class, 'user_id')->latestOfMany();
+        return $this->hasOne(UserSubscriptions::class, 'user_id')->latestOfMany();
     }
 
     public function canCreateStore(): bool

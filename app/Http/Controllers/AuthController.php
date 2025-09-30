@@ -144,11 +144,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email|exists:users_registration,email',
-        ]);
-
-        $user = User::where('email', $request->userEmail)->first();
+        $user = auth('user')->user();
 
         if ($user) {
             $user->tokens()->delete();
