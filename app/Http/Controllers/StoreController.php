@@ -155,6 +155,7 @@ class StoreController extends Controller
         //get stores
         $stores = Store::with('ratings:id,rating,comment,rateable_id')
             ->where('role', 'Vendor')
+            ->where('disabled', false)
             ->paginate(10);
 
         // get average rating for each store
@@ -165,6 +166,57 @@ class StoreController extends Controller
         });
 
         return response()->json(['stores' => $stores], 200);
+    }
+
+    public function getAllStores()
+    {
+       // check if user is authenticated
+        $user = auth('user')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        //get stores
+        $stores = Store::with('ratings:id,rating,comment,rateable_id')
+            ->where('disabled', false)
+            ->random()
+            ->paginate(10);
+
+        // get average rating for each store
+        $stores->getCollection()->transform(function ($store) {
+            $store->average_rating = $store->averageRating();
+            return $store;
+        });
+
+        return response()->json(['stores' => $stores], 200); 
+    }
+
+    public function getMyStore()
+    {
+          // check if user is authenticated
+        $user = auth('user')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        };
+
+        //get store
+        $store = Store::with('ratings:id,rating,comment,rateable_id')
+            ->where('user_id', $user->id)
+            ->paginate(10);
+
+
+        if (!$store) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        // get average rating
+        $store->getCollection()->transform(function ($store) {
+            $store->average_rating = $store->averageRating();
+            // $store->average_rating = $average ? number_format($average, 1) . ' of 5' : '0 of 5';
+            return $store;
+        });
+
+        return response()->json(['store' => $store], 200);
     }
 
     // get store by user id
@@ -179,6 +231,7 @@ class StoreController extends Controller
         //get store
         $store = Store::with('ratings:id,rating,comment,rateable_id')
             ->where('user_id', $user_id)
+            ->where('disabled', false)
             ->paginate(10);
 
 
@@ -236,6 +289,7 @@ class StoreController extends Controller
         ])
             ->where('is_approved', 1)
             ->nearest($latitude, $longitude)
+            ->where('disabled', false)
             ->paginate(10);
 
         // attach average rating
@@ -250,7 +304,7 @@ class StoreController extends Controller
     // delete store
     public function deleteStore($id)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
 
         $store = Store::findOrFail($id);

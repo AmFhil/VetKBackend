@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Traits\HasAuthorAttribute;
+use Illuminate\Support\Facades\Storage;
 
 class ForumChat extends Model
 {
@@ -22,6 +23,7 @@ class ForumChat extends Model
         'content',
         'images',
         'status',
+        'visibility',
         'views_count',
         'shares_count',
         'comments_count',
@@ -46,10 +48,11 @@ class ForumChat extends Model
     }
 
     // get image url
-    public function getImagesAttribute($value)
+    public function getImagesAttribute()
     {
-        $images = $value ? json_decode($value, true) : [];
-        return array_map(fn($image) => asset('storage/' . $image), $images);
+       return collect($this->images ?? [])
+            ->map(fn($image) => Storage::url($image))
+            ->toArray();
     }
 
     protected static function booted()

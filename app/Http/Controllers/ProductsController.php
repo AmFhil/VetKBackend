@@ -44,9 +44,11 @@ class ProductsController extends Controller
 
 
 
-    private function generateProductId($userId)
+    private function generateProductId($userId, $store_id)
     {
-        $productCount = Products::where('user_id', $userId)->count();
+        $productCount = Products::where('user_id', $userId)
+            ->where('store_id', $store_id)
+            ->count();
         $randomNumber = mt_rand(100000, 999999);
         $letter = chr(97 + $productCount);
 
@@ -88,7 +90,7 @@ class ProductsController extends Controller
 
             $images = $this->handleImageUpload($request);
 
-            $productId = $this->generateProductId($user->id);
+            $productId = $this->generateProductId($user->id, $request->store_id);
 
             $product = Products::create([
                 'user_id' => $user->id,
@@ -319,6 +321,38 @@ class ProductsController extends Controller
         }
     }
 
+    // get product by store-id for customers
+    public function getProductsByStoreForCustomers($store_id)
+    {
+        try {
+            $user = auth('user')->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            $products = Cache::remember("products_by_store_{$store_id}", now()->addMinutes(15), function () use ($store_id) {
+                $products = Products::where('store_id', $store_id)
+                    ->where('availability', true)
+                    ->where('disabled', false)
+                    ->where('available_unit', '>', 0)
+                    ->with('ratings:id,rating,comment,rateable_id', 'tags')
+                    ->paginate(10);
+
+                // Add average rating for each product
+                $products->getCollection()->transform(function ($p) {
+                    $p->average_rating = $p->averageRating();
+                    return $p;
+                });
+
+                return $products;
+            });
+
+            return response()->json(['message' => 'Products retrieved successfully.', 'products' => $products], 200);
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'An error occurred while retrieving products.', 'error' => $th->getMessage()], 500);
+        }
+    }
+
     // get all product related to a user_id
     public function getProductByUserId($user_id)
     {
@@ -359,6 +393,9 @@ class ProductsController extends Controller
             $products = Cache::remember("product_not_on_store", now()->addMinutes(15), function () {
                 $products = Products::where('product_type', 0)
                     ->with('ratings:id,rating,comment,rateable_id', 'tags')
+                    ->where('availability', true)
+                    ->where('disabled', false)
+                    ->where('available_unit', '>', 0)
                     ->paginate(10);
 
                 $products->getCollection()->transform(function ($p) {
@@ -384,7 +421,10 @@ class ProductsController extends Controller
                 'keyword'  => 'nullable|string|max:100',
             ]);
 
-            $query = Products::with('ratings:id,rating,comment,rateable_id', 'tags');
+            $query = Products::with('ratings:id,rating,comment,rateable_id', 'tags')
+                ->where('availability', true)
+                ->where('disabled', false)
+                ->where('available_unit', '>', 0);
 
             if ($request->filled('category')) {
                 $query->where('category', 'LIKE', "%{$request->category}%");
@@ -421,6 +461,9 @@ class ProductsController extends Controller
             $relatedProducts = Cache::remember("related_products_{$id}", now()->addMinutes(15), function () use ($product, $id) {
                 $query = Products::with('ratings:id,rating,comment,rateable_id', 'tags')
                     ->where('category', 'LIKE', "%{$product->category}%")
+                    ->where('availability', true)
+                    ->where('disabled', false)
+                    ->where('available_unit', '>', 0)
                     ->where('id', '!=', $id);
 
                 // If product has tags, use them to improve relevance
