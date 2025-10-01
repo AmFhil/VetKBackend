@@ -22,10 +22,9 @@ class PromotionPlan extends Model
         'status',
     ];
 
-    // A promotion plan can belong to many users (through user_promotion_plan)
     public function userPromotionPlans()
     {
-        return $this->hasMany(UserPromotionPlan::class, 'promotion_id');
+        return $this->hasMany(AdsPromotion::class, 'promotion_plan_id');
     }
 
     public function scopeActive($query)

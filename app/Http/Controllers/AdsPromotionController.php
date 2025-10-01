@@ -3,230 +3,127 @@
 namespace App\Http\Controllers;
 
 use App\Models\AdsPromotion;
-use App\Models\UserPromotionPlan;
+use App\Models\PromotionPlan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class AdsPromotionController extends Controller
 {
     /**
-     * Promote new Ad
+     * Promote a product (auto-purchase a promotion plan for this product).
      */
     public function promoteAd(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $request->validate([
-            'store_id' => 'nullable|exists:store,id',
-            'product_title' => 'required|string|max:255',
-            'product_category' => 'required|string|max:255',
-            'location' => 'required|string|max:255',
-            'product_description' => 'nullable|string',
-            'price' => 'required|numeric',
-            'available_units' => 'required|numeric|min:0',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'tags' => 'nullable|array',
-            'tags.*' => 'string|max:50',
-            'longitude' => 'sometimes|numeric',
-            'latitude' => 'sometimes|numeric',
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'promotion_plan_id' => 'required|exists:promotion_plan,id',
         ]);
 
-        // get active promotion plan
-        $userPlan = UserPromotionPlan::active()
-            ->where('user_id', $user->id)
-            ->first();
+        // check how many active promotion user has for this promotion plan has the number of products limits
+        $activePromotionsCount = AdsPromotion::where('user_id', $user->id)
+            ->where('promotion_plan_id', $validated['promotion_plan_id'])
+            ->where('status', 'active')
+            ->where('end_date', '>=', now())
+            ->count();
 
-        if (!$userPlan) {
-            return response()->json(['message' => 'You have no active promotion plan'], 403);
+        // check no_of_products limit
+        $planDetails = PromotionPlan::find($validated['promotion_plan_id']);
+        if ($activePromotionsCount >= $planDetails->no_of_products) {
+            return response()->json(['message' => 'You have reached the maximum number of active promotions for this plan.'], 400);
         }
 
-        // check product limit
-        if ($userPlan->adsPromotions()->count() >= $userPlan->no_of_products) {
-            return response()->json(['message' => 'Product promotion limit reached'], 403);
-        }
 
-        // handle multiple image upload
-        $storedImages = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $storedImages[] = $image->store('ads_promotion_images', 'public');
-            }
-        }
+        $plan = PromotionPlan::active()->findOrFail($validated['promotion_plan_id']);
 
-        $ad = AdsPromotion::create([
+        // Calculate start/end date
+        $startDate = Carbon::now();
+        $endDate = $plan->date_option === 'Days'
+            ? $startDate->copy()->addDays($plan->duration)
+            : $startDate->copy()->addMonths($plan->duration);
+
+        $promotion = AdsPromotion::create([
             'user_id' => $user->id,
-            'store_id' => $request->store_id,
-            'role' => optional($user->activeRole())->name,
-            'product_title' => $request->product_title,
-            'product_category' => $request->product_category,
-            'location' => $request->location,
-            'product_description' => $request->product_description,
-            'price' => $request->price,
-            'available_units' => $request->available_units,
-            'images' => $storedImages,
-            'tags' => $request->tags ?? [],
-            'longitude' => $request->longitude,
-            'latitude' => $request->latitude,
-            'availability' => true,
-            'user_promotion_plan_id' => $userPlan->id,
+            'product_id' => $validated['product_id'],
+            'promotion_plan_id' => $plan->id,
+            'active_role' => optional($user->activeRole())->name,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'status' => 'active',
         ]);
 
         // Log + Notify
         $user->logActivity(
             'ad_promotion',
-            "Promoted Ad: {$ad->product_title}",
-            "You published an advertisement titled '{$ad->product_title}' in category '{$ad->product_category}' at '{$ad->location}'. Price: {$ad->price}. Units: {$ad->available_units}.",
-            ['ad_id' => $ad->id, 'user_promotion_plan_id' => $userPlan->id]
+            "Promoted Product #{$promotion->product_id}",
+            "You purchased '{$plan->title}' plan for product ID {$promotion->product_id}. Active until {$endDate->toFormattedDateString()}",
+            ['promotion_id' => $promotion->id, 'plan_id' => $plan->id]
         );
 
         $user->sendNotification(
             'ad_promoted',
-            'Ad Promoted Successfully',
-            "Your advertisement <strong>{$ad->product_title}</strong> has been promoted and is now visible to buyers. Good luck!",
-            ['ad_id' => $ad->id]
+            'Product Promoted',
+            "Your product (ID {$promotion->product_id}) has been promoted with the <strong>{$plan->title}</strong> plan until {$endDate->toFormattedDateString()}.",
+            ['promotion_id' => $promotion->id, 'plan_id' => $plan->id]
         );
 
-        return response()->json(['message' => 'Ad promoted successfully', 'ad' => $ad], 201);
+        Cache::forget("user_{$user->id}_adsPromotions");
+
+        return response()->json(['message' => 'Promotion created successfully', 'promotion' => $promotion], 201);
     }
 
     /**
-     * Update Ad
+     * Cancel promotion
      */
-    public function updateAd(Request $request, $id)
+    public function cancelPromotion($id)
     {
         $user = Auth::user();
-        $ad = AdsPromotion::findOrFail($id);
+        $promotion = AdsPromotion::findOrFail($id);
 
-        if ($ad->user_id !== $user->id) {
+        if ($promotion->user_id !== $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $request->validate([
-            'product_title' => 'sometimes|string|max:255',
-            'product_category' => 'sometimes|string|max:255',
-            'location' => 'sometimes|string|max:255',
-            'product_description' => 'sometimes|string',
-            'price' => 'sometimes|numeric',
-            'available_units' => 'sometimes|numeric|min:0',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'tags' => 'nullable|array',
-            'tags.*' => 'string|max:50',
-            'longitude' => 'sometimes|numeric',
-            'latitude' => 'sometimes|numeric',
-        ]);
+        $promotion->update(['status' => 'cancelled']);
 
-        // replace images if new ones are uploaded
-        if ($request->hasFile('images')) {
-            foreach ($ad->images ?? [] as $oldImage) {
-                Storage::disk('public')->delete($oldImage);
-            }
-            $ad->images = collect($request->file('images'))
-                ->map(fn($img) => $img->store('ads_promotion_images', 'public'))
-                ->toArray();
-        }
-
-        $oldTitle = $ad->product_title;
-
-        $ad->fill($request->only([
-            'product_title',
-            'product_category',
-            'location',
-            'product_description',
-            'price',
-            'available_units',
-            'tags',
-            'longitude',
-            'latitude',
-        ]))->save();
-
-        // Log + Notify
         $user->logActivity(
-            'ad_update',
-            "Updated Ad: {$ad->product_title}",
-            "You updated your ad '{$oldTitle}'. Current title: '{$ad->product_title}', category: '{$ad->product_category}', price: {$ad->price}, units: {$ad->available_units}.",
-            ['ad_id' => $ad->id]
+            'ad_cancelled',
+            "Cancelled promotion for product #{$promotion->product_id}",
+            "You cancelled the promotion linked to product ID {$promotion->product_id}.",
+            ['promotion_id' => $promotion->id]
         );
 
         $user->sendNotification(
-            'ad_updated',
-            'Ad Updated',
-            "Your ad <strong>{$ad->product_title}</strong> has been updated successfully.",
-            ['ad_id' => $ad->id]
+            'promotion_cancelled',
+            'Promotion Cancelled',
+            "Your promotion for product ID {$promotion->product_id} has been cancelled.",
+            ['promotion_id' => $promotion->id]
         );
 
-        return response()->json(['message' => 'Ad updated successfully', 'ad' => $ad], 200);
+        Cache::forget("user_{$user->id}_adsPromotions");
+
+        return response()->json(['message' => 'Promotion cancelled successfully'], 200);
     }
 
     /**
-     * Delete Ad
+     * List all promotions for logged-in user
      */
-    public function deleteAd($id)
+    public function myPromotions()
     {
         $user = Auth::user();
-        $ad = AdsPromotion::findOrFail($id);
 
-        if ($ad->user_id !== $user->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
+        $promotions = Cache::remember("user_{$user->id}_adsPromotions", now()->addMinutes(30), function () use ($user) {
+            return AdsPromotion::with('product', 'promotionPlan')
+                ->where('user_id', $user->id)
+                ->latest()
+                ->get();
+        });
 
-        foreach ($ad->images ?? [] as $oldImage) {
-            Storage::disk('public')->delete($oldImage);
-        }
 
-        $adTitle = $ad->product_title;
-        $adId = $ad->id;
-        $ad->delete();
-
-        $user->logActivity(
-            'ad_delete',
-            "Deleted Ad: {$adTitle}",
-            "You removed the advertisement titled '{$adTitle}'. It is no longer visible on the platform.",
-            ['ad_id' => $adId]
-        );
-
-        $user->sendNotification(
-            'ad_deleted',
-            'Ad Deleted',
-            "Your advertisement <strong>{$adTitle}</strong> has been removed from the platform.",
-            ['ad_id' => $adId]
-        );
-
-        return response()->json(['message' => 'Ad deleted successfully'], 200);
-    }
-
-    /**
-     * Toggle availability
-     */
-    public function toggleAvailability($id)
-    {
-        $user = Auth::user();
-        $ad = AdsPromotion::findOrFail($id);
-
-        if ($ad->user_id !== $user->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        $ad->availability = !$ad->availability;
-        $ad->save();
-
-        $status = $ad->availability ? 'available' : 'unavailable';
-
-        $user->logActivity(
-            'ad_toggle',
-            "Toggled availability for '{$ad->product_title}'",
-            "You set the advertisement '{$ad->product_title}' to '{$status}'. Buyers will " . ($ad->availability ? "see" : "not see") . " this listing.",
-            ['ad_id' => $ad->id, 'availability' => $ad->availability]
-        );
-
-        $user->sendNotification(
-            'ad_availability_changed',
-            'Ad Availability Changed',
-            "Your ad <strong>{$ad->product_title}</strong> is now <strong>{$status}</strong>.",
-            ['ad_id' => $ad->id, 'availability' => $ad->availability]
-        );
-
-        return response()->json(['message' => "Ad marked as {$status}", 'ad' => $ad], 200);
+        return response()->json($promotions);
     }
 }

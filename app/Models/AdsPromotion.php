@@ -4,67 +4,55 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class AdsPromotion extends Model
 {
     use HasFactory;
 
+    protected $table = 'ads_promotions';
+
     protected $fillable = [
         'user_id',
-        'store_id',
-        'role',
-        'product_title',
-        'product_category',
-        'location',
-        'product_description',
-        'price',
-        'availability',
-        'suspended',
-        'available_units',
-        'tags',
-        'images',
-        'date',
-        'user_promotion_plan_id',
+        'product_id',
+        'promotion_plan_id',
+        'active_role',
+        'start_date',
+        'end_date',
+        'status',
     ];
 
     protected $casts = [
-        'tags' => 'array',
-        'images' => 'array',
+        'start_date' => 'datetime',
+        'end_date'   => 'datetime',
     ];
 
-
-    // Belongs to user
+    /** Relationships */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    // Belongs to store
-    public function store()
+    public function product()
     {
-        return $this->belongsTo(Store::class);
+        return $this->belongsTo(Products::class, 'product_id');
     }
 
-    // Belongs to user promotion plan
-    public function userPromotionPlan()
+    public function promotionPlan()
     {
-        return $this->belongsTo(UserPromotionPlan::class, 'user_promotion_plan_id');
+        return $this->belongsTo(PromotionPlan::class, 'promotion_plan_id');
     }
 
-    protected $appends = ['images_url'];
-
-    public function getImagesUrlAttribute()
-    {
-        if (!$this->images) return [];
-
-        return collect($this->images)->map(function ($img) {
-            return Storage::url($img);
-        })->toArray();
-    }
-
+    /** Scope for active promotions */
     public function scopeActive($query)
     {
-        return $query->where('suspended', false)->where('availability', true);
+        return $query->where('status', 'active')
+            ->where('end_date', '>=', now());
+    }
+
+    /** Auto-expire checker */
+    public function isExpired(): bool
+    {
+        return $this->end_date < Carbon::now() || $this->status === 'expired';
     }
 }
