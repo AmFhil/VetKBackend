@@ -29,7 +29,7 @@ class AdminPromotionController extends Controller
         $cacheKey = "admin_user_promotions_page_{$page}";
 
         $promotions = Cache::remember($cacheKey, now()->addMinutes(5), function () {
-            return UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
+            return AdsPromotion::with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
                 ->orderByDesc('created_at')
                 ->paginate(20);
         });
@@ -45,7 +45,7 @@ class AdminPromotionController extends Controller
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $plan = UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
+        $plan = AdsPromotion::with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
             ->findOrFail($id);
 
         return response()->json([$plan, 'message' => 'User promotion plan retrieved successfully'], 200);
@@ -59,7 +59,7 @@ class AdminPromotionController extends Controller
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $promo = UserPromotionPlan::findOrFail($id);
+        $promo = AdsPromotion::findOrFail($id);
 
         $promo->update([
             'status' => 'expired',
@@ -106,7 +106,7 @@ class AdminPromotionController extends Controller
         $cacheKey = "admin_promotion_approvals_page_{$page}";
 
         $paginator = Cache::remember($cacheKey, now()->addMinutes(5), function () {
-            return UserPromotionPlan::with(['user.profile', 'user.activeRole', 'promotionPlan'])
+            return AdsPromotion::with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
                 ->latest()
                 ->paginate(10);
         });
@@ -132,11 +132,11 @@ class AdminPromotionController extends Controller
         $cacheKey = "admin_users_by_promotion_" . md5($title);
 
         $plans = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($title) {
-            return UserPromotionPlan::whereHas('promotionPlan', function ($q) use ($title) {
+            return AdsPromotion::whereHas('promotionPlan', function ($q) use ($title) {
                 // PromotionPlan uses 'title' (per your schema)
                 $q->where('title', $title);
             })
-                ->with(['user.profile', 'user.activeRole', 'promotionPlan'])
+                ->with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
                 ->get();
         });
 
@@ -182,7 +182,7 @@ class AdminPromotionController extends Controller
             $query = AdsPromotion::where('user_id', $userId);
             if ($role !== null) $query->where('role', $role);
 
-            $updated = $query->update(['suspended' => 0]);
+            $updated = $query->update(['status' => 'active']);
 
             if ($updated) {
                 // notify the user (single notification per user)
@@ -242,7 +242,7 @@ class AdminPromotionController extends Controller
             $query = AdsPromotion::where('user_id', $userId);
             if ($role !== null) $query->where('role', $role);
 
-            $updated = $query->update(['suspended' => 1]);
+            $updated = $query->update(['status' => 'cancelled']);
 
             if ($updated) {
                 $user = User::find($userId);

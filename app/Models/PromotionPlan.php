@@ -22,7 +22,7 @@ class PromotionPlan extends Model
         'status',
     ];
 
-    public function userPromotionPlans()
+    public function adsPromotion()
     {
         return $this->hasMany(AdsPromotion::class, 'promotion_plan_id');
     }

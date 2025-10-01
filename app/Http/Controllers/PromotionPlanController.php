@@ -156,6 +156,11 @@ class PromotionPlanController extends Controller
 
         $plan = PromotionPlan::findOrFail($id);
 
+        // check if plan is linked to any user 
+        if ($plan->adsPromotion()->exists()){
+            return response()->json(['message' => 'Cannot delete plan linked to active promotions'], 400);
+        }
+
         $plan->delete();
 
         $this->createAdminActivity(
