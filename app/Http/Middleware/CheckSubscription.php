@@ -12,6 +12,11 @@ class CheckSubscription
     {
         $user = Auth::user();
 
+        // allow roles for pet_owner, livestock_farmers, others, and vendors
+        if ($user && in_array($user->activeRole->name, ['pet_owner', 'livestock_farmer', 'others', 'vendor'])) {
+            return $next($request);
+        }
+
         if (!$user || !$user->subscription) {
             return response()->json(['message' => 'No subscription found.'], 403);
         }
