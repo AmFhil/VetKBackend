@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminAnalyticsController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminForumController;
 use App\Http\Controllers\Admin\AdminManageUserController;
+use App\Http\Controllers\Admin\AdminNotification;
 use App\Http\Controllers\Admin\AdminPromotionController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
 use App\Http\Controllers\BlogChatController;
 use App\Http\Controllers\BlogChatLikeController;
+use App\Http\Controllers\CaseCommentController;
 use App\Http\Controllers\CaseModelController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClinicController;
@@ -66,7 +68,7 @@ Route::prefix('v3')->group(function () {
         Route::post('/resendVerificationEmail', [AuthController::class, 'resendVerificationEmail']);
         Route::get('/endpoint/{email}/secure', [UserController::class, 'secureEndpoint']);
         Route::get('/verify-email/{id}', [AuthController::class, 'verifyEmail'])->name('verify.email');
-        Route::post('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
+        Route::get('/get-nearest-veterinary-doctors', [UserController::class, 'getNearestVeterinaryDoctor']);
         Route::get('/search-location', [UserController::class, 'searchLocation']);
         Route::post('/add-to-newsletter', [NewsletterController::class, 'addNewsletter']);
         Route::post('/contact-us', [ContactUsController::class, 'addContactUs']);
@@ -117,7 +119,9 @@ Route::prefix('v3')->group(function () {
 
         Route::post('/add-new-store', [StoreController::class, 'addNewStore']);
         Route::match(['post', 'patch'], '/store/{id}/store', [StoreController::class, 'updateStore']);
-        Route::get('/vendor-store', [StoreController::class, 'getVendorsStore']);
+        Route::get('/vendor-store', [StoreController::class, 'getVendorStores']);
+        Route::get('/get-all-stores', [StoreController::class, 'getAllStores']);
+        Route::get('/get-my-store', [StoreController::class, 'getMyStore']);
         Route::get('/get-store-by-user-id/{id}/store', [StoreController::class, 'getStoreByUserId']);
         Route::get('/get-store-by-id/{id}/store', [StoreController::class, 'getStoreById']);
         Route::delete('/delete-store/{id}/store', [StoreController::class, 'deleteStore']);
@@ -129,6 +133,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-products-by-user-id/{id}/product', [ProductsController::class, 'getProductByUserId']);
         Route::get('/get-product-not-on-store', [ProductsController::class, 'getProductNotOnStore']);
         Route::get('/get-product-by-store/{id}/product', [ProductsController::class, 'getProductsByStore']);
+        Route::get('/get-product-by-store-for-customer/{id}/product', [ProductsController::class, 'getProductsByStoreForCustomers']);
         Route::get('/get-related-product/{id}/related', [ProductsController::class, 'getRelatedProducts']);
         Route::post('/search-product', [ProductsController::class, 'searchProducts']);
         Route::get('/get-product-by-id/{id}/product', [ProductsController::class, 'getProductById']);
@@ -140,7 +145,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/blogs/slug/{slug}/slug', [BlogChatController::class, 'showWithSlug']);
         Route::get('/blogs/{id}/share', [BlogChatController::class, 'share']);
         Route::get('/blogs/trending', [BlogChatController::class, 'trending']);
-        Route::post('/comments/{id}/flag', [BlogChatCommentController::class, 'flag']);
+        Route::put('/comments/{id}/flag', [BlogChatCommentController::class, 'flag']);
         Route::post('/add-comment/{blogId}/comment', [BlogChatCommentController::class, 'addComment']);
         Route::get('/fetch-comment/{id}/comment', [BlogChatCommentController::class, 'fetchComments']);
         Route::delete('/delete-comment/{id}/comment', [BlogChatCommentController::class, 'deleteComment']);
@@ -171,12 +176,16 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-user-cases', [CaseModelController::class, 'getUserCase']);
         Route::get('/get-case_by-id/{id}/case', [CaseModelController::class, 'show']);
         Route::delete('/delete-case/{id}/delete', [CaseModelController::class, 'destroy']);
-        Route::get('/filter-case/{id}/cases', [CaseModelController::class, 'filterByDateForUser']);
+        Route::get('/filter-case', [CaseModelController::class, 'filterByDateForUser']);
+
+        Route::post('/add-comment', [CaseCommentController::class, 'addComment']);
+        Route::get('/get-comments/{caseId}/case', [CaseCommentController::class, 'getComments']);
+        Route::delete('/delete-comment/{id}/case', [CaseCommentController::class, 'deleteComment']);
+        Route::put('/edit-comment/{id}/case', [CaseCommentController::class, 'updateComment']);
 
         Route::post('/promote-ad', [AdsPromotionController::class, 'promoteAd']);
-        Route::match(['post', 'patch'], '/update-ad/{id}/ad', [AdsPromotionController::class, 'updateAd']);
-        Route::delete('/delete-ad/{id}/ad', [AdsPromotionController::class, 'deleteAd']);
-        Route::get('/toggle_availability/{id}/ad', [AdsPromotionController::class, 'toggleAvailability']);
+        Route::get('/cancel-promotion/{id}/ad', [AdsPromotionController::class, 'cancelPromotion']);
+        Route::get('/get-my-promotions', [AdsPromotionController::class, 'myPromotions']);
 
 
         Route::get('/get-profile', [ProfileController::class, 'getMyProfile']);
@@ -186,7 +195,7 @@ Route::prefix('v3')->group(function () {
         Route::patch('/messages/{id}/read', [DirectMessageController::class, 'markAsRead']);
         Route::match(['post', 'patch'], '/messages/{id}/edit', [DirectMessageController::class, 'edit']);
         Route::delete('/messages/{id}/delete', [DirectMessageController::class, 'destroy']);
-        Route::patch('/messages/{id}/flag', [DirectMessageController::class, 'flag']);
+        Route::put('/messages/{id}/flag', [DirectMessageController::class, 'flag']);
         Route::get('/message/sent', [DirectMessageController::class, 'getAllSentMessage']);
         Route::get('/message/received', [DirectMessageController::class, 'getAllReceivedMessage']);
 
@@ -196,10 +205,6 @@ Route::prefix('v3')->group(function () {
         Route::get('/promotion-plans', [PromotionPlanController::class, 'getActivePlans']);
 
 
-        Route::get('/my-plan', [UserPromotionPlanController::class, 'myPlans']);
-        // buy a plan (dummy activation, Paystack will plug here later)
-        Route::post('/buy', [UserPromotionPlanController::class, 'buyPlan']);
-
         Route::prefix('forums')->group(function () {
             Route::get('/index', [ForumChatController::class, 'index']);          // List published forums
             Route::get('/trending', [ForumChatController::class, 'trending']); // Trending forums
@@ -208,6 +213,7 @@ Route::prefix('v3')->group(function () {
             Route::match(['post', 'patch'], '/{id}/update', [ForumChatController::class, 'update']);     // Update forum
             Route::delete('/{id}/delete', [ForumChatController::class, 'destroy']); // Delete forum
             Route::get('/{id}/share', [ForumChatController::class, 'share']); // Share forum
+            Route::get('/get-visibility-options', [ForumChatController::class, 'getForumsByVisibility']);
             Route::prefix('{forumId}/comments')->group(function () {
                 Route::get('/fetch', [ForumChatCommentController::class, 'fetchComments']);  // List comments
                 Route::post('/', [ForumChatCommentController::class, 'addComment']);    // Add comment
@@ -215,7 +221,7 @@ Route::prefix('v3')->group(function () {
             Route::prefix('comments')->group(function () {
                 Route::put('/{id}', [ForumChatCommentController::class, 'editComment']);   // Edit comment
                 Route::delete('/{id}/delete', [ForumChatCommentController::class, 'deleteComment']); // Delete comment
-                Route::post('/{id}/flag', [ForumChatCommentController::class, 'flag']);   // User flag
+                Route::put('/{id}/flag', [ForumChatCommentController::class, 'flag']);   // User flag
             });
             Route::post('/{id}/like', [ForumChatLikeController::class, 'toggleLike']);   // Like/Unlike
         });
@@ -247,7 +253,7 @@ Route::prefix('v3')->group(function () {
     //     Route::get('/contacts/{id}', [ContactController::class, 'show'])->middleware('subscription:contact_info');
     // });
 
-    Route::post('admin/login', [AdminAuthController::class, 'adminLogin']);
+    Route::post('/admin/login', [AdminAuthController::class, 'adminLogin']);
 
     //  Admin routes
     Route::middleware(['auth:admin',  'throttle:api', 'token.expiry'])->prefix('admin')->group(function () {
@@ -260,13 +266,13 @@ Route::prefix('v3')->group(function () {
         Route::get('/blogs/restore/{id}', [BlogChatController::class, 'restore']);
         Route::post('/blogs/{id}/publish', [BlogChatController::class, 'publish']);
         Route::post('/blogs/{id}/archive', [BlogChatController::class, 'archive']);
-        Route::post('/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
+        Route::put('/blogs/{id}/flag', [BlogChatCommentController::class, 'updateFlag']);
         Route::post('/blogs/{id}/reject', [BlogChatController::class, 'reject']);
         Route::get('/get-all-blog', [BlogChatController::class, 'getAllBlog']);
-        Route::get('/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
-        Route::get('/verify-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'verify']);
-        Route::get('/verify-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'verify']);
-        Route::get('/verify-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'verify']);
+        Route::patch('/verify-clinic/{id}/clinic', [ClinicController::class, 'verify']);
+        Route::patch('/verify-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'verify']);
+        Route::patch('/verify-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'verify']);
+        Route::patch('/verify-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'verify']);
         Route::get('/filter-case', [CaseModelController::class, 'filterByDateForAdmin']);
         Route::get('/get-user-case', [CaseModelController::class, 'adminSeeAllCases']);
 
@@ -276,7 +282,7 @@ Route::prefix('v3')->group(function () {
         Route::put('/subscriptions/{id}/update', [AdminSubscriptionController::class, 'updateSubscription']);
         Route::delete('/subscriptions/{id}/delete', [AdminSubscriptionController::class, 'deleteSubscription']);
         Route::put('/deactivate-subscription/{id}', [AdminSubscriptionController::class, 'deactivateSubscription']);
-        Route::get('get-subscription-approvals', [AdminSubscriptionController::class, 'getSubscriptionApprovals']);
+        Route::get('/get-subscription-approvals', [AdminSubscriptionController::class, 'getSubscriptionApprovals']);
         Route::get('/get-user-by-subscription-type/{type}', [AdminSubscriptionController::class, 'getUsersBySubscription']);
 
         Route::get('/promotion-plans', [PromotionPlanController::class, 'getAllPlans']);
@@ -287,61 +293,63 @@ Route::prefix('v3')->group(function () {
         // Admin promotion actions (user subscriptions & ads promotions)
         Route::get('/user-promotions', [AdminPromotionController::class, 'listUserPromotions']);
         Route::get('/user-promotions/{id}', [AdminPromotionController::class, 'viewUserPromotion']);
-        Route::post('/user-promotions/{id}/expire', [AdminPromotionController::class, 'expirePromotion']);
+        Route::get('/user-promotions/{id}/expire', [AdminPromotionController::class, 'expirePromotion']);
         Route::get('/promotion-approvals', [AdminPromotionController::class, 'getPromotionApprovals']);
         Route::get('/promotion-users/{title}', [AdminPromotionController::class, 'getUsersByPromotion']);
         Route::post('/ads-promotions/activate', [AdminPromotionController::class, 'activatePromotion']);
         Route::post('/ads-promotions/deactivate', [AdminPromotionController::class, 'deactivatePromotion']);
 
 
-        Route::patch('plan/{id}/expire', [UserPromotionPlanController::class, 'expirePlan']);
-
-        Route::prefix('admin/forums')->group(function () {
+        Route::prefix('forums')->group(function () {
             Route::get('/', [ForumChatController::class, 'getAllForumChat']); // All forums for admin
             Route::put('/comments/{id}/flag', [ForumChatCommentController::class, 'updateFlag']); // Admin flag
             Route::post('/approve', [AdminForumController::class, 'approveForumChat']); // Approve forum
             Route::post('/reject', [AdminForumController::class, 'rejectForumChat']); // Reject forum
             Route::get('/search', [ForumChatController::class, 'searchForumChats']); // Search forums
-            Route::get('forum-approvals', [AdminForumController::class, 'getForumApprovals']); // pending forums
+            Route::get('/forum-approvals', [AdminForumController::class, 'getForumApprovals']); // pending forums
         });
 
-        Route::get('/disable/{id}/store', [StoreController::class, 'disableStore']);
-        Route::get('/disable/{id}/case', [CaseModelController::class, 'disableCase']);
-        Route::get('/disable/{id}/clinic', [ClinicController::class, 'disableClinic']);
-        Route::get('/disable/{id}/farm', [FarmController::class, 'disableFarm']);
-        Route::get('/disable/{id}/product', [ProductsController::class, 'disableProduct']);
-        Route::get('/disable/{id}/pet', [PetController::class, 'disablePet']);
+        Route::patch('/disable/{id}/store', [StoreController::class, 'disableStore']);
+        Route::patch('/disable/{id}/case', [CaseModelController::class, 'disableCase']);
+        Route::patch('/disable/{id}/clinic', [ClinicController::class, 'disableClinic']);
+        Route::patch('/disable/{id}/farm', [FarmController::class, 'disableFarm']);
+        Route::patch('/disable/{id}/product', [ProductsController::class, 'disableProduct']);
+        Route::patch('/disable/{id}/pet', [PetController::class, 'disablePet']);
 
         Route::get('/logout', [AdminAuthController::class, 'adminLogout']);
         Route::match(['post', 'patch'], '/update-details', [AdminAuthController::class, 'updateAdminDetails']);
 
-        Route::get('get-count', [AdminAnalyticsController::class, 'adminGetUserCount']);
-        Route::get('refresh-count-cache', [AdminAnalyticsController::class, 'refreshCountsCache']);
+        Route::get('/get-count', [AdminAnalyticsController::class, 'adminGetUserCount']);
+        Route::get('/refresh-count-cache', [AdminAnalyticsController::class, 'refreshCountsCache']);
 
-        Route::get('admin-activity', [AdminActivityController::class, 'getAdminActivity']);
-        Route::get('search-admin-activity', [AdminActivityController::class, "searchAdminActivity"]);
+        Route::get('/admin-activity', [AdminActivityController::class, 'getAdminActivity']);
+        Route::get('/search-admin-activity', [AdminActivityController::class, "searchAdminActivity"]);
 
-        Route::get('get-all-veterinary-paraprofessional', [AdminManageUserController::class, 'getAllVeterinaryParaprofessional']);
-        Route::get('get-all-veterinary-doctor', [AdminManageUserController::class, 'getAllVeterinaryDoctors']);
-        Route::get('get-all-veterinary-clinic', [AdminManageUserController::class, 'getAllVeterinaryClinics']);
+        Route::get('/admin-notification', [AdminNotification::class, 'getAdminNotification']);
+        Route::get('/search-admin-notification', [AdminNotification::class, "searchAdminNotification"]);
 
-        Route::get('search-veterinary-paraprofessionals', [AdminManageUserController::class, 'searchVeterinaryParaprofessionals']);
-        Route::get('search-veterinary-doctors', [AdminManageUserController::class, 'searchVeterinaryDoctors']);
-        Route::get('search-veterinary-clinics', [AdminManageUserController::class, 'searchVeterinaryClinics']);
+        Route::get('/get-all-veterinary-paraprofessional', [AdminManageUserController::class, 'getAllVeterinaryParaprofessional']);
+        Route::get('/get-all-veterinary-doctor', [AdminManageUserController::class, 'getAllVeterinaryDoctors']);
+        Route::get('/get-all-veterinary-clinic', [AdminManageUserController::class, 'getAllVeterinaryClinics']);
 
-        Route::get('get-vendor', [AdminManageUserController::class, 'getVendor']);
-        Route::get('get-other', [AdminManageUserController::class, 'getOther']);
-        Route::get('get-pet-owner', [AdminManageUserController::class, 'getPetOwner']);
-        Route::get('get-livestock-farmer', [AdminManageUserController::class, 'getLifeStockFarmer']);
-        Route::get('get-stores', [AdminManageUserController::class, 'getStores']);
-        Route::get('get-products', [AdminManageUserController::class, 'getProducts']);
-        Route::get('get-farms',[ AdminManageUserController::class, 'getFarms']);
-        Route::get('get-pets', [AdminManageUserController::class, 'getPets']);
-        Route::get('get-clinics', [AdminManageUserController::class, 'getClinics']);
+        Route::get('/search-veterinary-paraprofessionals', [AdminManageUserController::class, 'searchVeterinaryParaprofessionals']);
+        Route::get('/search-veterinary-doctors', [AdminManageUserController::class, 'searchVeterinaryDoctors']);
+        Route::get('/search-veterinary-clinics', [AdminManageUserController::class, 'searchVeterinaryClinics']);
 
-        Route::get('search-stores', [AdminManageUserController::class, 'searchStores']);
-        Route::get('search-products', [AdminManageUserController::class, 'searchProducts']);
-        Route::get('search-clinics', [AdminManageUserController::class, 'searchClinics']);
+        Route::get('/get-vendor', [AdminManageUserController::class, 'getVendor']);
+        Route::get('/get-other', [AdminManageUserController::class, 'getOther']);
+        Route::get('/get-pet-owner', [AdminManageUserController::class, 'getPetOwner']);
+        Route::get('/get-livestock-farmer', [AdminManageUserController::class, 'getLifeStockFarmer']);
+        Route::get('/get-stores', [AdminManageUserController::class, 'getStores']);
+        Route::get('/get-products', [AdminManageUserController::class, 'getProducts']);
+        Route::get('/get-farms',[ AdminManageUserController::class, 'getFarms']);
+        Route::get('/get-pets', [AdminManageUserController::class, 'getPets']);
+        Route::get('/get-clinics', [AdminManageUserController::class, 'getClinics']);
+        Route::get('/get-cases', [AdminManageUserController::class, 'getCases']);
+
+        Route::get('/search-stores', [AdminManageUserController::class, 'searchStores']);
+        Route::get('/search-products', [AdminManageUserController::class, 'searchProducts']);
+        Route::get('/search-clinics', [AdminManageUserController::class, 'searchClinics']);
 
         // Route::get('get-promotion-approvals', [AdminManageUserController::class, 'getPromotionApprovals']);
         // Route::get('get-subscription-approvals', [AdminManageUserController::class, 'getSubscriptionApprovals']);

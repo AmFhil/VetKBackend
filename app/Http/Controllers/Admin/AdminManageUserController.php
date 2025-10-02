@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdsPromotion;
+use App\Models\CaseModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\VeterinaryParaprofessional;
@@ -350,12 +352,24 @@ class AdminManageUserController extends Controller
         return response()->json(['clinics' => $clinics], 200);
     }
 
+    // get cases
+    public function getCases()
+    {
+        $this->guardAdmin();
+
+        $cases = CaseModel::with('user', 'user.activeRole', 'user.profile', 'comment.replies', 'comment')
+            ->latest()
+            ->paginate(10);
+
+        return response()->json($cases);
+    }
+
 
     public function getPromotionApprovals()
     {
         $this->guardAdmin();
 
-        $promotions = \App\Models\UserPromotionPlan::with('user','promotionPlan','user.profile','user.activeRole','user.activeRoleData','ratings')
+        $promotions = AdsPromotion::with('user','promotionPlan','user.profile','user.activeRole','user.activeRoleData','product.ratings', 'product',)
             ->latest()
             ->paginate(10);
 

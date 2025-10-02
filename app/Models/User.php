@@ -91,7 +91,7 @@ class User extends Authenticatable
 
     public function livestockFarmer()
     {
-        return $this->hasOne(Livestock_Farmer::class, 'user_id');
+        return $this->hasOne(livestock_farmer::class, 'user_id');
     }
 
     public function others()
