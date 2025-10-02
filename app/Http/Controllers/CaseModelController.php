@@ -6,6 +6,7 @@ use App\Models\CaseModel;
 use App\Models\User;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
+use App\Models\VeterinaryParaprofessional;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -39,22 +40,23 @@ class CaseModelController extends Controller
             'type_of_livestock' => 'nullable|string|max:100',
             'number_of_livestock' => 'nullable|numeric|min:0',
             'number_of_workers' => 'nullable|numeric|min:0',
-            'age' => 'nullable|numeric|min:0',
-            'sex' => 'nullable|string|max:100',
-            'location' => 'nullable|string|max:255',
+            'age' => 'required|numeric|min:0',
+            'sex' => 'required|string|max:100',
+            'location' => 'required|string|max:255',
             'other_details' => 'nullable|string|max:255',
             'date_occurred' => 'required|date',
+            'date_presented' => 'required|date|after_or_equal:date_occurred',
             'history' => 'nullable|string|max:1000',
-            'clinical_signs' => 'nullable|array',
-            'tentative_diagnosis' => 'nullable|string|max:255',
-            'differential_diagnosis' => 'nullable|string|max:255',
-            'disease_diagnosis' => 'nullable|string|max:255',
-            'lab_confirm' => 'nullable|string|max:100',
-            'mortality' => 'nullable|string|max:100',
-            'treatment_regimen' => 'nullable|array',
-            'clinic_physical_address' => 'nullable|string|max:255',
-            'mobile_veterinarian' => 'nullable|string|max:255',
-            'picture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'clinical_signs' => 'required|array',
+            'temperature' => 'required|string|max:50',
+            'heart_rate' => 'required|string|max:50',
+            'weight' => 'required|string|max:50',
+            'tentative_diagnosis' => 'required|string|max:255',
+            'differential_diagnosis' => 'required|string|max:255',
+            'lab_confirm' => 'required|string|max:100',
+            'mortality' => 'required|string|max:100',
+            'treatment_regimen' => 'required|array',
+            'picture' => 'required|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
         $user = Auth::user();
@@ -62,10 +64,11 @@ class CaseModelController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $isVeterinaryClinic = VeterinaryClinic::where('user_id', $user->id)->exists();
-        $isVeterinaryDoctor = VeterinaryDoctor::where('user_id', $user->id)->exists();
+        $isVeterinaryClinic = $user->activeRole && $user->activeRole->role === 'veterinary_clinic';
+        $isVeterinaryDoctor = $user->activeRole && $user->activeRole->role === 'veterinary_doctor';
+        $isVeterinaryParaprofessional = $user->activeRole && $user->activeRole->role === 'veterinary_paraprofessional';
 
-        if (!($isVeterinaryClinic || $isVeterinaryDoctor)) {
+        if (!($isVeterinaryClinic || $isVeterinaryDoctor || $isVeterinaryParaprofessional)) {
             return response()->json(['message' => 'You are not authorized to create a case'], 403);
         }
 
@@ -97,16 +100,17 @@ class CaseModelController extends Controller
             'location' => $request->location,
             'other_details' => $request->other_details,
             'date_occurred' => $request->date_occurred,
+            "date_presented" => $request->date_presented,
             'history' => $request->history,
             'clinical_signs' => $request->clinical_signs,
+            'temperature' => $request->temperature,
+            'heart_rate' => $request->heart_rate,
+            'weight' => $request->weight,
             'tentative_diagnosis' => $request->tentative_diagnosis,
             'differential_diagnosis' => $request->differential_diagnosis,
-            'disease_diagnosis' => $request->disease_diagnosis,
             'lab_confirm' => $request->lab_confirm,
             'mortality' => $request->mortality,
             'treatment_regimen' => $request->treatment_regimen,
-            'clinic_physical_address' => $request->clinic_physical_address,
-            'mobile_veterinarian' => $request->mobile_veterinarian,
             'picture' => $imagePath,
         ]);
 
@@ -147,16 +151,17 @@ class CaseModelController extends Controller
             'location' => 'sometimes|string|max:255',
             'other_details' => 'sometimes|string|max:255',
             'date_occurred' => 'sometimes|date',
+            'date_presented' => 'sometimes|date|after_or_equal:date_occurred',
             'history' => 'sometimes|string|max:1000',
             'clinical_signs' => 'sometimes|array',
+            'temperature' => 'sometimes|string|max:50',
+            'heart_rate' => 'sometimes|string|max:50',
+            'weight' => 'sometimes|string|max:50',
             'tentative_diagnosis' => 'sometimes|string|max:255',
             'differential_diagnosis' => 'sometimes|string|max:255',
-            'disease_diagnosis' => 'sometimes|string|max:255',
             'lab_confirm' => 'sometimes|string|max:100',
             'mortality' => 'sometimes|string|max:100',
             'treatment_regimen' => 'sometimes|array',
-            'clinic_physical_address' => 'sometimes|string|max:255',
-            'mobile_veterinarian' => 'sometimes|string|max:255',
             'picture' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
@@ -193,16 +198,17 @@ class CaseModelController extends Controller
             'location',
             'other_details',
             'date_occurred',
+            'date_presented',
             'history',
             'clinical_signs',
+            'temperature',
+            'heart_rate',
+            'weight',
             'tentative_diagnosis',
             'differential_diagnosis',
-            'disease_diagnosis',
             'lab_confirm',
             'mortality',
             'treatment_regimen',
-            'clinic_physical_address',
-            'mobile_veterinarian',
         ]));
         $case->touch();
         $case->save();
