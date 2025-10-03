@@ -369,7 +369,7 @@ class AdminManageUserController extends Controller
     {
         $this->guardAdmin();
 
-        $promotions = AdsPromotion::with('user','promotionPlan','user.profile','user.activeRole','user.activeRoleData','product.ratings', 'product',)
+        $promotions = AdsPromotion::with('user','promotionPlan','user.profile','user.activeRole','user.activeRoleData','product.ratings', 'product')
             ->latest()
             ->paginate(10);
 

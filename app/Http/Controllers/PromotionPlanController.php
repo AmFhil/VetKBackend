@@ -14,7 +14,7 @@ class PromotionPlanController extends Controller
     // Generate a unique promotion code
     private function generatePromotionCode()
     {
-        return 'PP-' . strtoupper(uniqid());
+        return 'PC-' . strtoupper(uniqid());
     }
 
     /**
