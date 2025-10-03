@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ForumChat;
+use App\Models\ForumChatLike;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -75,21 +76,40 @@ class ForumChatController extends Controller
      */
     public function index()
     {
-        $chats = Cache::remember('forum_chats_index', now()->addMinutes(10), function () {
-            return ForumChat::where('status', 'published')
+        $user = auth('user')->user() ?: auth('admin')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $chats = Cache::remember('forum_chats_index', now()->addMinutes(10), function () use ($user) {
+            $chats = ForumChat::where('status', 'published')
                 ->with([
                     'user' => function ($morph) {
                         $morph->morphWith([
                             \App\Models\User::class  => ['profile', 'activeRole'],
                             \App\Models\Admin::class => [],
                         ]);
-                    }
+                    },
+                    'likes',
+                    'likes.user',
+                    'likers'
                 ])
                 ->latest()
                 ->paginate(10);
+
+            // Add has_liked attribute for each forum chat
+            return $chats->through(function ($chat) use ($user) {
+                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
+                    ->where('user_id', $user->id)
+                    ->where('user_type', get_class($user))
+                    ->exists();
+                return $chat;
+            });
         });
 
-        return response()->json($chats);
+        // $likes = $chats->likes()->with('user')->get();
+
+        return response()->json(['chats' => $chats], 200);
     }
 
     /**
@@ -97,12 +117,12 @@ class ForumChatController extends Controller
      */
     public function show($slug, Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $cacheKey = "forum_show_{$slug}";
 
-        $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug) {
+        $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug, $user) {
             return ForumChat::where('slug', $slug)
                 ->where('status', 'published')
                 ->with([
@@ -133,9 +153,18 @@ class ForumChatController extends Controller
                                 }
                             ]);
                     },
-                    'likes'
+                    'likes',
+                    'likes.user',
+                    'likers'
                 ])
                 ->firstOrFail();
+
+            $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
+                ->where('user_id', $user->id)
+                ->where('user_type', get_class($user))
+                ->exists();
+
+            return $forum;
         });
 
         $viewCacheKey = $user
@@ -221,11 +250,11 @@ class ForumChatController extends Controller
      */
     public function trending()
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $trending = Cache::remember('trending_forums_chat', now()->addMinutes(10), function () {
-            return ForumChat::where('status', 'published')
+        $trending = Cache::remember('trending_forums_chat', now()->addMinutes(10), function () use ($user) {
+            $forum = ForumChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
                     'user' => function ($morph) {
@@ -233,7 +262,10 @@ class ForumChatController extends Controller
                             \App\Models\User::class  => ['profile', 'activeRole'],
                             \App\Models\Admin::class => [],
                         ]);
-                    }
+                    },
+                    'likes',
+                    'likes.user',
+                    'likers'
                 ])
                 ->selectRaw('
                     (views_count * 0.3) +
@@ -244,6 +276,14 @@ class ForumChatController extends Controller
                 ->orderByDesc('score')
                 ->take(10)
                 ->get();
+
+            // Add has_liked attribute
+            $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
+                ->where('user_id', $user->id)
+                ->where('user_type', get_class($user))
+                ->exists();
+
+            return $forum;
         });
 
         return response()->json($trending);
@@ -258,12 +298,18 @@ class ForumChatController extends Controller
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $forums = Cache::remember('forum_chats_admin', now()->addMinutes(10), function () {
-            return ForumChat::with(['user', 'comments', 'likes'])
+            return ForumChat::with([
+                'user',
+                'comments',
+                'likes',
+                'likes.user',
+                'likers'
+            ])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
         });
 
-        return response()->json($forums);
+        return response()->json($forums, 200);
     }
 
     /**
@@ -281,8 +327,9 @@ class ForumChatController extends Controller
     }
 
     // get forums through visibility
-    public function getForumsByVisibility($visibility){
-        $user = auth()->user();
+    public function getForumsByVisibility($visibility)
+    {
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $forums = ForumChat::where('status', 'published')
@@ -293,11 +340,58 @@ class ForumChatController extends Controller
                         \App\Models\User::class  => ['profile', 'activeRole'],
                         \App\Models\Admin::class => [],
                     ]);
-                }
+                },
+                'likes',
+                'likes.user',
+                'likers'
             ])
             ->latest()
             ->paginate(10);
 
         return response()->json($forums, 200);
+    }
+
+    public function getLikers($id)
+    {
+        $user = auth('user')->user() ?: auth('admin')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $likers = Cache::remember("forum_likers_{$id}", now()->addMinutes(10), function () use ($id) {
+            return ForumChatLike::where('forum_chat_id', $id)
+                ->with(['user' => function ($morph) {
+                    $morph->morphWith([
+                        \App\Models\User::class => ['profile', 'activeRole'],
+                        \App\Models\Admin::class => [],
+                    ]);
+                }])
+                ->get()
+                ->map(function ($like) {
+                    $user = $like->user;
+                    if ($user instanceof \App\Models\User) {
+                        return [
+                            'id' => $user->id,
+                            'user_type' => 'User',
+                            'name' => $user->first_name . ' ' . $user->last_name,
+                        ];
+                    } elseif ($user instanceof \App\Models\Admin) {
+                        return [
+                            'id' => $user->id,
+                            'user_type' => 'Admin',
+                            'name' => $user->first_name . ' ' . $user->last_name,
+                        ];
+                    }
+                    return null;
+                })
+                ->filter() // Remove null entries
+                ->values();
+        });
+
+        if ($likers->isEmpty()) {
+            return response()->json(['message' => 'No users have liked this forum post'], 200);
+        }
+
+        return response()->json(['likers' => $likers], 200);
     }
 }

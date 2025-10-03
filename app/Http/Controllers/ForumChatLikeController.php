@@ -37,7 +37,7 @@ class ForumChatLikeController extends Controller
                 ['forum_id' => $forum->id, 'action' => 'unlike']
             );
 
-            return response()->json(['message' => 'unliked']);
+            return response()->json(['message' => 'unliked', 'user_id' => $like->user_id], 200);
         } else {
             // Like
             ForumChatLike::create([
@@ -65,7 +65,7 @@ class ForumChatLikeController extends Controller
                 );
             }
 
-            return response()->json(['message' => 'liked']);
+            return response()->json(['message' => 'liked', 'user_id' => $like->user_id], 200);
         }
     }
 }

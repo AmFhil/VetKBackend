@@ -242,6 +242,10 @@ class User extends Authenticatable
         return $this->morphMany(ForumChatLike::class, 'user');
     }
 
+    public function likedChats(){
+        return $this->belongsToMany(ForumChat::class, 'forumChatLikes', 'user_id', 'forum_chat_id');
+    }
+
     // for subscriptions
     public function subscription(): HasOne
     {

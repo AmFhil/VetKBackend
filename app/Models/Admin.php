@@ -91,6 +91,10 @@ class Admin extends Model
         return $this->morphMany(ForumChatLike::class, 'user');
     }
 
+    public function likedChats(){
+        return $this->belongsToMany(ForumChat::class, 'forumChatLikes', 'user_id', 'forum_chat_id');
+    }
+
      public function notifications()
     {
         return $this->hasMany(AdminNotification::class, 'admin_id');

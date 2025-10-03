@@ -50,7 +50,7 @@ class ForumChat extends Model
     // get image url
     public function getImagesAttribute()
     {
-       return collect($this->images ?? [])
+        return collect($this->images ?? [])
             ->map(fn($image) => Storage::url($image))
             ->toArray();
     }
@@ -96,6 +96,10 @@ class ForumChat extends Model
         }
 
         Cache::forget('admin_forums');
+
+        if ($chat?->id) {
+            Cache::forget("forum_likers_{$chat->id}");
+        }
     }
 
     // Relationships
@@ -107,6 +111,11 @@ class ForumChat extends Model
     public function likes()
     {
         return $this->hasMany(ForumChatLike::class, 'forum_chat_id');
+    }
+
+    public function likers()
+    {
+        return $this->hasManyThrough(ForumChatLike::class, ForumChat::class, 'forum_chat_id', 'user_id', 'id', 'user_id')->with('user');
     }
 
     public function comments()
