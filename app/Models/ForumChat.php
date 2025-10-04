@@ -115,7 +115,8 @@ class ForumChat extends Model
 
     public function likers()
     {
-        return $this->hasManyThrough(ForumChatLike::class, ForumChat::class, 'forum_chat_id', 'user_id', 'id', 'user_id')->with('user');
+        return $this->hasMany(ForumChatLike::class, 'forum_chat_id')
+            ->with('user', 'user.profile', 'user.activeRole');
     }
 
     public function comments()
