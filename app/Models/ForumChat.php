@@ -21,7 +21,7 @@ class ForumChat extends Model
         'slug',
         'title',
         'content',
-        'images',
+        'image',
         'status',
         'visibility',
         'views_count',
@@ -30,11 +30,7 @@ class ForumChat extends Model
         'likes_count',
     ];
 
-    protected $casts = [
-        'images' => 'array',
-    ];
-
-    protected $appends = ['author', 'images'];
+    protected $appends = ['author', 'image_url'];
 
     protected static function boot()
     {
@@ -48,11 +44,9 @@ class ForumChat extends Model
     }
 
     // get image url
-    public function getImagesAttribute()
+    public function getImageUrlAttribute()
     {
-        return collect($this->images ?? [])
-            ->map(fn($image) => Storage::url($image))
-            ->toArray();
+        return $this->image ? Storage::url($this->image) : null;
     }
 
     protected static function booted()
@@ -96,6 +90,7 @@ class ForumChat extends Model
         }
 
         Cache::forget('admin_forums');
+        Cache::forget('forum_visibility');
 
         if ($chat?->id) {
             Cache::forget("forum_likers_{$chat->id}");
@@ -122,5 +117,15 @@ class ForumChat extends Model
     public function comments()
     {
         return $this->hasMany(ForumChatComment::class, 'forum_chat_id');
+    }
+
+    public function hasLiked($user)
+    {
+        if (!$user) return false;
+
+        return $this->likes()
+            ->where('user_id', $user->id)
+            ->where('user_type', get_class($user))
+            ->exists();
     }
 }

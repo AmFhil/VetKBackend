@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\ForumChat;
 use App\Models\ForumChatLike;
+use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,16 +27,13 @@ class ForumChatController extends Controller
         $validated = $request->validate([
             'title'    => 'required|string|max:255',
             'content'  => 'required|string',
-            'images'   => 'nullable|array',
-            'images.*' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+            'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
             'visibility' => 'sometimes|string|in:everyone,veterinary_doctors,veterinary_clinics,veterinary_paraprofessionals,pet_owner/livestock_farmer,vendor,students'
         ]);
 
-        $imagePaths = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $img) {
-                $imagePaths[] = $img->store('forum_pictures', 'public');
-            }
+        $imagePaths = null;
+        if ($request->hasFile('image')) {
+            $imagePaths = $request->file('image')->store('forum_pictures', 'public');
         }
 
         $forum = ForumChat::create([
@@ -48,19 +47,37 @@ class ForumChatController extends Controller
         ]);
 
         try {
-            $user->logActivity(
-                'created',
-                'Forum Created',
-                "User {$user->first_name} created forum '{$forum->title}'.",
-                ['forum_id' => $forum->id]
-            );
+            if ($user instanceof Admin) {
+                $this->createAdminActivity(
+                    $user->id,
+                    'created',
+                    'Forum Created',
+                    "User {$user->first_name} created forum '{$forum->title}'.",
+                    ['forum_id' => $forum->id]
+                );
 
-            $user->sendNotification(
-                'forum',
-                'Forum Created',
-                "Your forum post '{$forum->title}' was created.",
-                ['forum_id' => $forum->id]
-            );
+                $this->createAdminNotification(
+                    $user->id,
+                    'forum',
+                    'Forum Created',
+                    "Your forum post '{$forum->title}' was created.",
+                    ['forum_id' => $forum->id]
+                );
+            } elseif ($user instanceof User) {
+                $user->logActivity(
+                    'created',
+                    'Forum Created',
+                    "User {$user->first_name} created forum '{$forum->title}'.",
+                    ['forum_id' => $forum->id]
+                );
+
+                $user->sendNotification(
+                    'forum',
+                    'Forum Created',
+                    "Your forum post '{$forum->title}' was created.",
+                    ['forum_id' => $forum->id]
+                );
+            }
         } catch (\Throwable $e) {
             // Optionally log silently
         }
@@ -91,7 +108,12 @@ class ForumChatController extends Controller
                         ]);
                     },
                     'likes',
-                    'likes.user',
+                    'likes.user' => function ($morph) {
+                        $morph->morphWith([
+                            \App\Models\User::class  => ['profile', 'activeRole'],
+                            \App\Models\Admin::class => [],
+                        ]);
+                    },
                     'likers'
                 ])
                 ->latest()
@@ -123,7 +145,7 @@ class ForumChatController extends Controller
         $cacheKey = "forum_show_{$slug}";
 
         $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug, $user) {
-            return ForumChat::where('slug', $slug)
+            $forum = ForumChat::where('slug', $slug)
                 ->where('status', 'published')
                 ->with([
                     'user' => function ($morph) {
@@ -154,11 +176,17 @@ class ForumChatController extends Controller
                             ]);
                     },
                     'likes',
-                    'likes.user',
+                    'likes.user' => function ($morph) {
+                        $morph->morphWith([
+                            \App\Models\User::class  => ['profile', 'activeRole'],
+                            \App\Models\Admin::class => [],
+                        ]);
+                    },
                     'likers'
                 ])
                 ->firstOrFail();
 
+            // ✅ assign before returning
             $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
                 ->where('user_id', $user->id)
                 ->where('user_type', get_class($user))
@@ -167,6 +195,7 @@ class ForumChatController extends Controller
             return $forum;
         });
 
+        // ✅ handle view counts
         $viewCacheKey = $user
             ? "forum_view_{$forum->id}_user_{$user->id}"
             : "forum_view_{$forum->id}_ip_{$request->ip()}";
@@ -174,11 +203,12 @@ class ForumChatController extends Controller
         if (!Cache::has($viewCacheKey)) {
             $forum->increment('views_count');
             Cache::put($viewCacheKey, true, now()->addDay());
-            Cache::forget($cacheKey); // ✅ still needed for updated view count
+            Cache::forget($cacheKey); // invalidate cached version for next view
         }
 
         return response()->json($forum);
     }
+
 
     /**
      * Update a forum post (only owner).
@@ -195,32 +225,57 @@ class ForumChatController extends Controller
         $validated = $request->validate([
             'title'    => 'sometimes|string|max:255',
             'content'  => 'sometimes|string',
-            'images'   => 'nullable|array',
-            'images.*' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+            'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
             'visibility' => 'sometimes|string|in:everyone,veterinary_doctors,veterinary_clinics,veterinary_paraprofessionals,pet_owner/livestock_farmer,vendor,students'
         ]);
 
-        $imagePaths = $forum->images ?? [];
+        $imagePaths = $forum->images ?? null;
 
-        if ($request->hasFile('images')) {
-            foreach ($imagePaths as $oldImage) {
-                Storage::disk('public')->delete($oldImage);
+        if ($request->hasFile('image')) {
+            if ($forum->image && Storage::disk('public')->exists($forum->image)) {
+                Storage::disk('public')->delete($forum->image);
             }
-            $imagePaths = [];
-            foreach ($request->file('images') as $img) {
-                $imagePaths[] = $img->store('forum_pictures', 'public');
-            }
+            $imagePaths = $request->file('image')->store('forum_pictures', 'public');
         }
 
         $forum->update([
             'title'   => $validated['title'] ?? $forum->title,
             'content' => $validated['content'] ?? $forum->content,
-            'images'  => $imagePaths,
+            'image'  => $imagePaths,
             'visibility' => $validated['visibility'] ?? $forum->visibility
         ]);
 
-        $user->logActivity('forum_updated', "Updated forum '{$forum->title}'", null, ['forum_id' => $forum->id]);
-        $user->sendNotification('forum', "Your forum '{$forum->title}' was updated.", null, ['forum_id' => $forum->id]);
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'forum_updated',
+                "Updated forum '{$forum->title}'",
+                null,
+                ['forum_id' => $forum->id]
+            );
+
+            $this->createAdminNotification(
+                $user->id,
+                'forum',
+                "Your forum '{$forum->title}' was updated.",
+                null,
+                ['forum_id' => $forum->id]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'forum_updated',
+                "Updated forum '{$forum->title}'",
+                null,
+                ['forum_id' => $forum->id]
+            );
+
+            $user->sendNotification(
+                'forum',
+                "Your forum '{$forum->title}' was updated.",
+                null,
+                ['forum_id' => $forum->id]
+            );
+        }
 
         return response()->json(['message' => 'Forum chat updated successfully', 'data' => $forum]);
     }
@@ -239,8 +294,37 @@ class ForumChatController extends Controller
 
         $forum->delete();
 
-        $user->logActivity('forum_deleted', "Deleted forum '{$forum->title}'", null, ['forum_id' => $id]);
-        $user->sendNotification('forum', "Your forum '{$forum->title}' was deleted.", null, ['forum_id' => $id]);
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'forum_deleted',
+                "Deleted forum '{$forum->title}'",
+                null,
+                ['forum_id' => $id]
+            );
+
+            $this->createAdminNotification(
+                $user->id,
+                'forum',
+                "Your forum '{$forum->title}' was deleted.",
+                null,
+                ['forum_id' => $id]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'forum_deleted',
+                "Deleted forum '{$forum->title}'",
+                null,
+                ['forum_id' => $id]
+            );
+
+            $user->sendNotification(
+                'forum',
+                "Your forum '{$forum->title}' was deleted.",
+                null,
+                ['forum_id' => $id]
+            );
+        }
 
         return response()->json(['message' => 'Forum chat deleted successfully']);
     }
@@ -264,7 +348,12 @@ class ForumChatController extends Controller
                         ]);
                     },
                     'likes',
-                    'likes.user',
+                    'likes.user' => function ($morph) {
+                        $morph->morphWith([
+                            \App\Models\User::class  => ['profile', 'activeRole'],
+                            \App\Models\Admin::class => [],
+                        ]);
+                    },
                     'likers'
                 ])
                 ->selectRaw('
@@ -278,12 +367,13 @@ class ForumChatController extends Controller
                 ->get();
 
             // Add has_liked attribute
-            $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
-                ->where('user_id', $user->id)
-                ->where('user_type', get_class($user))
-                ->exists();
-
-            return $forum;
+            return $forum->through(function ($chat) use ($user) {
+                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
+                    ->where('user_id', $user->id)
+                    ->where('user_type', get_class($user))
+                    ->exists();
+                return $chat;
+            });
         });
 
         return response()->json($trending);
@@ -297,16 +387,34 @@ class ForumChatController extends Controller
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $forums = Cache::remember('forum_chats_admin', now()->addMinutes(10), function () {
-            return ForumChat::with([
-                'user',
-                'comments',
+        $forums = Cache::remember('forum_chats_admin', now()->addMinutes(10), function () use ($admin) {
+            $forumChat = ForumChat::with([
+                'user' => function ($morph) {
+                    $morph->morphWith([
+                        \App\Models\User::class  => ['profile', 'activeRole'],
+                        \App\Models\Admin::class => [],
+                    ]);
+                },
                 'likes',
-                'likes.user',
+                'likes.user' => function ($morph) {
+                    $morph->morphWith([
+                        \App\Models\User::class  => ['profile', 'activeRole'],
+                        \App\Models\Admin::class => [],
+                    ]);
+                },
                 'likers'
             ])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
+
+            return $forumChat->through(function ($chat) use ($admin) {
+                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
+                    ->where('user_id', $admin->id)
+                    ->where('user_type', get_class($admin))
+                    ->exists();
+
+                return $chat;
+            });
         });
 
         return response()->json($forums, 200);
@@ -332,23 +440,38 @@ class ForumChatController extends Controller
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $forums = ForumChat::where('status', 'published')
-            ->where('visibility', $visibility)
-            ->with([
-                'user' => function ($morph) {
-                    $morph->morphWith([
-                        \App\Models\User::class  => ['profile', 'activeRole'],
-                        \App\Models\Admin::class => [],
-                    ]);
-                },
-                'likes',
-                'likes.user',
-                'likers'
-            ])
-            ->latest()
-            ->paginate(10);
+        $visibility = Cache::remember('forum_visibility', now()->addMinutes(30), function () use ($visibility, $user) {
+            $forums = ForumChat::where('status', 'published')
+                ->where('visibility', $visibility)
+                ->with([
+                    'user' => function ($morph) {
+                        $morph->morphWith([
+                            \App\Models\User::class  => ['profile', 'activeRole'],
+                            \App\Models\Admin::class => [],
+                        ]);
+                    },
+                    'likes',
+                    'likes.user' => function ($morph) {
+                        $morph->morphWith([
+                            \App\Models\User::class  => ['profile', 'activeRole'],
+                            \App\Models\Admin::class => [],
+                        ]);
+                    },
+                    'likers'
+                ])
+                ->latest()
+                ->paginate(10);
 
-        return response()->json($forums, 200);
+            return $forums->through(function ($chat) use ($user) {
+                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
+                    ->where('user_id', $user->id)
+                    ->where('user_type', get_class($user))
+                    ->exists();
+                return $chat;
+            });
+        });
+
+        return response()->json($visibility, 200);
     }
 
     public function getLikers($id)
