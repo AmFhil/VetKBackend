@@ -41,7 +41,7 @@ class Admin extends Model
         ];
     }
 
-     protected static function boot()
+    protected static function boot()
     {
         parent::boot();
 
@@ -79,23 +79,32 @@ class Admin extends Model
         return $this->morphMany(BlogChatLike::class, 'user');
     }
 
-    public function forumChats(){
+    public function likedBlog()
+    {
+        return $this->belongsToMany(BlogChat::class, 'blogChatLikes', 'user_id', 'blog_chat_id');
+    }
+
+    public function forumChats()
+    {
         return $this->morphMany(ForumChat::class, 'user');
     }
 
-    public function forumChatComments(){
+    public function forumChatComments()
+    {
         return $this->morphMany(ForumChatComment::class, 'user');
     }
 
-    public function forumChatLikes(){
+    public function forumChatLikes()
+    {
         return $this->morphMany(ForumChatLike::class, 'user');
     }
 
-    public function likedChats(){
+    public function likedChats()
+    {
         return $this->belongsToMany(ForumChat::class, 'forumChatLikes', 'user_id', 'forum_chat_id');
     }
 
-     public function notifications()
+    public function notifications()
     {
         return $this->hasMany(AdminNotification::class, 'admin_id');
     }
@@ -104,5 +113,4 @@ class Admin extends Model
     {
         return $this->hasMany(AdminActivity::class, 'admin_id');
     }
-
 }

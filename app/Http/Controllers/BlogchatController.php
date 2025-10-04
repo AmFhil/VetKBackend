@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BlogChat;
+use App\Models\BlogChatLike;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -21,9 +22,9 @@ class BlogChatController extends Controller
     {
         // Clear paginated index caches (first 5 pages by default)
         $perPage = 10;
-            $totalBlogs = BlogChat::count();
-            $lastPage = ceil($totalBlogs / $perPage);
-            $lastPage = min($lastPage, 5); // Limit to first 5 pages
+        $totalBlogs = BlogChat::count();
+        $lastPage = ceil($totalBlogs / $perPage);
+        $lastPage = min($lastPage, 5); // Limit to first 5 pages
 
         for ($i = 1; $i <= $lastPage; $i++) {
             Cache::forget("blogs_index_page_{$i}");
@@ -114,7 +115,19 @@ class BlogChatController extends Controller
             'user',
             'comments.user',
             'comments.replies.user',
+            'likes',
+            'likes.user',
+            'likers'
         ])->orderBy('created_at', 'desc')->paginate(10);
+
+        $blogs->through(function ($chat) use ($admin) {
+            $chat->has_liked = BlogChatLike::where('blog_chat_id', $chat->id)
+                ->where('user_id', $admin->id)
+                ->where('user_type', get_class($admin))
+                ->exists();
+
+            return $chat;
+        });
 
         return response()->json($blogs);
     }
@@ -239,9 +252,21 @@ class BlogChatController extends Controller
                 'user',
                 'comments.user',
                 'comments.replies.user',
+                'likes',
+                'likes.user',
+                'likers'
             ])
             ->orderBy('deleted_at', 'desc')
             ->paginate(10);
+
+        $blogs->through(function ($chat) use ($admin) {
+            $chat->has_liked = BlogChatLike::where('blog_chat_id', $chat->id)
+                ->where('user_id', $admin->id)
+                ->where('user_type', get_class($admin))
+                ->exists();
+
+            return $chat;
+        });
 
         return response()->json($blogs);
     }
@@ -348,16 +373,19 @@ class BlogChatController extends Controller
      */
     public function trending()
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $trending = Cache::remember('trending_blogs', now()->addMinutes(10), function () {
-            return BlogChat::where('status', 'published')
+        $trending = Cache::remember('trending_blogs', now()->addMinutes(10), function () use ($user) {
+            $blogChat = BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
                     'user',
                     'comments.user',
                     'comments.replies.user',
+                    'likes',
+                    'likes.user',
+                    'likers'
                 ])
                 ->selectRaw('
                     (views_count * 0.3) +
@@ -368,6 +396,15 @@ class BlogChatController extends Controller
                 ->orderByDesc('score')
                 ->take(10)
                 ->get();
+
+            return $blogChat->through(function ($blog) use ($user) {
+                $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
+                    ->where('user_id', $user->id)
+                    ->where('user_type', get_class($user))
+                    ->exists();
+
+                return $blog;
+            });
         });
 
         return response()->json($trending);
@@ -378,14 +415,14 @@ class BlogChatController extends Controller
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $page = $request->get('page', 1); // current page
         $cacheKey = "blogs_index_page_{$page}";
 
-        $blogs = Cache::remember($cacheKey, now()->addMinutes(5), function () {
-            return BlogChat::where('status', 'published')
+        $blogs = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
+            $blogChat = BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
                     'user',
@@ -394,6 +431,15 @@ class BlogChatController extends Controller
                 ])
                 ->orderByDesc('created_at')
                 ->paginate(10);
+
+            return $blogChat->through(function ($blog) use ($user) {
+                $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
+                    ->where('user_id', $user->id)
+                    ->where('user_type', get_class($user))
+                    ->exists();
+
+                return $blog;
+            });
         });
 
         return response()->json($blogs);
@@ -405,7 +451,7 @@ class BlogChatController extends Controller
      */
     private function loadBlog($query, Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blog = $query->where('status', 'published')
@@ -423,6 +469,11 @@ class BlogChatController extends Controller
                 }
             ])
             ->firstOrFail();
+
+        $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
+            ->where('user_id', $user->id)
+            ->where('user_type', get_class($user))
+            ->exists();
 
         $cacheKey = $user
             ? "blog_view_{$blog->id}_user_{$user->id}"

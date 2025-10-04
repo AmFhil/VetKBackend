@@ -230,6 +230,11 @@ class User extends Authenticatable
         return $this->morphMany(BlogChatLike::class, 'user');
     }
 
+    public function likedBlog()
+    {
+        return $this->belongsToMany(BlogChat::class, 'blogChatLikes', 'user_id', 'blog_chat_id');
+    }
+
     public function forumChats(){
         return $this->morphMany(ForumChat::class, 'user');
     }

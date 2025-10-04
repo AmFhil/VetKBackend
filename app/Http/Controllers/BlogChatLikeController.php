@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\BlogChat;
 use App\Models\BlogChatLike;
+use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class BlogChatLikeController extends Controller
 {
+    use BroadcastsAdminEvents;
     // Dynamically clear blog caches
     private function clearBlogCaches($blogId): void
     {
@@ -16,7 +19,7 @@ class BlogChatLikeController extends Controller
         Cache::forget("trending_blogs");
 
         // Determine how many pages exist
-        $perPage = 10; // must match your BlogChatController pagination
+        $perPage = 10; 
         $totalBlogs = BlogChat::count();
         $lastPage = ceil($totalBlogs / $perPage);
 
@@ -51,14 +54,6 @@ class BlogChatLikeController extends Controller
                 ['blog_id' => $blog->id, 'action' => 'unlike']
             );
 
-            // SEND NOTIFICATION
-            $user->sendNotification(
-                'blog_unliked',
-                'Blog Chat Unliked',
-                "You have removed your like from <strong>{$blog->title}</strong>.",
-                ['blog_id' => $blog->id]
-            );
-
             $this->clearBlogCaches($blog->id);
 
             return response()->json(['message' => 'unliked']);
@@ -77,16 +72,19 @@ class BlogChatLikeController extends Controller
                 ['blog_id' => $blog->id, 'action' => 'like']
             );
 
-            // SEND NOTIFICATION
-            $user->sendNotification(
-                'blog_liked',
-                'Blog Chat Liked',
-                "You liked <strong>{$blog->title}</strong>. Your appreciation has been noted!",
-                ['blog_id' => $blog->id]
-            );
 
             // send notification to blog author if not the same user
             if ($blog->user_id !== $user->id || get_class($blog->user) !== get_class($user)) {
+                $blogUser = $blog->user;
+                if ($blogUser instanceof Admin) {
+                    $this->createAdminNotification(
+                        $blogUser->id,
+                        'blog_liked_by_other',
+                        'Your Blog Chat was Liked',
+                        "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled <strong>{$blog->title}</strong>.",
+                        ['blog_id' => $blog->id, 'liker_id' => $user->id]
+                    );
+                }
                 $blog->user->sendNotification(
                     'blog_liked_by_other',
                     'Your Blog Chat was Liked',

@@ -68,4 +68,9 @@ class BlogChat extends Model
     {
         return $this->hasMany(BlogChatLike::class, 'blog_chat_id');
     }
+
+    public function likers()
+    {
+        return $this->hasMany(BlogChatLike::class, 'blog_chat_id')->with('user', 'user.profile', 'user.activeRole');
+    }
 }
