@@ -41,7 +41,7 @@ class ForumChatController extends Controller
             'user_type' => get_class($user),
             'title'     => $validated['title'],
             'content'   => $validated['content'],
-            'images'    => $imagePaths,
+            'image'    => $imagePaths,
             'status'    => 'archived',
             'visibility' => $validated['visibility'] ?? 'everyone'
         ]);

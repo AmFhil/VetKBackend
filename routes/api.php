@@ -47,7 +47,7 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
 
 /**
- * 🔹 Test routes
+ * Test routes
  */
 Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
     return $request->user();
@@ -55,7 +55,7 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
 
 
 /**
- * 🔹 App routes
+ * App routes
  */
 Route::prefix('v3')->group(function () {
 
