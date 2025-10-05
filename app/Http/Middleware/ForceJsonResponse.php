@@ -14,6 +14,7 @@ class ForceJsonResponse
         Log::info('ForceJsonResponse middleware applied', [
             'url' => $request->url(),
             'acceptHeader' => $request->header('Accept'),
+            'contentType' => $request->header('Content-Type'),
             'expectsJson' => $request->expectsJson(),
         ]);
         return $next($request);
