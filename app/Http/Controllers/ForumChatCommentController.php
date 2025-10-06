@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ForumChatCommentController extends Controller
 {
@@ -22,7 +23,7 @@ class ForumChatCommentController extends Controller
      */
     public function addComment(Request $request, $forumId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $request->validate([
@@ -42,43 +43,101 @@ class ForumChatCommentController extends Controller
         event(new ForumCommentAdded($comment));
 
         // Log activity for commenter
-        $user->logActivity(
-            'forum_comment_add',
-            'Comment Added',
-            "You commented on forum '{$forum->title}': \"{$comment->comment}\"",
-            ['forum_id' => $forum->id, 'comment_id' => $comment->id]
-        );
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'forum_comment_add',
+                'Comment Added',
+                "You commented on forum '{$forum->title}': \"{$comment->comment}\"",
+                ['forum_id' => $forum->id, 'comment_id' => $comment->id]
+            );
+
+            $this->createAdminNotification(
+                $user->id,
+                'forum',
+                'Forum Created',
+                "Your forum post '{$forum->title}' was created.",
+                ['forum_id' => $forum->id]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'forum_comment_add',
+                'Comment Added',
+                "You commented on forum '{$forum->title}': \"{$comment->comment}\"",
+                ['forum_id' => $forum->id, 'comment_id' => $comment->id]
+            );
+
+            $user->sendNotification(
+                'forum',
+                'Forum Created',
+                "Your forum post '{$forum->title}' was created.",
+                ['forum_id' => $forum->id]
+            );
+        }
+
 
         // Notify the forum owner if not the same person
-        if ($forum->user_id !== $user->id) {
-            $forum->user->sendNotification(
-                'forum_comment_received',
-                'New Comment on Your Forum',
-                "{$user->first_name} {$user->last_name} commented on your forum <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
-                [
-                    'forum_id'   => $forum->id,
-                    'comment_id' => $comment->id,
-                    'from_user'  => $user->id,
-                ]
-            );
+        if ((int)$forum->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
+            $forumOwner = $forum->user;
+            if ($forumOwner instanceof User) {
+                $forumOwner->sendNotification(
+                    'forum_comment_received',
+                    'New Comment on Your Forum',
+                    "{$user->first_name} {$user->last_name} commented on your forum <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                    [
+                        'forum_id'   => $forum->id,
+                        'comment_id' => $comment->id,
+                        'from_user'  => $user->id,
+                    ]
+                );
+            } else if ($forumOwner instanceof Admin) {
+                $this->createAdminNotification(
+                    $forumOwner->id,
+                    'forum_comment_received',
+                    'New Comment on Your Forum',
+                    "{$user->first_name} {$user->last_name} commented on your forum <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                    [
+                        'forum_id'   => $forum->id,
+                        'comment_id' => $comment->id,
+                        'from_user'  => $user->id,
+                    ]
+                );
+            }
         }
 
         // If this is a reply, notify the parent comment owner
         if ($request->parent_id) {
             $parentComment = $forum->comments()->find($request->parent_id);
 
-            if ($parentComment && $parentComment->user_id !== $user->id) {
-                $parentComment->user->sendNotification(
-                    'forum_comment_reply',
-                    'Reply to Your Comment',
-                    "{$user->first_name} {$user->last_name} replied to your comment on <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
-                    [
-                        'forum_id'     => $forum->id,
-                        'comment_id'   => $comment->id,
-                        'parent_id'    => $parentComment->id,
-                        'from_user'    => $user->id,
-                    ]
-                );
+            if ($parentComment && (int)$parentComment->user_id !== (int)$user->id) {
+
+                $parentOwner = $parentComment->user;
+                if ($parentOwner instanceof User) {
+                    $parentOwner->sendNotification(
+                        'forum_comment_reply',
+                        'Reply to Your Comment',
+                        "{$user->first_name} {$user->last_name} replied to your comment on <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                        [
+                            'forum_id'     => $forum->id,
+                            'comment_id'   => $comment->id,
+                            'parent_id'    => $parentComment->id,
+                            'from_user'    => $user->id,
+                        ]
+                    );
+                } else if ($parentOwner instanceof Admin) {
+                    $this->createAdminNotification(
+                        $parentOwner->id,
+                        'forum_comment_reply',
+                        'Reply to Your Comment',
+                        "{$user->first_name} {$user->last_name} replied to your comment on <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                        [
+                            'forum_id'     => $forum->id,
+                            'comment_id'   => $comment->id,
+                            'parent_id'    => $parentComment->id,
+                            'from_user'    => $user->id,
+                        ]
+                    );
+                }
             }
         }
 
@@ -121,12 +180,21 @@ class ForumChatCommentController extends Controller
      */
     public function deleteComment($commentId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $comment = ForumChatComment::findOrFail($commentId);
 
-        if ($comment->user_id !== $user->id) {
+        Log::info([
+            "comment_id" => $commentId,
+            "comment_user_id" => $comment->user_id,
+            "comment_user_type" => $comment->user_type,
+            "userid" => $user->id,
+            "user_type" => get_class($user),
+            "info" => "delete"
+        ]);
+
+        if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -136,19 +204,37 @@ class ForumChatCommentController extends Controller
         event(new ForumCommentDeleted($commentId, $comment->forum_chat_id));
 
 
-        $user->logActivity(
-            'forum_comment_delete',
-            'Deleted a comment',
-            "You deleted your comment: \"{$commentContent}\"",
-            ['comment_id' => $commentId]
-        );
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'forum_comment_delete',
+                'Deleted a comment',
+                "You deleted your comment: \"{$commentContent}\"",
+                ['comment_id' => $commentId]
+            );
 
-        $user->sendNotification(
-            'forum_comment_deleted',
-            'Comment deleted',
-            "Your comment <em>\"{$commentContent}\"</em> has been removed.",
-            ['comment_id' => $commentId]
-        );
+            $this->createAdminNotification(
+                $user->id,
+                'forum_comment_deleted',
+                'Comment deleted',
+                "Your comment <em>\"{$commentContent}\"</em> has been removed.",
+                ['comment_id' => $commentId]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'forum_comment_delete',
+                'Deleted a comment',
+                "You deleted your comment: \"{$commentContent}\"",
+                ['comment_id' => $commentId]
+            );
+
+            $user->sendNotification(
+                'forum_comment_deleted',
+                'Comment deleted',
+                "Your comment <em>\"{$commentContent}\"</em> has been removed.",
+                ['comment_id' => $commentId]
+            );
+        }
 
         return response()->json(['message' => 'Comment deleted successfully']);
     }
@@ -158,17 +244,18 @@ class ForumChatCommentController extends Controller
      */
     public function editComment(Request $request, $commentId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => "Unauthorized"], 403);
 
         $comment = ForumChatComment::findOrFail($commentId);
-        if ($comment->user_id !== $user->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
 
         $request->validate([
             'comment' => 'required|string|max:500',
         ]);
+
+        if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
         $oldComment = $comment->comment;
         $comment->update(['comment' => $request->comment]);
@@ -176,19 +263,37 @@ class ForumChatCommentController extends Controller
         event(new ForumCommentUpdated($comment));
 
 
-        $user->logActivity(
-            'forum_comment_edit',
-            'Edited a comment',
-            "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
-            ['comment_id' => $commentId]
-        );
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'forum_comment_edit',
+                'Edited a comment',
+                "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
+                ['comment_id' => $commentId]
+            );
 
-        $user->sendNotification(
-            'forum_comment_updated',
-            'Comment updated',
-            "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
-            ['comment_id' => $commentId]
-        );
+            $this->createAdminNotification(
+                $user->id,
+                'forum_comment_updated',
+                'Comment updated',
+                "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
+                ['comment_id' => $commentId]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'forum_comment_edit',
+                'Edited a comment',
+                "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
+                ['comment_id' => $commentId]
+            );
+
+            $user->sendNotification(
+                'forum_comment_updated',
+                'Comment updated',
+                "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
+                ['comment_id' => $commentId]
+            );
+        }
 
         return response()->json([
             'message' => 'Comment updated successfully',
@@ -201,7 +306,7 @@ class ForumChatCommentController extends Controller
      */
     public function flag(Request $request, $id)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 403);
         }

@@ -213,7 +213,7 @@ Route::prefix('v3')->group(function () {
             Route::match(['post', 'patch'], '/{id}/update', [ForumChatController::class, 'update']);     // Update forum
             Route::delete('/{id}/delete', [ForumChatController::class, 'destroy']); // Delete forum
             Route::get('/{id}/share', [ForumChatController::class, 'share']); // Share forum
-            Route::get('/get-visibility-options', [ForumChatController::class, 'getForumsByVisibility']);
+            Route::get('/get-visibility-options/{visibility}/forums', [ForumChatController::class, 'getForumsByVisibility']);
             Route::prefix('{forumId}/comments')->group(function () {
                 Route::get('/fetch', [ForumChatCommentController::class, 'fetchComments']);  // List comments
                 Route::post('/', [ForumChatCommentController::class, 'addComment']);    // Add comment

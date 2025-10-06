@@ -22,37 +22,58 @@ class ForumChatController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
-
-        $validated = $request->validate([
-            'title'    => 'required|string|max:255',
-            'content'  => 'required|string',
-            'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
-            'visibility' => 'sometimes|string|in:everyone,veterinary_doctors,veterinary_clinics,veterinary_paraprofessionals,pet_owner/livestock_farmer,vendor,students'
-        ]);
-
-        $imagePaths = null;
-        if ($request->hasFile('image')) {
-            $imagePaths = $request->file('image')->store('forum_pictures', 'public');
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $forum = ForumChat::create([
-            'user_id'   => $user->id,
-            'user_type' => get_class($user),
-            'title'     => $validated['title'],
-            'content'   => $validated['content'],
-            'image'    => $imagePaths,
-            'status'    => 'archived',
-            'visibility' => $validated['visibility'] ?? 'everyone'
+        // Determine user active role
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
+        // Allowed visibilities based on role
+        $allowedVisibilities = match ($roleName) {
+            'admin' => ['everyone', 'veterinary_doctor', 'veterinary_clinic', 'veterinary_paraprofessional', 'pet_owner', 'livestock_farmer', 'vendor', 'others'],
+            default => [$roleName, 'everyone'],
+        };
+
+        // Validate request with dynamic visibility rule
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+            'visibility' => ['required', 'string', function ($attribute, $value, $fail) use ($allowedVisibilities) {
+                if (!in_array($value, $allowedVisibilities)) {
+                    $fail("You are not allowed to post with visibility '{$value}'.");
+                }
+            }],
         ]);
 
+        // Handle image upload
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('forum_pictures', 'public');
+        }
+
+
+        $forum = ForumChat::create([
+            'user_id' => $user->id,
+            'user_type' => get_class($user),
+            'title' => $validated['title'],
+            'content' => $validated['content'],
+            'image' => $imagePath,
+            'status' => 'archived',
+            'visibility' => $validated['visibility'] ?? 'everyone',
+        ]);
+
+
         try {
-            if ($user instanceof Admin) {
+            if ($user instanceof \App\Models\Admin) {
                 $this->createAdminActivity(
                     $user->id,
                     'created',
                     'Forum Created',
-                    "User {$user->first_name} created forum '{$forum->title}'.",
+                    "Admin {$user->first_name} created forum '{$forum->title}'.",
                     ['forum_id' => $forum->id]
                 );
 
@@ -63,7 +84,7 @@ class ForumChatController extends Controller
                     "Your forum post '{$forum->title}' was created.",
                     ['forum_id' => $forum->id]
                 );
-            } elseif ($user instanceof User) {
+            } else if ($user instanceof User) {
                 $user->logActivity(
                     'created',
                     'Forum Created',
@@ -79,14 +100,15 @@ class ForumChatController extends Controller
                 );
             }
         } catch (\Throwable $e) {
-            // Optionally log silently
+            // Log silently
         }
 
         return response()->json([
             'message' => 'Forum chat created successfully',
-            'data'    => $forum
+            'data' => $forum
         ], 201);
     }
+
 
     /**
      * List all published forum posts.
@@ -98,26 +120,27 @@ class ForumChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $chats = Cache::remember('forum_chats_index', now()->addMinutes(10), function () use ($user) {
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
+        $visibilityFilter = $roleName === 'admin'
+            ? [] // admin sees all
+            : ['everyone', $roleName];
+
+        $cacheKey = "forum_chats_index_" . class_basename(get_class($user)) . "_{$user->id}";
+
+        $chats = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $visibilityFilter) {
             $chats = ForumChat::where('status', 'published')
                 ->with([
-                    'user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
-                    'likes',
-                    'likes.user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
                     'likers'
                 ])
                 ->latest()
                 ->paginate(10);
+
+            if (!empty($visibilityFilter)) {
+                $chats->whereIn('visibility', $visibilityFilter);
+            }
 
             // Add has_liked attribute for each forum chat
             return $chats->through(function ($chat) use ($user) {
@@ -129,8 +152,6 @@ class ForumChatController extends Controller
             });
         });
 
-        // $likes = $chats->likes()->with('user')->get();
-
         return response()->json(['chats' => $chats], 200);
     }
 
@@ -140,74 +161,52 @@ class ForumChatController extends Controller
     public function show($slug, Request $request)
     {
         $user = auth('user')->user() ?: auth('admin')->user();
-        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
+        // Cache key for the forum data (not user-dependent)
         $cacheKey = "forum_show_{$slug}";
 
-        $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug, $user) {
-            $forum = ForumChat::where('slug', $slug)
+        $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug) {
+            return ForumChat::where('slug', $slug)
                 ->where('status', 'published')
                 ->with([
-                    'user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
                     'comments' => function ($q) {
                         $q->where('flag', '!=', 'hidden')
                             ->with([
-                                'user' => function ($morph) {
-                                    $morph->morphWith([
-                                        \App\Models\User::class  => ['profile', 'activeRole'],
-                                        \App\Models\Admin::class => [],
-                                    ]);
-                                },
                                 'replies' => function ($r) {
-                                    $r->where('flag', '!=', 'hidden')->with([
-                                        'user' => function ($morph) {
-                                            $morph->morphWith([
-                                                \App\Models\User::class  => ['profile', 'activeRole'],
-                                                \App\Models\Admin::class => [],
-                                            ]);
-                                        }
-                                    ]);
+                                    $r->where('flag', '!=', 'hidden');
                                 }
                             ]);
                     },
-                    'likes',
-                    'likes.user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
-                    'likers'
+                    'likers',
                 ])
                 ->firstOrFail();
-
-            // ✅ assign before returning
-            $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
-                ->where('user_id', $user->id)
-                ->where('user_type', get_class($user))
-                ->exists();
-
-            return $forum;
         });
 
-        // ✅ handle view counts
-        $viewCacheKey = $user
-            ? "forum_view_{$forum->id}_user_{$user->id}"
-            : "forum_view_{$forum->id}_ip_{$request->ip()}";
+        // Add has_liked dynamically
+        $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
+            ->where('user_id', $user->id)
+            ->where('user_type', get_class($user))
+            ->exists();
 
-        if (!Cache::has($viewCacheKey)) {
-            $forum->increment('views_count');
-            Cache::put($viewCacheKey, true, now()->addDay());
-            Cache::forget($cacheKey); // invalidate cached version for next view
+        // Don't increment if viewer is admin or the creator
+        $isForumOwner = ((int)$forum->user_id === (int)$user->id) && ($forum->user_type === get_class($user));
+        $isAdmin = $user instanceof \App\Models\Admin;
+
+        if (!$isForumOwner && !$isAdmin) {
+            $viewCacheKey = "forum_view_{$forum->id}_user_{$user->id}";
+
+            if (!Cache::has($viewCacheKey)) {
+                $forum->increment('views_count');
+                Cache::put($viewCacheKey, true, now()->addDay());
+            }
         }
 
         return response()->json($forum);
     }
+
 
 
     /**
@@ -222,11 +221,26 @@ class ForumChatController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        // Determine user active role
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
+        // Allowed visibilities based on role
+        $allowedVisibilities = match ($roleName) {
+            'admin' => ['everyone', 'veterinary_doctor', 'veterinary_clinic', 'veterinary_paraprofessional', 'pet_owner', 'livestock_farmer', 'vendor', 'others'],
+            default => [$roleName, 'everyone'],
+        };
+
         $validated = $request->validate([
             'title'    => 'sometimes|string|max:255',
             'content'  => 'sometimes|string',
             'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
-            'visibility' => 'sometimes|string|in:everyone,veterinary_doctors,veterinary_clinics,veterinary_paraprofessionals,pet_owner/livestock_farmer,vendor,students'
+            'visibility' => ['sometimes', 'string', function ($attribute, $value, $fail) use ($allowedVisibilities) {
+                if (!in_array($value, $allowedVisibilities)) {
+                    $fail("You are not allowed to post with visibility '{$value}'.");
+                }
+            }],
         ]);
 
         $imagePaths = $forum->images ?? null;
@@ -337,23 +351,20 @@ class ForumChatController extends Controller
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $trending = Cache::remember('trending_forums_chat', now()->addMinutes(10), function () use ($user) {
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
+        $visibilityFilter = $roleName === 'admin'
+            ? [] // admin sees all
+            : ['everyone', $roleName];
+
+        $cacheKey = "trending_forums_chat_" . class_basename(get_class($user)) . "_{$user->id}";
+
+        $trending = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $visibilityFilter) {
             $forum = ForumChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
-                    'user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
-                    'likes',
-                    'likes.user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
                     'likers'
                 ])
                 ->selectRaw('
@@ -365,6 +376,10 @@ class ForumChatController extends Controller
                 ->orderByDesc('score')
                 ->take(10)
                 ->get();
+
+            if (!empty($visibilityFilter)) {
+                $forum->whereIn('visibility', $visibilityFilter);
+            }
 
             // Add has_liked attribute
             return $forum->through(function ($chat) use ($user) {
@@ -389,19 +404,6 @@ class ForumChatController extends Controller
 
         $forums = Cache::remember('forum_chats_admin', now()->addMinutes(10), function () use ($admin) {
             $forumChat = ForumChat::with([
-                'user' => function ($morph) {
-                    $morph->morphWith([
-                        \App\Models\User::class  => ['profile', 'activeRole'],
-                        \App\Models\Admin::class => [],
-                    ]);
-                },
-                'likes',
-                'likes.user' => function ($morph) {
-                    $morph->morphWith([
-                        \App\Models\User::class  => ['profile', 'activeRole'],
-                        \App\Models\Admin::class => [],
-                    ]);
-                },
                 'likers'
             ])
                 ->orderBy('created_at', 'desc')
@@ -440,25 +442,23 @@ class ForumChatController extends Controller
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $visibility = Cache::remember('forum_visibility', now()->addMinutes(30), function () use ($visibility, $user) {
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
+        // Only admins can fetch any visibility
+        if ($roleName !== 'admin' && !in_array($visibility, [$roleName, 'everyone'])) {
+            return response()->json(['message' => "You are not allowed to view '{$visibility}' forums."], 403);
+        }
+
+        $cacheKey = "forum_visibility_" . class_basename(get_class($user)) . "_{$user->id}_{$visibility}";
+
+        $visibility = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($visibility, $user) {
             $forums = ForumChat::where('status', 'published')
                 ->where('visibility', $visibility)
-                ->with([
-                    'user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
-                    'likes',
-                    'likes.user' => function ($morph) {
-                        $morph->morphWith([
-                            \App\Models\User::class  => ['profile', 'activeRole'],
-                            \App\Models\Admin::class => [],
-                        ]);
-                    },
+                ->with(
                     'likers'
-                ])
+                )
                 ->latest()
                 ->paginate(10);
 
