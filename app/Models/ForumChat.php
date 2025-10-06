@@ -95,6 +95,15 @@ class ForumChat extends Model
         if ($chat?->id) {
             Cache::forget("forum_likers_{$chat->id}");
         }
+
+        if ($chat?->user_id && $chat?->user_type) {
+            $classBase = class_basename($chat->user_type);
+
+            // Forget per-user cache variants
+            Cache::forget("forum_chats_index_{$classBase}_{$chat->user_id}");
+            Cache::forget("trending_forums_chat_{$classBase}_{$chat->user_id}");
+            Cache::forget("forum_visibility_{$classBase}_{$chat->user_id}");
+        }
     }
 
     // Relationships

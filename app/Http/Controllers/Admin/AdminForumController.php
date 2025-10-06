@@ -134,7 +134,7 @@ class AdminForumController extends Controller
                         ]);
                     },
                     'comments',
-                    'likes'
+                    'likers'
                 ])
                 ->latest()
                 ->paginate(10);
@@ -151,14 +151,7 @@ class AdminForumController extends Controller
         $forums = ForumChat::where('title', 'LIKE', '%' . $searchTerm . '%')
             ->orWhere('content', 'LIKE', '%' . $searchTerm . '%')
             ->with([
-                'user' => function ($morph) {
-                    $morph->morphWith([
-                        \App\Models\User::class => ['profile', 'activeRole'],
-                        \App\Models\Admin::class => [],
-                    ]);
-                },
-                'comments',
-                'likes'
+                'likers'
             ])
             ->latest()
             ->paginate(10);
