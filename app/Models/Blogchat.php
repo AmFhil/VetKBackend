@@ -29,7 +29,7 @@ class BlogChat extends Model
         'comments_count',
     ];
 
-    protected $appends = ['author'];
+    protected $appends = ['author', 'picture_url'];
 
     protected static function booted()
     {
@@ -50,7 +50,7 @@ class BlogChat extends Model
     }
 
     // get picture url
-    public function getPictureAttribute(){
+    public function getPictureUrlAttribute(){
         return $this->picture ? Storage::url($this->picture) : null;
     }
 

@@ -60,7 +60,7 @@ class BlogChatController extends Controller
             ? $request->file('picture')->store('blog_pictures', 'public')
             : null;
 
-        $baseSlug = Str::slug($request->title);
+        $baseSlug = Str::slug($request->title) . '-' . uniqid();
         $slug = $baseSlug;
         $count = 1;
         while (BlogChat::where('slug', $slug)->exists()) {
@@ -112,11 +112,8 @@ class BlogChatController extends Controller
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $blogs = BlogChat::with([
-            'user',
             'comments.user',
             'comments.replies.user',
-            'likes',
-            'likes.user',
             'likers'
         ])->orderBy('created_at', 'desc')->paginate(10);
 
@@ -249,11 +246,8 @@ class BlogChatController extends Controller
 
         $blogs = BlogChat::onlyTrashed()
             ->with([
-                'user',
                 'comments.user',
                 'comments.replies.user',
-                'likes',
-                'likes.user',
                 'likers'
             ])
             ->orderBy('deleted_at', 'desc')
@@ -380,11 +374,8 @@ class BlogChatController extends Controller
             $blogChat = BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
-                    'user',
                     'comments.user',
                     'comments.replies.user',
-                    'likes',
-                    'likes.user',
                     'likers'
                 ])
                 ->selectRaw('
@@ -456,14 +447,12 @@ class BlogChatController extends Controller
 
         $blog = $query->where('status', 'published')
             ->with([
-                'user',
                 'comments' => function ($q) {
                     $q->whereNull('parent_id')
                         ->where('flag', '!=', 'hidden')
                         ->with([
-                            'user',
                             'replies' => function ($r) {
-                                $r->where('flag', '!=', 'hidden')->with('user');
+                                $r->where('flag', '!=', 'hidden');
                             }
                         ]);
                 }
