@@ -102,7 +102,7 @@ class ForumChat extends Model
             // Forget per-user cache variants
             Cache::forget("forum_chats_index_{$classBase}_{$chat->user_id}");
             Cache::forget("trending_forums_chat_{$classBase}_{$chat->user_id}");
-            Cache::forget("forum_visibility_{$classBase}_{$chat->user_id}");
+            Cache::forget("forum_visibility_{$classBase}_{$chat->user_id}_{$chat->visibility}");
         }
     }
 

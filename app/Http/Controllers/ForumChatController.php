@@ -125,24 +125,21 @@ class ForumChatController extends Controller
             : $user->activeRole?->name;
 
         $visibilityFilter = $roleName === 'admin'
-            ? [] // admin sees all
+            ? [] // Admin sees all
             : ['everyone', $roleName];
 
         $cacheKey = "forum_chats_index_" . class_basename(get_class($user)) . "_{$user->id}";
 
         $chats = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $visibilityFilter) {
-            $chats = ForumChat::where('status', 'published')
-                ->with([
-                    'likers'
-                ])
-                ->latest()
-                ->paginate(10);
+            $query = ForumChat::where('status', 'published')
+                ->with(['likers']);
 
             if (!empty($visibilityFilter)) {
-                $chats->whereIn('visibility', $visibilityFilter);
+                $query->whereIn('visibility', $visibilityFilter);
             }
 
-            // Add has_liked attribute for each forum chat
+            $chats = $query->latest()->paginate(10);
+
             return $chats->through(function ($chat) use ($user) {
                 $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
                     ->where('user_id', $user->id)
@@ -165,11 +162,18 @@ class ForumChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // Cache key for the forum data (not user-dependent)
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
+        $visibilityFilter = $roleName === 'admin'
+            ? [] // Admin sees all
+            : ['everyone', $roleName];
+
         $cacheKey = "forum_show_{$slug}";
 
-        $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug) {
-            return ForumChat::where('slug', $slug)
+        $forum = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug, $visibilityFilter) {
+            $query = ForumChat::where('slug', $slug)
                 ->where('status', 'published')
                 ->with([
                     'comments' => function ($q) {
@@ -181,8 +185,13 @@ class ForumChatController extends Controller
                             ]);
                     },
                     'likers',
-                ])
-                ->firstOrFail();
+                ]);
+
+            if (!empty($visibilityFilter)) {
+                $query->whereIn('visibility', $visibilityFilter);
+            }
+
+            return $query->firstOrFail();
         });
 
         // Add has_liked dynamically
@@ -356,32 +365,28 @@ class ForumChatController extends Controller
             : $user->activeRole?->name;
 
         $visibilityFilter = $roleName === 'admin'
-            ? [] // admin sees all
+            ? [] // Admin sees all
             : ['everyone', $roleName];
 
         $cacheKey = "trending_forums_chat_" . class_basename(get_class($user)) . "_{$user->id}";
 
         $trending = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $visibilityFilter) {
-            $forum = ForumChat::where('status', 'published')
+            $query = ForumChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
-                ->with([
-                    'likers'
-                ])
+                ->with(['likers'])
                 ->selectRaw('
-                    (views_count * 0.3) +
-                    (likes_count * 0.5) +
-                    (comments_count * 0.7) +
-                    (shares_count * 1) as score
-                ')
-                ->orderByDesc('score')
-                ->take(10)
-                ->get();
+                (views_count * 0.3) +
+                (likes_count * 0.5) +
+                (comments_count * 0.7) +
+                (shares_count * 1) as score
+            ');
 
             if (!empty($visibilityFilter)) {
-                $forum->whereIn('visibility', $visibilityFilter);
+                $query->whereIn('visibility', $visibilityFilter);
             }
 
-            // Add has_liked attribute
+            $forum = $query->orderByDesc('score')->take(10)->get();
+
             return $forum->through(function ($chat) use ($user) {
                 $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
                     ->where('user_id', $user->id)
@@ -391,7 +396,7 @@ class ForumChatController extends Controller
             });
         });
 
-        return response()->json($trending);
+        return response()->json($trending, 200);
     }
 
     /**
@@ -453,14 +458,12 @@ class ForumChatController extends Controller
 
         $cacheKey = "forum_visibility_" . class_basename(get_class($user)) . "_{$user->id}_{$visibility}";
 
-        $visibility = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($visibility, $user) {
-            $forums = ForumChat::where('status', 'published')
+        $forums = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($visibility, $user) {
+            $query = ForumChat::where('status', 'published')
                 ->where('visibility', $visibility)
-                ->with(
-                    'likers'
-                )
-                ->latest()
-                ->paginate(10);
+                ->with(['likers']);
+
+            $forums = $query->latest()->paginate(10);
 
             return $forums->through(function ($chat) use ($user) {
                 $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
@@ -471,7 +474,7 @@ class ForumChatController extends Controller
             });
         });
 
-        return response()->json($visibility, 200);
+        return response()->json($forums, 200);
     }
 
     public function getLikers($id)

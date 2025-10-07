@@ -51,6 +51,13 @@ class User extends Authenticatable
         ];
     }
 
+    protected $appends = ['activeRoleName'];
+
+    public function getActiveRoleNameAttribute()
+    {
+        return $this->activeRole?->name;
+    }
+
     // Many roles
     public function roles()
     {
@@ -209,7 +216,7 @@ class User extends Authenticatable
             $user->petOwner()->delete();
             $user->livestockFarmer()->delete();
             $user->vendor()->delete();
-            $user->others()->delete(); 
+            $user->others()->delete();
         });
 
 
