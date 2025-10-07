@@ -47,11 +47,8 @@ class AdminAuthController extends Controller
             // delete old tokens
             $admin->tokens()->delete();
 
-            // At this point, the password is confirmed to be correct.
             // Generate the token and return a successful response.
             $token = $admin->createToken('admin_token')->plainTextToken;
-            $admin->role = 'Admin';
-            // $admin->profile_picture = ('https://vetkonect.com/backend/storage/app/public/admin_pic/' . $admin->profile_picture);
 
             return response()->json([
                 'message' => 'Login successful',
