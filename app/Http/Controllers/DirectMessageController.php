@@ -9,6 +9,7 @@ use App\Models\Admin;
 use App\Models\DirectMessage;
 use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -22,6 +23,8 @@ class DirectMessageController extends Controller
         Cache::forget("conversation_{$userId2}_{$userId1}");
         Cache::forget("sent_messages_{$userId1}");
         Cache::forget("received_messages_{$userId2}");
+        Cache::forget("chat_list_{$userId1}");
+        Cache::forget("chat_list_{$userId2}");
     }
 
     // Send Message
@@ -177,13 +180,6 @@ class DirectMessageController extends Controller
                 "Message #{$message->id} was flagged by {$user->first_name} {$user->last_name}",
                 ['message_id' => $message->id]
             );
-            $this->createAdminActivity(
-                $admin->id,
-                "message_flagged",
-                "Direct message flagged",
-                "Message #{$message->id} flagged by user {$user->id}.",
-                ['message_id' => $message->id]
-            );
         }
 
         return response()->json(['message' => 'Message flagged, admins notified']);
@@ -223,6 +219,7 @@ class DirectMessageController extends Controller
     public function getAllSentMessage()
     {
         $user = auth('user')->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
         $cacheKey = "sent_messages_{$user->id}";
 
         $messages = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
@@ -232,13 +229,14 @@ class DirectMessageController extends Controller
                 ->get();
         });
 
-        return response()->json($messages);
+        return response()->json($messages, 200);
     }
 
     // ✅ Received Messages (cached)
     public function getAllReceivedMessage()
     {
         $user = auth('user')->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
         $cacheKey = "received_messages_{$user->id}";
 
         $messages = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
@@ -248,6 +246,62 @@ class DirectMessageController extends Controller
                 ->get();
         });
 
-        return response()->json($messages);
+        return response()->json($messages, 200);
+    }
+
+    public function getChatList()
+    {
+        $user = auth('user')->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
+        $cacheKey = "chat_list_{$user->id}";
+
+        $chatList = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
+            $messages = DirectMessage::with(['sender.profile', 'receiver.profile'])
+                ->where(function ($q) use ($user) {
+                    $q->where('sender_id', $user->id)
+                        ->orWhere('receiver_id', $user->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $conversations = collect();
+
+            foreach ($messages as $msg) {
+                $partnerId = $msg->sender_id === $user->id ? $msg->receiver_id : $msg->sender_id;
+
+                // skip duplicates
+                if ($conversations->has($partnerId)) continue;
+
+                $partner = $msg->sender_id === $user->id ? $msg->receiver : $msg->sender;
+
+                // count unread messages
+                $unreadCount = DirectMessage::where('sender_id', $partnerId)
+                    ->where('receiver_id', $user->id)
+                    ->where('is_read', false)
+                    ->count();
+
+                // format the time
+                $formattedTime = Carbon::parse($msg->created_at)->diffForHumans(null, true);
+
+                $conversations->put($partnerId, [
+                    'user' => [
+                        'id' => $partner->id,
+                        'name' => trim("{$partner->first_name} {$partner->last_name}"),
+                        'profile_image' => $partner->profile->profile_picture ?? null,
+
+                    ],
+                    'last_message' => $msg->content,
+                    'last_message_images' => $msg->image_urls ?? [],
+                    'last_message_time' => $msg->created_at,
+                    'last_message_display_time' => $formattedTime,
+                    'unread_count' => $unreadCount
+                ]);
+            }
+
+            // sort chats to the top
+            return $conversations->sortByDesc('last_message_time')->values();
+        });
+
+        return response()->json($chatList, 200);
     }
 }

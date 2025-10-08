@@ -198,6 +198,7 @@ Route::prefix('v3')->group(function () {
         Route::put('/messages/{id}/flag', [DirectMessageController::class, 'flag']);
         Route::get('/message/sent', [DirectMessageController::class, 'getAllSentMessage']);
         Route::get('/message/received', [DirectMessageController::class, 'getAllReceivedMessage']);
+        Route::get('/get-chat-list', [DirectMessageController::class, 'getChatList']);
 
         Route::get('/get-user-activity', [UserController::class, 'getUserActivity']);
         Route::get('/get-user-notification', [UserController::class, 'getUserNotification']);
