@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules;
 
 class AuthController extends Controller
 {
@@ -27,8 +28,8 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validatedData = Validator::make($request->all(), [
-        'email' => 'required|email|unique:users_registration,email',
-        'password' => 'required|string|min:8|confirmed',
+        'email' => 'required|email|string|lowercase|unique:users_registration,email',
+        'password' => ['required|string|min:8|confirmed|', Rules\Password::defaults()]
     ]);
 
         if ($validatedData->fails()) {

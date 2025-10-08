@@ -177,7 +177,8 @@ class ForumChatController extends Controller
                 ->where('status', 'published')
                 ->with([
                     'comments' => function ($q) {
-                        $q->where('flag', '!=', 'hidden')
+                        $q->whereNull('parent_id')
+                            ->where('flag', '!=', 'hidden')
                             ->with([
                                 'replies' => function ($r) {
                                     $r->where('flag', '!=', 'hidden');
