@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\BlogCommentAdded;
+use App\Events\BlogCommentDeleted;
+use App\Events\BlogCommentUpdated;
 use App\Models\BlogChat;
 use App\Models\BlogChatComment;
 use App\Models\Admin;
@@ -33,7 +36,7 @@ class BlogChatCommentController extends Controller
     // Add comment
     public function addComment(Request $request, $blogId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $request->validate([
@@ -51,28 +54,52 @@ class BlogChatCommentController extends Controller
             'parent_id'    => $request->parent_id,
         ]);
 
-        $user->logActivity(
-            'blog_comment_add',
-            'Added a comment',
-            "You commented on '{$blog->title}': \"{$comment->comment}\"",
-            ['blog_id' => $blog->id, 'comment_id' => $comment->id]
-        );
+        event(new BlogCommentAdded($comment));
 
-        $user->sendNotification(
-            'blog_comment_added',
-            'Comment added',
-            "Your comment on <strong>{$blog->title}</strong> was posted successfully.",
-            ['blog_id' => $blog->id, 'comment_id' => $comment->id]
-        );
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'blog_comment_add',
+                'Added a comment',
+                "You commented on '{$blog->title}': \"{$comment->comment}\"",
+                ['blog_id' => $blog->id, 'comment_id' => $comment->id]
+            );
+
+            $this->createAdminNotification(
+                $user->id,
+                'blog_comment_added',
+                'Comment added',
+                "Your comment on <strong>{$blog->title}</strong> was posted successfully.",
+                ['blog_id' => $blog->id, 'comment_id' => $comment->id]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'blog_comment_add',
+                'Added a comment',
+                "You commented on '{$blog->title}': \"{$comment->comment}\"",
+                ['blog_id' => $blog->id, 'comment_id' => $comment->id]
+            );
+
+            $user->sendNotification(
+                'blog_comment_added',
+                'Comment added',
+                "Your comment on <strong>{$blog->title}</strong> was posted successfully.",
+                ['blog_id' => $blog->id, 'comment_id' => $comment->id]
+            );
+        }
 
         // notify blog author if not the same user
         if ($blog->user_id !== $user->id || get_class($blog->user) !== get_class($user)) {
-            $blog->user->sendNotification(
-                'blog_commented_by_other',
-                'New Comment on Your Blog Chat',
-                "<strong>{$user->first_name} {$user->last_name}</strong> commented on your blog chat titled <strong>{$blog->title}</strong>: \"{$comment->comment}\"",
-                ['blog_id' => $blog->id, 'commenter_id' => $user->id, 'comment_id' => $comment->id]
-            );
+            $blogOwner = $blog->user;
+            if ($blogOwner instanceof Admin) {
+                $this->createAdminNotification(
+                    $blogOwner->id,
+                    'blog_commented_by_other',
+                    'New Comment on Your Blog Chat',
+                    "<strong>{$user->first_name} {$user->last_name}</strong> commented on your blog chat titled <strong>{$blog->title}</strong>: \"{$comment->comment}\"",
+                    ['blog_id' => $blog->id, 'commenter_id' => $user->id, 'comment_id' => $comment->id]
+                );
+            }
         }
 
         // notify admin authors
@@ -86,9 +113,6 @@ class BlogChatCommentController extends Controller
                 ['blog_id' => $blog->id, 'comment_id' => $comment->id]
             );
         }
-
-
-
 
         $this->clearBlogCaches($blog->id);
 
@@ -105,15 +129,15 @@ class BlogChatCommentController extends Controller
             ->whereNull('parent_id')
             ->where('flag', '!=', 'hidden')
             ->with([
-                'user.roles:id,name',
-                'user.activeRole:id,name',
-                'user.profile:id,user_id,profile_image',
+                // 'user.roles:id,name',
+                // 'user.activeRole:id,name',
+                // 'user.profile:id,user_id,profile_image',
                 'replies' => function ($q) {
                     $q->where('flag', '!=', 'hidden')
                         ->with([
-                            'user.roles:id,name',
-                            'user.activeRole:id,name',
-                            'user.profile:id,user_id,profile_image',
+                            // 'user.roles:id,name',
+                            // 'user.activeRole:id,name',
+                            // 'user.profile:id,user_id,profile_image',
                         ]);
                 }
             ])
@@ -126,12 +150,12 @@ class BlogChatCommentController extends Controller
     // Delete comment
     public function deleteComment($commentId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $comment = BlogChatComment::findOrFail($commentId);
 
-        if ($comment->user_id !== $user->id) {
+        if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -139,19 +163,40 @@ class BlogChatCommentController extends Controller
         $commentContent = $comment->comment;
         $comment->delete();
 
-        $user->logActivity(
-            'blog_comment_delete',
-            'Deleted a comment',
-            "You deleted your comment: \"{$commentContent}\"",
-            ['comment_id' => $commentId]
-        );
+        event(new BlogCommentDeleted($commentId, $blogId));
 
-        $user->sendNotification(
-            'blog_comment_deleted',
-            'Comment deleted',
-            "Your comment <em>\"{$commentContent}\"</em> has been removed.",
-            ['comment_id' => $commentId]
-        );
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'blog_comment_delete',
+                'Deleted a comment',
+                "You deleted your comment: \"{$commentContent}\"",
+                ['comment_id' => $commentId]
+            );
+
+            $this->createAdminNotification(
+                $user->id,
+                'blog_comment_deleted',
+                'Comment deleted',
+                "Your comment <em>\"{$commentContent}\"</em> has been removed.",
+                ['comment_id' => $commentId]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'blog_comment_delete',
+                'Deleted a comment',
+                "You deleted your comment: \"{$commentContent}\"",
+                ['comment_id' => $commentId]
+            );
+
+            $user->sendNotification(
+                'blog_comment_deleted',
+                'Comment deleted',
+                "Your comment <em>\"{$commentContent}\"</em> has been removed.",
+                ['comment_id' => $commentId]
+            );
+        }
+
 
         $this->clearBlogCaches($blogId);
 
@@ -161,11 +206,11 @@ class BlogChatCommentController extends Controller
     // Edit comment
     public function editComment(Request $request, $commentId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => "Unauthorized"], 403);
 
         $comment = BlogChatComment::findOrFail($commentId);
-        if ($comment->user_id !== $user->id) {
+        if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -176,19 +221,39 @@ class BlogChatCommentController extends Controller
         $oldComment = $comment->comment;
         $comment->update(['comment' => $request->comment]);
 
-        $user->logActivity(
-            'blog_comment_edit',
-            'Edited a comment',
-            "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
-            ['comment_id' => $commentId]
-        );
+        event(new BlogCommentUpdated($comment));
 
-        $user->sendNotification(
-            'blog_comment_updated',
-            'Comment updated',
-            "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
-            ['comment_id' => $commentId]
-        );
+        if ($user instanceof Admin) {
+            $this->createAdminActivity(
+                $user->id,
+                'blog_comment_edit',
+                'Edited a comment',
+                "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
+                ['comment_id' => $commentId]
+            );
+
+            $this->createAdminNotification(
+                $user->id,
+                'blog_comment_updated',
+                'Comment updated',
+                "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
+                ['comment_id' => $commentId]
+            );
+        } elseif ($user instanceof User) {
+            $user->logActivity(
+                'blog_comment_edit',
+                'Edited a comment',
+                "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
+                ['comment_id' => $commentId]
+            );
+
+            $user->sendNotification(
+                'blog_comment_updated',
+                'Comment updated',
+                "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
+                ['comment_id' => $commentId]
+            );
+        }
 
         $this->clearBlogCaches($comment->blog_chat_id);
 
@@ -201,7 +266,7 @@ class BlogChatCommentController extends Controller
     // User flag
     public function flag(Request $request, $id)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
@@ -248,7 +313,7 @@ class BlogChatCommentController extends Controller
         // notify all admins
         $admins = Admin::all();
         foreach ($admins as $admin) {
-            
+
             $this->createAdminNotification(
                 $admin->id,
                 'Comment Flagged',

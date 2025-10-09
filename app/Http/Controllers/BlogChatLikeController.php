@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\BlogLiked;
 use App\Models\Admin;
 use App\Models\BlogChat;
 use App\Models\BlogChatLike;
+use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -19,7 +21,7 @@ class BlogChatLikeController extends Controller
         Cache::forget("trending_blogs");
 
         // Determine how many pages exist
-        $perPage = 10; 
+        $perPage = 10;
         $totalBlogs = BlogChat::count();
         $lastPage = ceil($totalBlogs / $perPage);
 
@@ -30,7 +32,7 @@ class BlogChatLikeController extends Controller
 
     public function toggleLike($blogId)
     {
-        $user = auth()->user();
+        $user = auth('user')->user() ?: auth('admin')->user();
 
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -46,13 +48,26 @@ class BlogChatLikeController extends Controller
         if ($like) {
             $like->delete();
 
+            event(new BlogLiked($user, $blog->id));
+
             // LOG ACTIVITY
-            $user->logActivity(
-                'blog_unlike',
-                "UnLiked Blog Chat",
-                "You unLiked the blog chat titled '{$blog->title}'.",
-                ['blog_id' => $blog->id, 'action' => 'unlike']
-            );
+            if ($user instanceof Admin) {
+                $this->createAdminActivity(
+                    $user->id,
+                    'blog_unlike',
+                    "UnLiked Blog Chat",
+                    "You unLiked the blog chat titled '{$blog->title}'.",
+                    ['blog_id' => $blog->id, 'action' => 'unlike']
+                );
+            } elseif ($user instanceof User) {
+                $user->logActivity(
+                    'blog_unlike',
+                    "UnLiked Blog Chat",
+                    "You unLiked the blog chat titled '{$blog->title}'.",
+                    ['blog_id' => $blog->id, 'action' => 'unlike']
+                );
+            }
+
 
             $this->clearBlogCaches($blog->id);
 
@@ -64,13 +79,25 @@ class BlogChatLikeController extends Controller
                 'user_type' => get_class($user),
             ]);
 
+            event(new BlogLiked($user, $blog->id));
+
             // LOG ACTIVITY
-            $user->logActivity(
-                'blog_like',
-                "Liked Blog Chat",
-                "You liked the blog chat titled '{$blog->title}'.",
-                ['blog_id' => $blog->id, 'action' => 'like']
-            );
+            if ($user instanceof Admin) {
+                $this->createAdminActivity(
+                    $user->id,
+                    'blog_like',
+                    "Liked Blog Chat",
+                    "You liked the blog chat titled '{$blog->title}'.",
+                    ['blog_id' => $blog->id, 'action' => 'like']
+                );
+            } elseif ($user instanceof User) {
+                $user->logActivity(
+                    'blog_like',
+                    "Liked Blog Chat",
+                    "You liked the blog chat titled '{$blog->title}'.",
+                    ['blog_id' => $blog->id, 'action' => 'like']
+                );
+            }
 
 
             // send notification to blog author if not the same user

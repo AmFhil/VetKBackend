@@ -157,15 +157,15 @@ class ForumChatCommentController extends Controller
             ->whereNull('parent_id')
             ->where('flag', '!=', 'hidden')
             ->with([
-                'user.roles:id,name',
-                'user.activeRole:id,name',
-                'user.profile:id,user_id,profile_image',
+                // 'user.roles:id,name',
+                // 'user.activeRole:id,name',
+                // 'user.profile:id,user_id,profile_image',
                 'replies' => function ($q) {
                     $q->where('flag', '!=', 'hidden')
                         ->with([
-                            'user.roles:id,name',
-                            'user.activeRole:id,name',
-                            'user.profile:id,user_id,profile_image',
+                            // 'user.roles:id,name',
+                            // 'user.activeRole:id,name',
+                            // 'user.profile:id,user_id,profile_image',
                         ]);
                 }
             ])
@@ -185,14 +185,14 @@ class ForumChatCommentController extends Controller
 
         $comment = ForumChatComment::findOrFail($commentId);
 
-        Log::info([
-            "comment_id" => $commentId,
-            "comment_user_id" => $comment->user_id,
-            "comment_user_type" => $comment->user_type,
-            "userid" => $user->id,
-            "user_type" => get_class($user),
-            "info" => "delete"
-        ]);
+        // Log::info([
+        //     "comment_id" => $commentId,
+        //     "comment_user_id" => $comment->user_id,
+        //     "comment_user_type" => $comment->user_type,
+        //     "userid" => $user->id,
+        //     "user_type" => get_class($user),
+        //     "info" => "delete"
+        // ]);
 
         if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
             return response()->json(['message' => 'Forbidden'], 403);
