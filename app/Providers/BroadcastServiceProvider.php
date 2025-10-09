@@ -22,6 +22,10 @@ class BroadcastServiceProvider extends ServiceProvider
     {
         //
         Broadcast::routes(['middleware' => ['auth:sanctum']]); // Use Sanctum
+
+        // For admins (custom guard)
+        Broadcast::routes(['middleware' => ['auth:admin'], 'prefix' => 'admin-broadcasting']);
+
         require base_path('routes/channels.php');
     }
 }
