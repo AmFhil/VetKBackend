@@ -17,22 +17,6 @@ class BlogChatCommentController extends Controller
 {
     use BroadcastsAdminEvents;
 
-    // Clear blog caches (index, trending, show)
-    private function clearBlogCaches($blogId): void
-    {
-        Cache::forget("blog_show_{$blogId}");
-        Cache::forget("trending_blogs");
-
-        // Match the same pagination as BlogChatController@index
-        $perPage = 10;
-        $totalBlogs = BlogChat::count();
-        $lastPage = ceil($totalBlogs / $perPage);
-
-        for ($page = 1; $page <= $lastPage; $page++) {
-            Cache::forget("blogs_index_page_{$page}");
-        }
-    }
-
     // Add comment
     public function addComment(Request $request, $blogId)
     {
@@ -113,8 +97,6 @@ class BlogChatCommentController extends Controller
                 ['blog_id' => $blog->id, 'comment_id' => $comment->id]
             );
         }
-
-        $this->clearBlogCaches($blog->id);
 
         return response()->json([
             'message' => 'Comment added successfully',
@@ -198,8 +180,6 @@ class BlogChatCommentController extends Controller
         }
 
 
-        $this->clearBlogCaches($blogId);
-
         return response()->json(['message' => 'Comment deleted successfully']);
     }
 
@@ -210,6 +190,7 @@ class BlogChatCommentController extends Controller
         if (!$user) return response()->json(['message' => "Unauthorized"], 403);
 
         $comment = BlogChatComment::findOrFail($commentId);
+
         if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
@@ -254,8 +235,6 @@ class BlogChatCommentController extends Controller
                 ['comment_id' => $commentId]
             );
         }
-
-        $this->clearBlogCaches($comment->blog_chat_id);
 
         return response()->json([
             'message' => 'Comment updated successfully',
@@ -327,7 +306,6 @@ class BlogChatCommentController extends Controller
             );
         }
 
-        $this->clearBlogCaches($comment->blog_chat_id);
 
         return response()->json(['message' => 'Comment flagged as ' . $request->flag]);
     }
@@ -401,8 +379,6 @@ class BlogChatCommentController extends Controller
                 );
             }
         }
-
-        $this->clearBlogCaches($comment->blog_chat_id);
 
         return response()->json([
             'message' => 'Comment flag updated by admin',

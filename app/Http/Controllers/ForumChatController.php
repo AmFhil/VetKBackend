@@ -438,6 +438,21 @@ class ForumChatController extends Controller
 
         // ✅ model events don’t fire on increment, so clear manually
         Cache::forget("forum_show_{$forum->slug}");
+        Cache::forget('admin_forums');
+        Cache::forget('forum_visibility');
+
+        if ($forum?->id) {
+            Cache::forget("forum_likers_{$forum->id}");
+        }
+
+        if ($forum?->user_id && $forum?->user_type) {
+            $classBase = class_basename($forum->user_type);
+
+            // Forget per-user cache variants
+            Cache::forget("forum_chats_index_{$classBase}_{$forum->user_id}");
+            Cache::forget("trending_forums_chat_{$classBase}_{$forum->user_id}");
+            Cache::forget("forum_visibility_{$classBase}_{$forum->user_id}_{$forum->visibility}");
+        }
 
         return response()->json(['message' => 'Share recorded']);
     }

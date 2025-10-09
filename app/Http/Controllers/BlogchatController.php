@@ -16,31 +16,6 @@ class BlogChatController extends Controller
 
 
     /**
-     * Clear blog-related caches.
-     */
-    private function clearBlogCaches($blogId = null): void
-    {
-        // Clear paginated index caches (first 5 pages by default)
-        $perPage = 10;
-        $totalBlogs = BlogChat::count();
-        $lastPage = ceil($totalBlogs / $perPage);
-        $lastPage = min($lastPage, 5); // Limit to first 5 pages
-
-        for ($i = 1; $i <= $lastPage; $i++) {
-            Cache::forget("blogs_index_page_{$i}");
-        }
-
-        // Clear trending blogs
-        Cache::forget('trending_blogs');
-
-        // Clear specific blog show cache
-        if ($blogId) {
-            Cache::forget("blog_show_{$blogId}");
-        }
-    }
-
-
-    /**
      * Create a new blog post (Admin only).
      */
     public function addBlog(Request $request)
@@ -79,7 +54,7 @@ class BlogChatController extends Controller
             'status'    => 'draft',
         ]);
 
-        $this->clearBlogCaches();
+
 
         $this->createAdminActivity(
             $admin->id,
@@ -140,7 +115,6 @@ class BlogChatController extends Controller
         $blog = BlogChat::findOrFail($id);
         $blog->update(['status' => 'published']);
 
-        $this->clearBlogCaches($blog->id);
 
         $this->createAdminActivity(
             $admin->id,
@@ -172,8 +146,6 @@ class BlogChatController extends Controller
         $blog = BlogChat::findOrFail($id);
         $blog->update(['status' => 'archived']);
 
-        $this->clearBlogCaches($blog->id);
-
         $this->createAdminActivity(
             $admin->id,
             'archived',
@@ -195,8 +167,6 @@ class BlogChatController extends Controller
 
         $blog = BlogChat::findOrFail($id);
         $blog->update(['status' => 'archived']);
-
-        $this->clearBlogCaches($blog->id);
 
         $this->createAdminActivity(
             $admin->id,
@@ -222,8 +192,6 @@ class BlogChatController extends Controller
 
         $title = $blog->title;
         $blog->delete();
-
-        $this->clearBlogCaches($id);
 
         $this->createAdminActivity(
             $admin->id,
@@ -276,8 +244,6 @@ class BlogChatController extends Controller
         $blog = BlogChat::withTrashed()->findOrFail($id);
         $blog->restore();
 
-        $this->clearBlogCaches($id);
-
         $this->createAdminActivity(
             $admin->id,
             'restored',
@@ -316,7 +282,6 @@ class BlogChatController extends Controller
 
         $blog->fill($request->only(['title', 'content', 'category', 'section']))->save();
 
-        $this->clearBlogCaches($blog->id);
 
         $this->createAdminActivity(
             $admin->id,
@@ -357,7 +322,14 @@ class BlogChatController extends Controller
         $blog = BlogChat::findOrFail($id);
         $blog->increment('shares_count');
 
-        $this->clearBlogCaches($id);
+        Cache::forget("blog_show_{$blog->id}");
+        Cache::forget("trending_blogs");
+
+        if ($blog?->user_id && $blog?->user_type) {
+            $classBase = class_basename($blog->user_type);
+            Cache::forget("blogs_index_{$classBase}_{$blog->user_id}");
+            Cache::forget("blog_show_{$classBase}_{$blog->user_id}");
+        }
 
         return response()->json(['message' => 'Share recorded']);
     }
@@ -409,8 +381,7 @@ class BlogChatController extends Controller
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $page = $request->get('page', 1); // current page
-        $cacheKey = "blogs_index_page_{$page}";
+        $cacheKey = "blogs_index_" . class_basename(get_class($user)) . "_{$user->id}";
 
         $blogs = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
             $blogChat = BlogChat::where('status', 'published')
@@ -445,34 +416,42 @@ class BlogChatController extends Controller
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $blog = $query->where('status', 'published')
-            ->with([
-                'comments' => function ($q) {
-                    $q->whereNull('parent_id')
-                        ->where('flag', '!=', 'hidden')
-                        ->with([
-                            'replies' => function ($r) {
-                                $r->where('flag', '!=', 'hidden');
-                            }
-                        ]);
-                }
-            ])
-            ->firstOrFail();
+        $cacheKey = "blog_show_" . class_basename(get_class($user)) . "_{$user->id}";
+
+        $blog = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query) {
+            return $query->where('status', 'published')
+                ->with([
+                    'comments' => function ($q) {
+                        $q->whereNull('parent_id')
+                            ->where('flag', '!=', 'hidden')
+                            ->with([
+                                'replies' => function ($r) {
+                                    $r->where('flag', '!=', 'hidden');
+                                }
+                            ]);
+                    }
+                ])
+                ->firstOrFail();
+        });
 
         $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
             ->where('user_id', $user->id)
             ->where('user_type', get_class($user))
             ->exists();
 
-        $cacheKey = $user
-            ? "blog_view_{$blog->id}_user_{$user->id}"
-            : "blog_view_{$blog->id}_ip_{$request->ip()}";
+            // Don't increment if viewer is admin or the creator
+        $isBlogOwner = ((int)$blog->user_id === (int)$user->id) && ($blog->user_type === get_class($user));
+        $isAdmin = $user instanceof \App\Models\Admin;
 
-        if (!cache()->has($cacheKey)) {
-            $blog->increment('views_count');
-            cache()->put($cacheKey, true, now()->addDay());
+        if (!$isBlogOwner && !$isAdmin) {
+            $viewCacheKey = "forum_view_{$blog->id}_user_{$user->id}";
+
+            if (!Cache::has($viewCacheKey)) {
+                $blog->increment('views_count');
+                Cache::put($viewCacheKey, true, now()->addDay());
+            }
         }
 
-        return $blog;
+        return response()->json(['message' => 'success', $blog], 200);
     }
 }

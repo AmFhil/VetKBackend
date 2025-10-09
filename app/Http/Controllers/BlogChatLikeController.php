@@ -14,21 +14,6 @@ use Illuminate\Support\Facades\Cache;
 class BlogChatLikeController extends Controller
 {
     use BroadcastsAdminEvents;
-    // Dynamically clear blog caches
-    private function clearBlogCaches($blogId): void
-    {
-        Cache::forget("blog_show_{$blogId}");
-        Cache::forget("trending_blogs");
-
-        // Determine how many pages exist
-        $perPage = 10;
-        $totalBlogs = BlogChat::count();
-        $lastPage = ceil($totalBlogs / $perPage);
-
-        for ($page = 1; $page <= $lastPage; $page++) {
-            Cache::forget("blogs_index_page_{$page}");
-        }
-    }
 
     public function toggleLike($blogId)
     {
@@ -67,9 +52,6 @@ class BlogChatLikeController extends Controller
                     ['blog_id' => $blog->id, 'action' => 'unlike']
                 );
             }
-
-
-            $this->clearBlogCaches($blog->id);
 
             return response()->json(['message' => 'unliked']);
         } else {
@@ -112,15 +94,15 @@ class BlogChatLikeController extends Controller
                         ['blog_id' => $blog->id, 'liker_id' => $user->id]
                     );
                 }
-                $blog->user->sendNotification(
-                    'blog_liked_by_other',
-                    'Your Blog Chat was Liked',
-                    "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled <strong>{$blog->title}</strong>.",
-                    ['blog_id' => $blog->id, 'liker_id' => $user->id]
-                );
+                if ($blogUser instanceof User) {
+                    $blog->user->sendNotification(
+                        'blog_liked_by_other',
+                        'Your Blog Chat was Liked',
+                        "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled <strong>{$blog->title}</strong>.",
+                        ['blog_id' => $blog->id, 'liker_id' => $user->id]
+                    );
+                }
             }
-
-            $this->clearBlogCaches($blog->id);
 
             return response()->json(['message' => 'liked']);
         }
