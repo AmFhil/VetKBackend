@@ -2,25 +2,45 @@
 
 use App\Models\BlogChat;
 use App\Models\ForumChat;
+use App\Models\User;
+use App\Models\Admin;
 use Illuminate\Support\Facades\Broadcast;
 
-// private channels
-Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
-    return (int) $user->id === (int) $id;
+// private channels for users
+Broadcast::channel('App.Models.User.{id}', function ($authenticated, $id) {
+    if ($authenticated instanceof User) {
+        return (int) $authenticated->id === (int) $id;
+    }
+    return false;
 });
 
 // for admins
-Broadcast::channel('App.Models.Admin.{id}', function ($admin, $id) {
-    return (int) $admin->id === (int) $id;
+Broadcast::channel('App.Models.Admin.{id}', function ($authenticated, $id) {
+    if ($authenticated instanceof Admin) {
+        return (int) $authenticated->id === (int) $id;
+    }
+    return false;
 });
 
 // for forums
-Broadcast::channel('forum.{forumId}', function ($user, $forumId) {
-    // restrict to only authenticated user
-    return (int) $user->id > 0 && ForumChat::where('id', $forumId)->exists();
+Broadcast::channel('forum.{forumId}', function ($authenticated, $forumId) {
+    if ($authenticated instanceof User || $authenticated instanceof Admin) {
+        return ForumChat::where('id', $forumId)->exists();
+    }
+    return false;
 });
 
 // for blogs
-Broadcast::channel('blog.{blogId}', function ($user, $blogId) {
-    return (int) $user->id > 0 && BlogChat::where('id', $blogId)->exists();
+Broadcast::channel('blog.{blogId}', function ($authenticated, $blogId) {
+    if ($authenticated instanceof User || $authenticated instanceof Admin) {
+        return BlogChat::where('id', $blogId)->exists();
+    }
+    return false;
+});
+
+Broadcast::channel('direct-chat.{user1Id}.{user2Id}', function ($authenticated, $user1Id, $user2Id) {
+    if ($authenticated instanceof User) {  // Assuming DMs are user-only;
+        return (int) $authenticated->id === (int) $user1Id || (int) $authenticated->id === (int) $user2Id;
+    }
+    return false;
 });
