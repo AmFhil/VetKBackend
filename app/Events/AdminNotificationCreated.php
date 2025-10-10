@@ -40,4 +40,8 @@ class AdminNotificationCreated implements ShouldBroadcast
             'created_at' => $this->notification->created_at->toDateTimeString(),
         ];
     }
+
+    public function broadcastAs(){
+        return "AdminNotification";
+    }
 }

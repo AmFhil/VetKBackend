@@ -8,10 +8,11 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class DirectMessageEdited implements ShouldBroadcast
+class DirectMessageEdited implements ShouldBroadcast, ShouldQueue
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -33,9 +34,11 @@ class DirectMessageEdited implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
+        $userIds = [$this->message->sender_id, $this->message->receiver_id];
+        sort($userIds);  // Sort to standardize the channel name
+
         return [
-            new PrivateChannel("App.Models.User.{$this->message->receiver_id}"),
-            new PrivateChannel("App.Models.User.{$this->message->sender_id}"),
+            new PrivateChannel('direct-chat.' . implode('.', $userIds))
         ];
     }
 

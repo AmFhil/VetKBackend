@@ -38,4 +38,8 @@ class AdminActivityCreated implements ShouldBroadcast
             'created_at' => $this->activity->created_at->toDateTimeString(),
         ];
     }
+
+    public function broadcastAs(){
+        return "AdminActivity";
+    }
 }

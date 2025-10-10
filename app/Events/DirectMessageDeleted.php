@@ -10,7 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class DirectMessageDeleted implements ShouldBroadcast
+class DirectMessageDeleted implements ShouldBroadcast, ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -37,8 +37,8 @@ class DirectMessageDeleted implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel("App.Models.User.{$this->receiverId}"),
-            new PrivateChannel("App.Models.User.{$this->senderId}")
+            new PrivateChannel("direct-chat.{$this->receiverId}"),
+            new PrivateChannel("direct-chat.{$this->senderId}")
         ];
     }
 

@@ -12,7 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class DirectMessageSent implements ShouldQueue
+class DirectMessageSent implements ShouldQueue, ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -34,9 +34,11 @@ class DirectMessageSent implements ShouldQueue
      */
     public function broadcastOn(): array
     {
+        $userIds = [$this->message->sender_id, $this->message->receiver_id];
+        sort($userIds);  // Sort to standardize the channel name (e.g., always smaller ID first)
+
         return [
-             new PrivateChannel("App.Models.User.{$this->message->receiver_id}"),
-            new PrivateChannel("App.Models.User.{$this->message->sender_id}")
+            new PrivateChannel('direct-chat.' . implode('.', $userIds))
         ];
     }
 
