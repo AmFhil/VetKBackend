@@ -38,6 +38,14 @@ class ForumChatComment extends Model
         static::updated(function ($comment) {
             self::clearCaches($comment);
         });
+
+        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
+            static::$event(function ($comment) {
+                if ($comment->forum) {
+                    ForumChat::clearCaches($comment->forum);
+                }
+            });
+        }
     }
 
     /**

@@ -43,6 +43,7 @@ use App\Http\Controllers\VeterinaryClinicController;
 use App\Http\Controllers\VeterinaryDoctorController;
 use App\Http\Controllers\VeterinaryParaprofessionalController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -53,11 +54,12 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
     return $request->user();
 });
 
-
 /**
  * App routes
  */
 Route::prefix('v3')->group(function () {
+    // Broadcasting auth route (handles both user and admin guards via Sanctum tokens)
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
     // Public routes
     Route::middleware('throttle:auth')->group(function () {  // Uses your custom 'auth' limiter (10/min)

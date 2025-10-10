@@ -31,6 +31,14 @@ class ForumChatLike extends Model
             $like->forum->decrement('likes_count');
             self::clearCaches($like);
         });
+
+        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
+            static::$event(function ($like) {
+                if ($like->forum) {
+                    ForumChat::clearCaches($like->forum);
+                }
+            });
+        }
     }
 
     /**
