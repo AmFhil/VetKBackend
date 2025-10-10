@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Traits\HasAuthorAttribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class BlogChat extends Model
@@ -47,10 +49,34 @@ class BlogChat extends Model
             $chat->comments()->withTrashed()->restore();
             $chat->likes()->withTrashed()->restore();
         });
+
+        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
+            static::$event(fn($chat) => self::clearCaches($chat));
+        }
+    }
+
+    private static function clearCaches(?self $chat = null): void
+    {
+        Cache::forget("blog_show_{$chat->id}");
+        Cache::forget("trending_blogs");
+
+        $registry = Cache::get('blog_cache_keys', []);
+
+        Log::info('Clearing cache keys:', Cache::get('blog_cache_keys', []));
+
+        foreach ($registry as $key) {
+            if (str_starts_with($key, 'blogs_index_') || str_starts_with($key, 'blog_show_') || str_starts_with($key, 'trending_blogs')) {
+                Cache::forget($key);
+            }
+        }
+
+        // Reset the registry
+        Cache::forget('blog_cache_keys');
     }
 
     // get picture url
-    public function getPictureUrlAttribute(){
+    public function getPictureUrlAttribute()
+    {
         return $this->picture ? Storage::url($this->picture) : null;
     }
 

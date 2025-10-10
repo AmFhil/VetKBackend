@@ -28,6 +28,14 @@ class BlogChatLike extends Model
         static::deleted(function ($like) {
             $like->blog->decrement('likes_count');
         });
+
+        foreach (['created', 'deleted'] as $event) {
+            static::$event(function ($like) {
+                if ($like->blog) {
+                    BlogChat::clearCaches($like->blog);
+                }
+            });
+        }
     }
 
 

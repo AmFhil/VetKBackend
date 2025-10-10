@@ -325,11 +325,16 @@ class BlogChatController extends Controller
         Cache::forget("blog_show_{$blog->id}");
         Cache::forget("trending_blogs");
 
-        if ($blog?->user_id && $blog?->user_type) {
-            $classBase = class_basename($blog->user_type);
-            Cache::forget("blogs_index_{$classBase}_{$blog->user_id}");
-            Cache::forget("blog_show_{$classBase}_{$blog->user_id}");
+        $registry = Cache::get('blog_cache_keys', []);
+
+        foreach ($registry as $key) {
+            if (str_starts_with($key, 'blogs_index_') || str_starts_with($key, 'blog_show_') || str_starts_with($key, 'trending_blogs')) {
+                Cache::forget($key);
+            }
         }
+
+        // Reset the registry
+        Cache::forget('blog_cache_keys');
 
         return response()->json(['message' => 'Share recorded']);
     }
@@ -346,8 +351,6 @@ class BlogChatController extends Controller
             $blogChat = BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
-                    'comments.user',
-                    'comments.replies.user',
                     'likers'
                 ])
                 ->selectRaw('
@@ -383,13 +386,11 @@ class BlogChatController extends Controller
 
         $cacheKey = "blogs_index_" . class_basename(get_class($user)) . "_{$user->id}";
 
-        $blogs = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
+        $blogs = $this->rememberWithRegistry($cacheKey, function () use ($user) {
             $blogChat = BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
-                    'user',
-                    'comments.user',
-                    'comments.replies.user',
+                    'likers'
                 ])
                 ->orderByDesc('created_at')
                 ->paginate(10);
@@ -418,7 +419,7 @@ class BlogChatController extends Controller
 
         $cacheKey = "blog_show_" . class_basename(get_class($user)) . "_{$user->id}";
 
-        $blog = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query) {
+        $blog = $this->rememberWithRegistry($cacheKey, function () use ($query) {
             return $query->where('status', 'published')
                 ->with([
                     'comments' => function ($q) {
@@ -429,7 +430,8 @@ class BlogChatController extends Controller
                                     $r->where('flag', '!=', 'hidden');
                                 }
                             ]);
-                    }
+                    },
+                    'likers'
                 ])
                 ->firstOrFail();
         });
@@ -439,7 +441,7 @@ class BlogChatController extends Controller
             ->where('user_type', get_class($user))
             ->exists();
 
-            // Don't increment if viewer is admin or the creator
+        // Don't increment if viewer is admin or the creator
         $isBlogOwner = ((int)$blog->user_id === (int)$user->id) && ($blog->user_type === get_class($user));
         $isAdmin = $user instanceof \App\Models\Admin;
 
@@ -453,5 +455,17 @@ class BlogChatController extends Controller
         }
 
         return response()->json(['message' => 'success', $blog], 200);
+    }
+
+    private function rememberWithRegistry(string $key, \Closure $callback, $ttl = 600)
+    {
+        // Store the key in a registry list
+        $registry = Cache::get('blog_cache_keys', []);
+        if (!in_array($key, $registry)) {
+            $registry[] = $key;
+            Cache::put('blog_cache_keys', $registry, now()->addDays(7));
+        }
+
+        return Cache::remember($key, now()->addSeconds($ttl), $callback);
     }
 }

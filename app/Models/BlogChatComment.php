@@ -31,6 +31,14 @@ class BlogChatComment extends Model
         static::deleted(function ($comment) {
             $comment->blog->decrement('comments_count');
         });
+
+        foreach (['created', 'updated', 'deleted'] as $event) {
+            static::$event(function ($comment) {
+                if ($comment->blog) {
+                    BlogChat::clearCaches($comment->blog);
+                }
+            });
+        }
     }
 
 
