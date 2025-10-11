@@ -50,19 +50,19 @@ class BlogChat extends Model
             $chat->likes()->withTrashed()->restore();
         });
 
-        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
-            static::$event(fn($chat) => self::clearCaches($chat));
-        }
+        static::created(fn($chat) => self::clearCaches($chat));
+        static::updated(fn($chat) => self::clearCaches($chat));
+        static::deleted(fn($chat) => self::clearCaches($chat));
+        static::restored(fn($chat) => self::clearCaches($chat));
     }
 
-    private static function clearCaches(?self $chat = null): void
+    public static function clearCaches(?self $chat = null): void
     {
         Cache::forget("blog_show_{$chat->id}");
         Cache::forget("trending_blogs");
 
         $registry = Cache::get('blog_cache_keys', []);
-
-        Log::info('Clearing cache keys:', Cache::get('blog_cache_keys', []));
+        Log::info('Clearing cache keys:', $registry);
 
         foreach ($registry as $key) {
             if (str_starts_with($key, 'blogs_index_') || str_starts_with($key, 'blog_show_') || str_starts_with($key, 'trending_blogs')) {

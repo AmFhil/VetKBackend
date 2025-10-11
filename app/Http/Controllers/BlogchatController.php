@@ -297,10 +297,13 @@ class BlogChatController extends Controller
     /**
      * Display a blog by ID (User).
      */
-    public function show($id, Request $request)
+    public function show($identifier, Request $request)
     {
+        if ($identifier === 'undefined' || !is_numeric($identifier)) {  // Adjust if slug
+            return response()->json(['message' => 'Invalid blog identifier'], 400);
+        }
         return response()->json(
-            $this->loadBlog(BlogChat::where('id', $id), $request)
+            $this->loadBlog(BlogChat::where('id', $identifier), $request, $identifier)
         );
     }
 
@@ -309,8 +312,11 @@ class BlogChatController extends Controller
      */
     public function showWithSlug($slug, Request $request)
     {
+        if ($slug === 'undefined') {  // Adjust if slug
+            return response()->json(['message' => 'Invalid blog identifier'], 400);
+        }
         return response()->json(
-            $this->loadBlog(BlogChat::where('slug', $slug), $request)
+            $this->loadBlog(BlogChat::where('slug', $slug), $request, $slug)
         );
     }
 
@@ -412,12 +418,16 @@ class BlogChatController extends Controller
     /**
      * Private helper to load blog with comments & track views.
      */
-    private function loadBlog($query, Request $request)
+    private function loadBlog($query, Request $request, $identifies)
     {
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $cacheKey = "blog_show_" . class_basename(get_class($user)) . "_{$user->id}";
+        if ($identifies === 'undefined' || empty($identifies)) {
+            return response()->json(['message' => 'Invalid identifier'], 400);
+        }
+
+        $cacheKey = "blog_show_{$identifies}_" . class_basename(get_class($user)) . "_{$user->id}";
 
         $blog = $this->rememberWithRegistry($cacheKey, function () use ($query) {
             return $query->where('status', 'published')

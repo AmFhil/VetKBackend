@@ -23,19 +23,17 @@ class BlogChatLike extends Model
     {
         static::created(function ($like) {
             $like->blog->increment('likes_count');
+            if ($like->blog) {
+                BlogChat::clearCaches($like->blog);
+            }
         });
 
         static::deleted(function ($like) {
             $like->blog->decrement('likes_count');
+            if ($like->blog) {
+                BlogChat::clearCaches($like->blog);
+            }
         });
-
-        foreach (['created', 'deleted'] as $event) {
-            static::$event(function ($like) {
-                if ($like->blog) {
-                    BlogChat::clearCaches($like->blog);
-                }
-            });
-        }
     }
 
 

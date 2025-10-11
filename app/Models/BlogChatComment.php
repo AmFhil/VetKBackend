@@ -26,19 +26,23 @@ class BlogChatComment extends Model
     {
         static::created(function ($comment) {
             $comment->blog->increment('comments_count');
+            if ($comment->blog) {
+                BlogChat::clearCaches($comment->blog);
+            }
         });
 
         static::deleted(function ($comment) {
             $comment->blog->decrement('comments_count');
+            if ($comment->blog) {
+                BlogChat::clearCaches($comment->blog);
+            }
         });
 
-        foreach (['created', 'updated', 'deleted'] as $event) {
-            static::$event(function ($comment) {
-                if ($comment->blog) {
+        static::updated(function ($comment) {
+            if ($comment->blog) {
                     BlogChat::clearCaches($comment->blog);
                 }
-            });
-        }
+        });
     }
 
 
