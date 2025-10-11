@@ -74,7 +74,7 @@ class ForumChat extends Model
     /**
      * Clear forum-related caches
      */
-    private static function clearCaches(?self $chat = null): void
+    public static function clearCaches(?self $chat = null): void
     {
 
         // Forget index and admin listing

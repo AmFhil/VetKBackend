@@ -28,24 +28,33 @@ class ForumChatComment extends Model
         static::created(function ($comment) {
             $comment->forum->increment('comments_count');
             self::clearCaches($comment);
+            if ($comment->forum) {
+                    ForumChat::clearCaches($comment->forum);
+                }
         });
 
         static::deleted(function ($comment) {
             $comment->forum->decrement('comments_count');
             self::clearCaches($comment);
+            if ($comment->forum) {
+                    ForumChat::clearCaches($comment->forum);
+                }
         });
 
         static::updated(function ($comment) {
             self::clearCaches($comment);
-        });
-
-        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
-            static::$event(function ($comment) {
-                if ($comment->forum) {
+            if ($comment->forum) {
                     ForumChat::clearCaches($comment->forum);
                 }
-            });
-        }
+        });
+
+        // foreach (['created', 'updated', 'deleted'] as $event) {
+        //     static::$event(function ($comment) {
+        //         if ($comment->forum) {
+        //             ForumChat::clearCaches($comment->forum);
+        //         }
+        //     });
+        // }
     }
 
     /**
@@ -67,6 +76,15 @@ class ForumChatComment extends Model
         }
 
         Cache::forget('admin_forums');
+
+        if ($comment->forum->user_id && $comment->forum->user_type) {
+            $classBase = class_basename($comment->forum->user_type);
+
+            // Forget per-user cache variants
+            Cache::forget("forum_chats_index_{$classBase}_{$comment->forum->user_id}");
+            Cache::forget("trending_forums_chat_{$classBase}_{$comment->forum->user_id}");
+            Cache::forget("forum_visibility_{$classBase}_{$comment->forum->user_id}_{$comment->forum->visibility}");
+        }
     }
 
     // Relationships

@@ -29,7 +29,7 @@ class AuthController extends Controller
     {
         $validatedData = Validator::make($request->all(), [
         'email' => 'required|email|string|lowercase|unique:users_registration,email',
-        'password' => ['required|string|min:8|confirmed|', Rules\Password::defaults()]
+        'password' => ['required', 'string','min:8', 'confirmed', Rules\Password::defaults()]
     ]);
 
         if ($validatedData->fails()) {

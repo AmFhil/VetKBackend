@@ -20,7 +20,9 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\ContactUsController;
 use App\Http\Controllers\DirectMessageController;
+use App\Http\Controllers\DiseasePredictorController;
 use App\Http\Controllers\FarmController;
+use App\Http\Controllers\FeedCalculatorController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumChatCommentController;
 use App\Http\Controllers\ForumChatController;
@@ -97,9 +99,9 @@ Route::prefix('v3')->group(function () {
         Route::post('/add-veterinary-doctor', [VeterinaryDoctorController::class, 'addVeterinaryDoctor']);
         Route::post('/add-veterinary-paraprofessional', [VeterinaryParaprofessionalController::class, 'addVeterinaryParaprofessional']);
 
-        Route::post('/feed-calculator', [UserController::class, 'feedCalculator']);
-        Route::post('/disease-predictor', [UserController::class, 'diseasePredictor']);
-        Route::get('/get-livestock-disease', [UserController::class, 'getLivestockDisease']);
+        Route::post('/feed-calculator', [FeedCalculatorController::class, 'feedCalculator']);
+        Route::post('/disease-predictor', [DiseasePredictorController::class, 'diseasePredictor']);
+        // Route::get('/get-livestock-disease', [UserController::class, 'getLivestockDisease']);
 
         Route::get('/get-all-veterinary-doctors', [VeterinaryDoctorController::class, 'getAllVeterinaryDoctors']);
         Route::get('/get-all-veterinary-clinics', [VeterinaryClinicController::class, 'getAllVeterinaryClinics']);
