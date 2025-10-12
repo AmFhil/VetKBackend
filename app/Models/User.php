@@ -323,4 +323,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(DirectMessage::class, 'receiver_id');
     }
+
+    public function merchantOrders()
+    {
+        return $this->hasMany(Order::class, 'merchant_user_id');
+    }
+
+    public function buyerOrders()
+    {
+        return $this->hasMany(Order::class, 'buyer_user_id');
+    }
+
+    public function complaints()
+    {
+        return $this->hasMany(OrderComplaint::class, 'user_id');
+    }
 }

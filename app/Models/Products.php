@@ -69,4 +69,9 @@ class Products extends Model
         return $this->belongsToMany(Tag::class, 'product_tag', 'product_id', 'tag_id')
             ->withTimestamps();
     }
+
+     public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 }
