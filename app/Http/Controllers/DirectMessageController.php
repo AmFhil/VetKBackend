@@ -17,16 +17,6 @@ class DirectMessageController extends Controller
 {
     use BroadcastsAdminEvents;
 
-    private function forgetConversationCache($userId1, $userId2)
-    {
-        Cache::forget("conversation_{$userId1}_{$userId2}");
-        Cache::forget("conversation_{$userId2}_{$userId1}");
-        Cache::forget("sent_messages_{$userId1}");
-        Cache::forget("received_messages_{$userId2}");
-        Cache::forget("chat_list_{$userId1}");
-        Cache::forget("chat_list_{$userId2}");
-    }
-
     // Send Message
     public function send(Request $request)
     {
@@ -51,10 +41,9 @@ class DirectMessageController extends Controller
             'receiver_id' => $validated['receiver_id'],
             'content'     => $validated['content'] ?? null,
             'image'       => $storedImages,
+            'type'  => 'text',
+            'meta'  => []
         ]);
-
-        // Invalidate cache
-        $this->forgetConversationCache($user->id, $validated['receiver_id']);
 
         event(new DirectMessageSent($message));
 
@@ -88,11 +77,12 @@ class DirectMessageController extends Controller
             ->where('sender_id', $user->id)
             ->firstOrFail();
 
+        if ($message->type = 'appointment' || $message->type = 'order') {
+            return response()->json(['message' => 'unauthorized'], 400);
+        }
+
         $request->validate(['content' => 'required|string']);
         $message->update(['content' => $request->content]);
-
-        // Invalidate cache
-        $this->forgetConversationCache($user->id, $message->receiver_id);
 
         event(new DirectMessageEdited($message));
 
@@ -124,10 +114,13 @@ class DirectMessageController extends Controller
             ->where('sender_id', $user->id)
             ->firstOrFail();
 
+        if ($message->type = 'appointment' || $message->type = 'order') {
+            return response()->json(['message' => 'unauthorized'], 400);
+        }
+        
         $message->delete();
 
-        // Invalidate cache
-        $this->forgetConversationCache($user->id, $message->receiver_id);
+
 
         event(new DirectMessageDeleted($message->id, $user->id, $message->receiver_id));
 
@@ -161,8 +154,6 @@ class DirectMessageController extends Controller
 
         $message->update(['is_flagged' => true]);
 
-        // Invalidate cache
-        $this->forgetConversationCache($message->sender_id, $user->id);
 
         $user->logActivity(
             'flag_message',

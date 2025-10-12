@@ -233,8 +233,8 @@ Route::prefix('v3')->group(function () {
 
         Route::prefix('appointment')->group(function () {
             Route::post('/', [AppointmentController::class, 'makeAppointment']);
-            Route::get('/{id}', [AppointmentController::class, 'getAppointment']);
-            Route::get('/{id}/cancel', [AppointmentController::class, 'cancelAppointment']);
+            Route::get('/{id}', [AppointmentController::class, 'getAppointment'])->name('appointments.show');
+            Route::get('/{id}/cancel', [AppointmentController::class, 'cancelAppointment'])->name('appointments.cancel');
             Route::get('/{id}/complete', [AppointmentController::class, 'completeAppointment']);
         });
     });

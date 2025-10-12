@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\DirectMessageSent;
 use App\Models\Appointment;
+use App\Models\DirectMessage;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,7 +22,7 @@ class AppointmentController extends Controller
             'doctor_id' => 'required|exists:users_registration,id',
         ]);
 
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $doctor = User::findOrFail($request->doctor_id);
@@ -28,9 +30,23 @@ class AppointmentController extends Controller
         $appointment = Appointment::create([
             'user_id'       => $user->id,
             'doctor_id'     => $doctor->id,
-            'appointment_at'=> Carbon::createFromFormat('d/m/Y H:i', $request->date . " " . $request->time),
+            'appointment_at' => Carbon::createFromFormat('d/m/Y H:i', $request->date . " " . $request->time),
             'status'        => 'scheduled',
         ]);
+
+        $message = DirectMessage::create([
+            'sender_id' => $user->id,
+            'receiver_id' => $doctor->id,
+            'type' => 'appointment',
+            'content' => "{$user->first_name} {$user->last_name} booked an appointment with you.",
+            'meta' => [
+                'appointment_id' => $appointment->id,
+                'view_url'       => route('appointments.show', $appointment->id),
+                'cancel_url'     => route('appointments.cancel', $appointment->id),
+            ]
+        ]);
+
+        event(new DirectMessageSent($message));
 
         // Log activity for patient
         $user->logActivity(
@@ -59,13 +75,13 @@ class AppointmentController extends Controller
      */
     public function getAppointment($id)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $appointment = Appointment::where('id', $id)
             ->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                  ->orWhere('doctor_id', $user->id);
+                    ->orWhere('doctor_id', $user->id);
             })
             ->firstOrFail();
 
@@ -80,13 +96,13 @@ class AppointmentController extends Controller
      */
     public function cancelAppointment($id)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $appointment = Appointment::where('id', $id)
             ->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                  ->orWhere('doctor_id', $user->id);
+                    ->orWhere('doctor_id', $user->id);
             })
             ->firstOrFail();
 
@@ -123,13 +139,13 @@ class AppointmentController extends Controller
      */
     public function completeAppointment($id)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $appointment = Appointment::where('id', $id)
             ->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                  ->orWhere('doctor_id', $user->id);
+                    ->orWhere('doctor_id', $user->id);
             })
             ->firstOrFail();
 
@@ -143,7 +159,7 @@ class AppointmentController extends Controller
             'appointment_completed',
             'Appointment Completed',
             "You marked the appointment with " . ($user->id === $patient->id ? "Dr. {$doctor->first_name}" : "{$patient->first_name}") .
-            " on {$appointment->appointment_at->format('d M Y, H:i')} as completed.",
+                " on {$appointment->appointment_at->format('d M Y, H:i')} as completed.",
             ['appointment_id' => $appointment->id]
         );
 

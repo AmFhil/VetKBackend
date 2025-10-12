@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class DirectMessage extends Model
@@ -17,6 +18,8 @@ class DirectMessage extends Model
         'receiver_id',
         'content',
         'image',
+        'type',
+        'meta',
         'is_read',
         'is_flagged',
     ];
@@ -24,7 +27,8 @@ class DirectMessage extends Model
     protected $casts = [
         'is_read'    => 'boolean',
         'is_flagged' => 'boolean',
-        'image'      => 'array', // stored as JSON
+        'image'      => 'array',
+        'meta' => 'array'
     ];
 
     protected $appends = ['image_urls'];
@@ -34,6 +38,23 @@ class DirectMessage extends Model
     {
         if (!$this->image) return [];
         return array_map(fn($img) => Storage::url($img), $this->image);
+    }
+
+    protected static function booted()
+    {
+        static::created(fn($chat) => self::clearMessageCaches($chat));
+        static::updated(fn($chat) => self::clearMessageCaches($chat));
+        static::deleted(fn($chat) => self::clearMessageCaches($chat));
+    }
+
+    public static function clearMessageCaches(?self $message = null): void
+    {
+        Cache::forget("conversation_{$message->sender_id}_{$message->receiver_id}");
+        Cache::forget("conversation_{$message->receiver_id}_{$message->sender_id}");
+        Cache::forget("sent_messages_{$message->sender_id}");
+        Cache::forget("received_messages_{$message->receiver_id}");
+        Cache::forget("chat_list_{$message->sender_id}");
+        Cache::forget("chat_list_{$message->receiver_id}");
     }
 
     // Relationships
