@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class Store extends Model
 {
+    use SoftDeletes;
     //
     protected $table = 'store';
     protected $primaryKey = 'id';
@@ -35,6 +37,20 @@ class Store extends Model
     public function getPictureUrlAttribute()
     {
         return $this->picture ? Storage::url($this->picture) : null;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($store) {
+            if ($store->isForceDeleting()) {
+                $store->products()->forceDelete();
+                $store->ratings()->delete();
+            } else {
+                $store->products()->delete();
+            }
+        });
     }
 
     public function user()

@@ -8,10 +8,11 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasUserEvents;
+    use HasApiTokens, HasFactory, Notifiable, HasUserEvents, SoftDeletes;
 
     protected $table = 'users_registration';
     protected $primaryKey = 'id';
@@ -188,38 +189,48 @@ class User extends Authenticatable
         parent::boot();
 
         static::deleting(function ($user) {
-            $user->blogChats()->delete();
-            $user->forumChats()->delete();
-            $user->blogChatComments()->delete();
-            $user->forumChatComments()->delete();
-            $user->blogChatLikes()->delete();
-            $user->forumChatLikes()->delete();
-            $user->notifications()->delete();
-            $user->activities()->delete();
-            $user->store()->delete();
-            $user->products()->delete();
-            $user->pet()->delete();
-            $user->farm()->delete();
-            $user->clinic()->delete();
-            $user->cases()->delete();
-            $user->ratingsGiven()->delete();
-            $user->ratingsReceived()->delete();
-            $user->subscription()->delete();
-            $user->sentMessages()->delete();
-            $user->receivedMessages()->delete();
-            $user->profile()->delete();
-            $user->media()->delete();
-            $user->roles()->detach();
-            $user->veterinaryClinic()->delete();
-            $user->veterinaryDoctor()->delete();
-            $user->veterinaryParaprofessional()->delete();
-            $user->petOwner()->delete();
-            $user->livestockFarmer()->delete();
-            $user->vendor()->delete();
-            $user->others()->delete();
+            if ($user->isForceDeleting()) {
+                $user->blogChats()->forceDelete();
+                $user->forumChats()->delete();
+                $user->blogChatComments()->delete();
+                $user->forumChatComments()->delete();
+                $user->blogChatLikes()->delete();
+                $user->forumChatLikes()->delete();
+                $user->notifications()->delete();
+                $user->activities()->delete();
+                $user->store()->forceDelete();
+                $user->products()->forceDelete();
+                $user->pet()->delete();
+                $user->farm()->delete();
+                $user->clinic()->delete();
+                $user->cases()->delete();
+                $user->ratingsGiven()->delete();
+                $user->ratingsReceived()->delete();
+                $user->subscription()->delete();
+                $user->sentMessages()->delete();
+                $user->receivedMessages()->delete();
+                $user->profile()->delete();
+                $user->media()->delete();
+                $user->roles()->detach();
+                $user->veterinaryClinic()->delete();
+                $user->veterinaryDoctor()->delete();
+                $user->veterinaryParaprofessional()->delete();
+                $user->petOwner()->delete();
+                $user->livestockFarmer()->delete();
+                $user->vendor()->delete();
+                $user->others()->delete();
+                $user->merchantOrders()->forceDelete();
+                $user->buyerOrders()->forceDelete();
+                $user->complaints()->forceDelete();
+            } else {
+                $user->products()->delete();
+                $user->store()->delete();
+                $user->blogChats()->delete();
+                $user->merchantOrders()->delete();
+                $user->buyerOrders()->delete();
+                $user->complaints()->delete();
+            }
         });
-
-
     }
 
     public function blogChats()
@@ -242,19 +253,23 @@ class User extends Authenticatable
         return $this->belongsToMany(BlogChat::class, 'blogChatLikes', 'user_id', 'blog_chat_id');
     }
 
-    public function forumChats(){
+    public function forumChats()
+    {
         return $this->morphMany(ForumChat::class, 'user');
     }
 
-    public function forumChatComments(){
+    public function forumChatComments()
+    {
         return $this->morphMany(ForumChatComment::class, 'user');
     }
 
-    public function forumChatLikes(){
+    public function forumChatLikes()
+    {
         return $this->morphMany(ForumChatLike::class, 'user');
     }
 
-    public function likedChats(){
+    public function likedChats()
+    {
         return $this->belongsToMany(ForumChat::class, 'forumChatLikes', 'user_id', 'forum_chat_id');
     }
 
