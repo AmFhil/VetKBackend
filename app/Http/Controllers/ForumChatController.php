@@ -141,10 +141,9 @@ class ForumChatController extends Controller
             $chats = $query->latest()->paginate(10);
 
             return $chats->through(function ($chat) use ($user) {
-                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
-                    ->where('user_id', $user->id)
-                    ->where('user_type', get_class($user))
-                    ->exists();
+                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                });
                 return $chat;
             });
         });
@@ -195,11 +194,10 @@ class ForumChatController extends Controller
             return $query->firstOrFail();
         });
 
-        // Add has_liked dynamically
-        $forum->has_liked = ForumChatLike::where('forum_chat_id', $forum->id)
-            ->where('user_id', $user->id)
-            ->where('user_type', get_class($user))
-            ->exists();
+        // Use eager-loaded likers to avoid extra query
+        $forum->has_liked = $forum->likers->contains(function ($like) use ($user) {
+            return $like->user_id === $user->id && $like->user_type === get_class($user);
+        });
 
         // Don't increment if viewer is admin or the creator
         $isForumOwner = ((int)$forum->user_id === (int)$user->id) && ($forum->user_type === get_class($user));
@@ -386,13 +384,12 @@ class ForumChatController extends Controller
                 $query->whereIn('visibility', $visibilityFilter);
             }
 
-            $forum = $query->orderByDesc('score')->take(10)->get();
+            $forums = $query->orderByDesc('score')->take(10)->get();
 
-            return $forum->through(function ($chat) use ($user) {
-                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
-                    ->where('user_id', $user->id)
-                    ->where('user_type', get_class($user))
-                    ->exists();
+            return $forums->map(function ($chat) use ($user) {
+                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                });
                 return $chat;
             });
         });
@@ -416,10 +413,9 @@ class ForumChatController extends Controller
                 ->paginate(10);
 
             return $forumChat->through(function ($chat) use ($admin) {
-                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
-                    ->where('user_id', $admin->id)
-                    ->where('user_type', get_class($admin))
-                    ->exists();
+                $chat->has_liked = $chat->likers->contains(function ($like) use ($admin) {
+                    return $like->user_id === $admin->id && $like->user_type === get_class($admin);
+                });
 
                 return $chat;
             });
@@ -482,10 +478,9 @@ class ForumChatController extends Controller
             $forums = $query->latest()->paginate(10);
 
             return $forums->through(function ($chat) use ($user) {
-                $chat->has_liked = ForumChatLike::where('forum_chat_id', $chat->id)
-                    ->where('user_id', $user->id)
-                    ->where('user_type', get_class($user))
-                    ->exists();
+                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                });
                 return $chat;
             });
         });
