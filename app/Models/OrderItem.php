@@ -23,6 +23,14 @@ class OrderItem extends Model
         'product_snapshot' => 'array',
     ];
 
+    protected static function booted()
+    {
+        static::creating(function ($item) {
+            $item->subtotal = $item->price * $item->quantity;
+        });
+    }
+
+
     public function order()
     {
         return $this->belongsTo(Order::class);

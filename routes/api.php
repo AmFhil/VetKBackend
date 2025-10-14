@@ -29,6 +29,7 @@ use App\Http\Controllers\ForumChatController;
 use App\Http\Controllers\ForumChatLikeController;
 use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\NewsletterController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
@@ -237,6 +238,14 @@ Route::prefix('v3')->group(function () {
             Route::get('/{id}/cancel', [AppointmentController::class, 'cancelAppointment'])->name('appointments.cancel');
             Route::get('/{id}/complete', [AppointmentController::class, 'completeAppointment']);
         });
+
+        Route::post('/orders', [OrderController::class, 'createOrder']);
+        Route::get('/orders/buyer', [OrderController::class, 'getBuyerOrders']);
+        Route::get('/orders/merchant', [OrderController::class, 'getMerchantOrders']);
+        Route::get('/orders/{id}', [OrderController::class, 'getOrderDetails'])->name('order.show');
+        Route::post('/orders/{id}/confirm', [OrderController::class, 'confirmOrder']);
+        Route::post('/orders/{id}/complaint', [OrderController::class, 'fileComplaint']);
+        Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('order.cancel');
     });
 
     // User must have an active subscription
@@ -347,7 +356,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-livestock-farmer', [AdminManageUserController::class, 'getLifeStockFarmer']);
         Route::get('/get-stores', [AdminManageUserController::class, 'getStores']);
         Route::get('/get-products', [AdminManageUserController::class, 'getProducts']);
-        Route::get('/get-farms',[ AdminManageUserController::class, 'getFarms']);
+        Route::get('/get-farms', [AdminManageUserController::class, 'getFarms']);
         Route::get('/get-pets', [AdminManageUserController::class, 'getPets']);
         Route::get('/get-clinics', [AdminManageUserController::class, 'getClinics']);
         Route::get('/get-cases', [AdminManageUserController::class, 'getCases']);
