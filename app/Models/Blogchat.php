@@ -60,6 +60,7 @@ class BlogChat extends Model
     {
         Cache::forget("blog_show_{$chat->id}");
         Cache::forget("trending_blogs");
+        Cache::forget("blog_chat_comment_{$chat->id}");
 
         $registry = Cache::get('blog_cache_keys', []);
         Log::info('Clearing cache keys:', $registry);

@@ -78,11 +78,7 @@ class ForumChat extends Model
     {
 
         // Forget index and admin listing
-        Cache::forget("forum_chats_index");
         Cache::forget("forum_chats_admin");
-
-        // Forget trending caches
-        Cache::forget("trending_forums_chat");
 
         // Forget single forum show cache (if slug available)
         if ($chat?->slug) {
@@ -90,10 +86,10 @@ class ForumChat extends Model
         }
 
         Cache::forget('admin_forums');
-        Cache::forget('forum_visibility');
 
         if ($chat?->id) {
             Cache::forget("forum_likers_{$chat->id}");
+            Cache::forget("forum_chat_comment_{$chat->Id}");
         }
 
         if ($chat?->user_id && $chat?->user_type) {

@@ -29,32 +29,24 @@ class ForumChatComment extends Model
             $comment->forum->increment('comments_count');
             self::clearCaches($comment);
             if ($comment->forum) {
-                    ForumChat::clearCaches($comment->forum);
-                }
+                ForumChat::clearCaches($comment->forum);
+            }
         });
 
         static::deleted(function ($comment) {
             $comment->forum->decrement('comments_count');
             self::clearCaches($comment);
             if ($comment->forum) {
-                    ForumChat::clearCaches($comment->forum);
-                }
+                ForumChat::clearCaches($comment->forum);
+            }
         });
 
         static::updated(function ($comment) {
             self::clearCaches($comment);
             if ($comment->forum) {
-                    ForumChat::clearCaches($comment->forum);
-                }
+                ForumChat::clearCaches($comment->forum);
+            }
         });
-
-        // foreach (['created', 'updated', 'deleted'] as $event) {
-        //     static::$event(function ($comment) {
-        //         if ($comment->forum) {
-        //             ForumChat::clearCaches($comment->forum);
-        //         }
-        //     });
-        // }
     }
 
     /**
@@ -64,11 +56,8 @@ class ForumChatComment extends Model
     {
 
         // Forget index and admin listing
-        Cache::forget("forum_chats_index");
         Cache::forget("forum_chats_admin");
 
-        Cache::forget("forum_trending_page");
-        Cache::forget("trending_forums_chat");
 
         // specific forum show cache
         if ($comment?->forum?->slug) {
