@@ -93,10 +93,9 @@ class BlogChatController extends Controller
         ])->orderBy('created_at', 'desc')->paginate(10);
 
         $blogs->through(function ($chat) use ($admin) {
-            $chat->has_liked = BlogChatLike::where('blog_chat_id', $chat->id)
-                ->where('user_id', $admin->id)
-                ->where('user_type', get_class($admin))
-                ->exists();
+            $chat->has_liked = $chat->likers->contains(function ($like) use ($admin) {
+                return $like->user_id === $admin->id && $like->user_type === get_class($admin);
+            });
 
             return $chat;
         });
@@ -222,10 +221,9 @@ class BlogChatController extends Controller
             ->paginate(10);
 
         $blogs->through(function ($chat) use ($admin) {
-            $chat->has_liked = BlogChatLike::where('blog_chat_id', $chat->id)
-                ->where('user_id', $admin->id)
-                ->where('user_type', get_class($admin))
-                ->exists();
+            $chat->has_liked = $chat->likers->contains(function ($like) use ($admin) {
+                return $like->user_id === $admin->id && $like->user_type === get_class($admin);
+            });
 
             return $chat;
         });
@@ -369,11 +367,10 @@ class BlogChatController extends Controller
                 ->take(10)
                 ->get();
 
-            return $blogChat->through(function ($blog) use ($user) {
-                $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
-                    ->where('user_id', $user->id)
-                    ->where('user_type', get_class($user))
-                    ->exists();
+            return $blogChat->map(function ($blog) use ($user) {
+                $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
+                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                });
 
                 return $blog;
             });
@@ -402,10 +399,9 @@ class BlogChatController extends Controller
                 ->paginate(10);
 
             return $blogChat->through(function ($blog) use ($user) {
-                $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
-                    ->where('user_id', $user->id)
-                    ->where('user_type', get_class($user))
-                    ->exists();
+                $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
+                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                });
 
                 return $blog;
             });
@@ -446,10 +442,9 @@ class BlogChatController extends Controller
                 ->firstOrFail();
         });
 
-        $blog->has_liked = BlogChatLike::where('blog_chat_id', $blog->id)
-            ->where('user_id', $user->id)
-            ->where('user_type', get_class($user))
-            ->exists();
+        $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
+            return $like->user_id === $user->id && $like->user_type === get_class($user);
+        });
 
         // Don't increment if viewer is admin or the creator
         $isBlogOwner = ((int)$blog->user_id === (int)$user->id) && ($blog->user_type === get_class($user));

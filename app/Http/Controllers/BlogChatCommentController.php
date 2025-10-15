@@ -107,26 +107,32 @@ class BlogChatCommentController extends Controller
     // Fetch comments with nested replies
     public function fetchComments($blogId)
     {
-        $comments = BlogChatComment::where('blog_chat_id', $blogId)
-            ->whereNull('parent_id')
-            ->where('flag', '!=', 'hidden')
-            ->with([
-                // 'user.roles:id,name',
-                // 'user.activeRole:id,name',
-                // 'user.profile:id,user_id,profile_image',
-                'replies' => function ($q) {
-                    $q->where('flag', '!=', 'hidden')
-                        ->with([
-                            // 'user.roles:id,name',
-                            // 'user.activeRole:id,name',
-                            // 'user.profile:id,user_id,profile_image',
-                        ]);
-                }
-            ])
-            ->latest()
-            ->get();
-
-        return response()->json($comments);
+        $user = auth('user')->user() ?: auth('admin')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        $cacheKey = "blog_chat_comment_{$blogId}";
+        $comments = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($blogId) {
+            return BlogChatComment::where('blog_chat_id', $blogId)
+                ->whereNull('parent_id')
+                ->where('flag', '!=', 'hidden')
+                ->with([
+                    // 'user.roles:id,name',
+                    // 'user.activeRole:id,name',
+                    // 'user.profile:id,user_id,profile_image',
+                    'replies' => function ($q) {
+                        $q->where('flag', '!=', 'hidden')
+                            ->with([
+                                // 'user.roles:id,name',
+                                // 'user.activeRole:id,name',
+                                // 'user.profile:id,user_id,profile_image',
+                            ]);
+                    }
+                ])
+                ->latest()
+                ->get();
+        });
+        return response()->json($comments, 200);
     }
 
     // Delete comment
@@ -180,7 +186,7 @@ class BlogChatCommentController extends Controller
         }
 
 
-        return response()->json(['message' => 'Comment deleted successfully']);
+        return response()->json(['message' => 'Comment deleted successfully'], 200);
     }
 
     // Edit comment
@@ -307,7 +313,7 @@ class BlogChatCommentController extends Controller
         }
 
 
-        return response()->json(['message' => 'Comment flagged as ' . $request->flag]);
+        return response()->json(['message' => 'Comment flagged as ' . $request->flag], 200);
     }
 
     // Admin flag

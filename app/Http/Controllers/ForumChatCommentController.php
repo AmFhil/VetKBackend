@@ -153,25 +153,32 @@ class ForumChatCommentController extends Controller
      */
     public function fetchComments($forumId)
     {
-        $comments = ForumChatComment::where('forum_chat_id', $forumId)
-            ->whereNull('parent_id')
-            ->where('flag', '!=', 'hidden')
-            ->with([
-                // 'user.roles:id,name',
-                // 'user.activeRole:id,name',
-                // 'user.profile:id,user_id,profile_image',
-                'replies' => function ($q) {
-                    $q->where('flag', '!=', 'hidden')
-                        ->with([
-                            // 'user.roles:id,name',
-                            // 'user.activeRole:id,name',
-                            // 'user.profile:id,user_id,profile_image',
-                        ]);
-                }
-            ])
-            ->latest()
-            ->get();
+        $user = auth('user')->user() ?: auth('admin')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
+        $cacheKey = "forum_chat_comment_{$forumId}";
+        $comments = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($forumId) {
+            return ForumChatComment::where('forum_chat_id', $forumId)
+                ->whereNull('parent_id')
+                ->where('flag', '!=', 'hidden')
+                ->with([
+                    // 'user.roles:id,name',
+                    // 'user.activeRole:id,name',
+                    // 'user.profile:id,user_id,profile_image',
+                    'replies' => function ($q) {
+                        $q->where('flag', '!=', 'hidden')
+                            ->with([
+                                // 'user.roles:id,name',
+                                // 'user.activeRole:id,name',
+                                // 'user.profile:id,user_id,profile_image',
+                            ]);
+                    }
+                ])
+                ->latest()
+                ->get();
+        });
         return response()->json($comments);
     }
 
