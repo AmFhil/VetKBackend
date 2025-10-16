@@ -17,7 +17,7 @@ class VeterinaryParaprofessionalController extends Controller
     //
     public function addVeterinaryParaprofessional(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -101,8 +101,7 @@ class VeterinaryParaprofessionalController extends Controller
     public function getAllVeterinaryParaprofessionals()
     {
         $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->where('is_approved', '!=', 0)
-            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved', 'created_at')
             ->paginate(10);
 
         // add average rating to each veterinary paraprofessional
@@ -120,14 +119,13 @@ class VeterinaryParaprofessionalController extends Controller
         $query = $request->input('query');
 
         $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->where('is_approved', '!=', 0)
             ->when($query, function ($q) use ($query) {
                 $q->where('specialty', 'like', "%$query%")
                     ->orWhere('name_of_institution', 'like', "%$query%")
                     ->orWhere('list_them', 'like', "%$query%")
                     ->orWhere('address', 'like', "%$query%");
             })
-            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved')
             ->paginate(10);
 
         // add average rating to each veterinary paraprofessional
@@ -142,7 +140,7 @@ class VeterinaryParaprofessionalController extends Controller
     // get veterinary paraprofessional by longitude and latitude
     public function getVeterinaryParaprofessionalsByLocation(Request $request)
     {
-         $latitude = $request->input('latitude');
+        $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
 
         if (!$latitude || !$longitude) {
@@ -154,7 +152,6 @@ class VeterinaryParaprofessionalController extends Controller
             'user.profile:id,user_id,profile_image,bio,cover_page_image',
             'ratings:id,rateable_id,rating,comment'
         ])
-            ->where('is_approved', 1)
             ->nearest($latitude, $longitude)
             ->paginate(10);
 
@@ -174,7 +171,7 @@ class VeterinaryParaprofessionalController extends Controller
         $user = auth()->user();
 
         $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image', 'user.media:id,user_id,file_path'])
-            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability')
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability', 'is_approved')
             ->where('id', $id)
             ->first();
 

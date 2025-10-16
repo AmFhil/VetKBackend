@@ -96,6 +96,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-pet-owner-by-id/{id}/pet-owner', [PetOwnerController::class, 'getPetOwnerById']);
         Route::post('/add-vendor', [VendorController::class, 'addVendor']);
         Route::get('/get-vendor-by-id/{id}/vendor', [VendorController::class, 'getVendorById']);
+        Route::get('/get-all-vendor', [VendorController::class, 'getVendor']);
         Route::post('/add-veterinary-clinic', [VeterinaryClinicController::class, 'addVeterinaryClinic']);
         Route::post('/add-veterinary-doctor', [VeterinaryDoctorController::class, 'addVeterinaryDoctor']);
         Route::post('/add-veterinary-paraprofessional', [VeterinaryParaprofessionalController::class, 'addVeterinaryParaprofessional']);

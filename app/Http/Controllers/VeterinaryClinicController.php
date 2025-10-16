@@ -17,7 +17,7 @@ class VeterinaryClinicController extends Controller
     //
     public function addVeterinaryClinic(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -99,8 +99,7 @@ class VeterinaryClinicController extends Controller
     public function getAllVeterinaryClinics()
     {
         $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->where('is_approved', '!=', 0)
-            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
 
@@ -123,14 +122,13 @@ class VeterinaryClinicController extends Controller
         }
 
         $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->where('is_approved', '!=', 0)
             ->when($query, function ($q) use ($query) {
                 $q->where('specialty', 'like', "%$query%")
                     ->orWhere('name_of_clinic', 'like', "%$query%")
                     ->orWhere('list_them', 'like', "%$query%")
                     ->orWhere('address', 'like', "%$query%");
             })
-            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved')
             ->paginate(10);
 
         // add average rating to each veterinary clinic
@@ -157,7 +155,6 @@ class VeterinaryClinicController extends Controller
             'user.profile:id,user_id,profile_image,bio,cover_page_image',
             'ratings:id,rateable_id,rating,comment'
         ])
-            ->where('is_approved', 1)
             ->nearest($latitude, $longitude)
             ->paginate(10);
 
@@ -176,7 +173,7 @@ class VeterinaryClinicController extends Controller
         $user = auth()->user();
 
         $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image', 'user.media:id,user_id,file_path'])
-            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability')
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability', 'is_approved')
             ->where('id', $id)
             ->first();
 

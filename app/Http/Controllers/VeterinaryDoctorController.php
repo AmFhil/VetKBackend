@@ -18,7 +18,7 @@ class VeterinaryDoctorController extends Controller
     //
     public function addVeterinaryDoctor(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -98,8 +98,7 @@ class VeterinaryDoctorController extends Controller
     public function getAllVeterinaryDoctors()
     {
         $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->where('is_approved', '!=', 0)
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at')
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at', 'is_approved')
             ->paginate(10);
 
         // add average rating to each veterinary doctor
@@ -120,13 +119,12 @@ class VeterinaryDoctorController extends Controller
         }
 
         $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->where('is_approved', '!=', 0)
             ->when($query, function ($q) use ($query) {
                 $q->where('specialty', 'like', "%$query%")
                     ->orWhere('list_them', 'like', "%$query%")
                     ->orWhere('address', 'like', "%$query%");
             })
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved')
             ->paginate(10);
 
         // add average rating to each veterinary doctor
@@ -153,7 +151,6 @@ class VeterinaryDoctorController extends Controller
             'user.profile:id,user_id,profile_image,bio,cover_page_image',
             'ratings:id,rateable_id,rating,comment'
         ])
-            ->where('is_approved', 1)
             ->nearest($latitude, $longitude)
             ->paginate(10);
 
@@ -178,7 +175,7 @@ class VeterinaryDoctorController extends Controller
             'user.profile:id,user_id,bio,profile_image,cover_page_image',
             'user.media:id,user_id,file_path'
         ])
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'role', 'view', 'created_at')
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'is_approved', 'role', 'view', 'created_at')
             ->where('id', $id)
             ->first();
 
