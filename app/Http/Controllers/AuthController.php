@@ -63,7 +63,7 @@ class AuthController extends Controller
         // Signed URL (valid for 60 minutes)
         $verificationUrl = URL::temporarySignedRoute(
             'verify.email',
-            Carbon::now()->addMinutes(5),
+            Carbon::now()->addMinutes(1),
             ['id' => $user->id]
         );
 
@@ -91,7 +91,7 @@ class AuthController extends Controller
         }
 
         $token = $this->issueToken($user);
-        $url = env('TEXT_url');
+        $url = env('FRONTEND_URL');
 
         return Redirect::to($url . "/signup/personal-info?token={$token}");
     }
@@ -118,7 +118,7 @@ class AuthController extends Controller
             // Signed URL (valid for 5 minutes)
             $verificationUrl = URL::temporarySignedRoute(
                 'verify.email',
-                Carbon::now()->addMinutes(5),
+                Carbon::now()->addMinutes(1),
                 ['id' => $user->id]
             );
 
@@ -174,7 +174,7 @@ class AuthController extends Controller
         // Generate a new signed URL (valid for 60 minutes)
         $verificationUrl = URL::temporarySignedRoute(
             'verify.email',
-            Carbon::now()->addMinutes(5),
+            Carbon::now()->addMinutes(1),
             ['id' => $user->id]
         );
 
