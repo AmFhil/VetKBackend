@@ -60,11 +60,11 @@ class DirectMessage extends Model
     // Relationships
     public function sender()
     {
-        return $this->belongsTo(User::class, 'sender_id')->with('profile:id,user_id,profile_picture');
+        return $this->belongsTo(User::class, 'sender_id')->with('profile:id,user_id,profile_image');
     }
 
     public function receiver()
     {
-        return $this->belongsTo(User::class, 'receiver_id')->with('profile:id,user_id,profile_picture');
+        return $this->belongsTo(User::class, 'receiver_id')->with('profile:id,user_id,profile_image');
     }
 }

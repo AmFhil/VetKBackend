@@ -67,7 +67,7 @@ class ProductsController extends Controller
             $request->validate([
                 'store_id' => 'required|exists:store,id',
                 'product_name' => 'required|string|max:100',
-                'category' => 'required|string|max:100',
+                'category' => 'required|string|max:100|exists:categories,name',
                 'description' => 'required|string|max:1000',
                 'location' => 'required|string|max:255',
                 'price' => 'required|numeric|min:0',
@@ -152,7 +152,7 @@ class ProductsController extends Controller
 
             $request->validate([
                 'product_name' => 'sometimes|string|max:100',
-                'category' => 'sometimes|string|max:100',
+                'category' => 'sometimes|string|max:100|exists:categories,name',
                 'description' => 'sometimes|string|max:1000',
                 'location' => 'sometimes|string|max:255',
                 'price' => 'sometimes|numeric|min:0',

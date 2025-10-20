@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Categories;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -40,12 +41,11 @@ class CategoryController extends Controller
     // Get all categories
     public function index()
     {
-        $categories = Categories::all();
-
-        $categories->transform(function ($category){
-            $category->image_url = asset(Storage::url($category->image));
+        $cacheKey = 'Categories';
+        $categories = Cache::remember($cacheKey, now()->addMinutes(30), function () {
+            return Categories::all();
         });
-
+    
         return response()->json(['categories' => $categories], 201);
     }
 
@@ -57,10 +57,9 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $categories = Categories::all();
-
-        $categories->transform(function ($category){
-            $category->image_url = asset(Storage::url($category->image));
+        $cacheKey = 'admin_categories';
+        $categories = Cache::remember($cacheKey, now()->addMinutes(30), function () {
+            return Categories::all();
         });
 
         return response()->json(['categories' => $categories], 201);
@@ -79,10 +78,6 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found'], 404);
         }
 
-        if($category->image){
-        $category -> image_url = asset(Storage::url($category->image));
-        }
-
         return response()->json($category);
     }
 
@@ -94,27 +89,24 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $category = Categories::find($id);
+        $category = Categories::where('id', $id)->first();
         if (!$category) {
             return response()->json(['message' => 'Category not found'], 404);
         }
 
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255|unique:categories,name',
+            'name' => 'sometimes|string|max:50|unique:categories,name',
             'image' => 'nullable|image|max:1048|jpeg,png,jpg',
         ]);
 
+        $imagePath = $category->image;
         if ($request->hasFile('image')) {
             File::delete(storage_path('app/pubic/' . $category->image));
             $imagePath = $request->file('image')->store('categories', 'public');
-            $category->image = $imagePath;
         }
 
-        if (isset($validated['name'])) {
-            $category->name = $validated['name'];
-        }
+        $category->update(['name' => $validated['name'] ?? $category->name, 'image' => $imagePath]);
 
-        $category->save();
         return response()->json(['category' => $category], 201);
     }
 

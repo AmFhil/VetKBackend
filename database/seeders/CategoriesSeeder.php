@@ -15,13 +15,11 @@ class CategoriesSeeder extends Seeder
         DB::table('categories')->truncate();
 
         $categories = [
-            'Pet Owner',
-            'Veterinarian',
-            'Livestock Farmer',
-            'Veterinary Paraprofessional',
-            'Vendor',
-            'Veterinary Clinic',
-            'Others',
+            'Pet',
+            'Feeds',
+            'Livestock',
+            'Drugs',
+            'Tool and Materials',
         ];
 
         foreach ($categories as $name) {
