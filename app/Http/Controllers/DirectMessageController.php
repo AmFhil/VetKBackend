@@ -117,7 +117,7 @@ class DirectMessageController extends Controller
         if ($message->type = 'appointment' || $message->type = 'order') {
             return response()->json(['message' => 'unauthorized'], 400);
         }
-        
+
         $message->delete();
 
 
@@ -278,7 +278,10 @@ class DirectMessageController extends Controller
                     'user' => [
                         'id' => $partner->id,
                         'name' => trim("{$partner->first_name} {$partner->last_name}"),
+                        'email' => $partner->email,
+                        'location' => trim("{$partner->country} {$partner->state}"),
                         'profile_image' => $partner->profile->profile_picture ?? null,
+                        'role' => $partner->activeRole?->name
 
                     ],
                     'last_message' => $msg->content,

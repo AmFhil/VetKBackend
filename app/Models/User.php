@@ -39,6 +39,7 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'provider_id',
+        'provider',
         'password_algorithm',
         'old_id',
         'old_table',

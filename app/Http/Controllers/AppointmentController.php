@@ -17,8 +17,8 @@ class AppointmentController extends Controller
     public function makeAppointment(Request $request)
     {
         $request->validate([
-            'date'      => 'required|date',
-            'time'      => 'required',
+            'date'      => 'required|date_format:d/m/Y',
+            'time'      => 'required|date_format:H:i',
             'doctor_id' => 'required|exists:users_registration,id',
         ]);
 
