@@ -89,7 +89,7 @@ class ForumChat extends Model
 
         if ($chat?->id) {
             Cache::forget("forum_likers_{$chat->id}");
-            Cache::forget("forum_chat_comment_{$chat->Id}");
+            Cache::forget("forum_chat_comment_{$chat->id}");
         }
 
         if ($chat?->user_id && $chat?->user_type) {

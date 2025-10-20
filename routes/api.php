@@ -247,6 +247,8 @@ Route::prefix('v3')->group(function () {
         Route::post('/orders/{id}/confirm', [OrderController::class, 'confirmOrder']);
         Route::post('/orders/{id}/complaint', [OrderController::class, 'fileComplaint']);
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('order.cancel');
+
+        Route::get('/get-categories', [CategoryController::class, 'index']);
     });
 
     // User must have an active subscription
@@ -274,6 +276,9 @@ Route::prefix('v3')->group(function () {
     Route::middleware(['auth:admin',  'throttle:api', 'token.expiry'])->prefix('admin')->group(function () {
         Route::post('/create-category', [CategoryController::class, 'store']);
         Route::get('/categories', [CategoryController::class, 'adminCategories']);
+        Route::match(['post', 'patch'], '/update-category/{id}/category', [CategoryController::class, 'update']);
+        Route::delete('/delete-category/{id}/category', [CategoryController::class, 'destroy']);
+        Route::get('/get-category/{id}/category', [CategoryController::class, 'show']);
         Route::post('/blogs', [BlogChatController::class, 'addBlog']);
         Route::match(['post', 'patch'], '/update-blog/{id}', [BlogChatController::class, 'updateBlog']);
         Route::delete('/delete-blog/{id}', [BlogChatController::class, 'delete']);
