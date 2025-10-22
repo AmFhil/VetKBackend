@@ -28,9 +28,9 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validatedData = Validator::make($request->all(), [
-        'email' => 'required|email|string|lowercase|unique:users_registration,email',
-        'password' => ['required', 'string','min:8', 'confirmed', Rules\Password::defaults()]
-    ]);
+            'email' => 'required|email|string|lowercase|unique:users_registration,email',
+            'password' => ['required', 'string', 'min:8', 'confirmed', Rules\Password::defaults()]
+        ]);
 
         if ($validatedData->fails()) {
             // Check if the validation error is specifically for the email's unique rule
@@ -105,13 +105,35 @@ class AuthController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+        if (! $user) {
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
-        if (strlen($user->password) === 40) {
-            $user->password = Hash::make($validated['password']);
-            $user->save();
+        $passwordMatches = false;
+
+        // Check for legacy SHA1 format
+        if (strlen($user->password) === 40 || $user->password_algorithm === 'sha1' || $user->password_algorithm === null) {
+            if (sha1($validated['password']) === $user->password) {
+                $passwordMatches = true;
+                // Rehash to bcrypt immediately
+                $user->password = Hash::make($validated['password']);
+                $user->password_algorithm = 'bcrypt';
+                $user->save();
+            }
+        } else {
+            // Modern bcrypt check
+            if (Hash::check($validated['password'], $user->password)) {
+                $passwordMatches = true;
+                // Optional: Rehash if needed (e.g., if bcrypt cost factor changed)
+                if (Hash::needsRehash($user->password)) {
+                    $user->password = Hash::make($validated['password']);
+                    $user->save();
+                }
+            }
+        }
+
+        if (! $passwordMatches) {
+            return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
         if ($user->email_verified_at === null) {

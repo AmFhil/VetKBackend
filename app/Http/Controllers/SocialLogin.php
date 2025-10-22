@@ -103,7 +103,7 @@ class SocialLogin extends AuthController
 
     public function completeUserRegistration(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }

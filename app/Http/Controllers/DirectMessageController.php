@@ -23,7 +23,8 @@ class DirectMessageController extends Controller
         $validated = $request->validate([
             'receiver_id' => 'required|exists:users_registration,id',
             'content'     => 'nullable|string|max:255',
-            'images.*'    => 'nullable|file|mimes:jpg,png,gif,jpeg|max:2048',
+            'images' => 'nullable|array',
+            'images.*'    => 'nullable|image|mimes:jpg,png,gif,jpeg|max:2048',
         ]);
 
         $user = auth('user')->user();
@@ -47,16 +48,17 @@ class DirectMessageController extends Controller
 
         event(new DirectMessageSent($message));
 
+        // Notify receiver
+        $receiver = User::find($validated['receiver_id']);
+
         // Log sender activity
         $user->logActivity(
             'send_message',
             'Message sent',
-            "You sent a message to user {$validated['receiver_id']}",
+            "You sent a message to user {$receiver->first_name}",
             ['message_id' => $message->id]
         );
 
-        // Notify receiver
-        $receiver = User::find($validated['receiver_id']);
         if ($receiver) {
             $receiver->sendNotification(
                 'direct_message',

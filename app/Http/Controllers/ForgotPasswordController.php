@@ -83,14 +83,14 @@ class ForgotPasswordController extends Controller
         }
 
         // check if the token is expired
-        if(Carbon::parse($tokenData->created_at)->addMinutes(60)->isPast()) {
+        if(Carbon::parse($tokenData->created_at)->addMinutes(10)->isPast()) {
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
             return response()->json(['error' => 'Token has expired'], 400);
         }
 
         // update the user password
         User::where('email', $request->email)
-            ->update(['password' => bcrypt($request->password)]);
+            ->update(['password' => bcrypt($request->password), 'password_algorithm' => 'bcrypt']);
 
         // delete the token
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
