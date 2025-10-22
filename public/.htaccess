@@ -1,10 +1,12 @@
 # WebSocket Proxy for Laravel Reverb
 RewriteEngine On
 
+RewriteRule ^broadcasting/auth$ index.php [L]
+
 # Match websocket requests
 RewriteCond %{HTTP:Upgrade} =websocket [NC]
 RewriteCond %{HTTP:Connection} upgrade [NC]
-RewriteRule ^reverb/(.*) ws://127.0.0.1:8085/reverb/$1 [P,L]
+RewriteRule ^(.*)$ ws://127.0.0.1:8085/$1 [P,L]
 
 # Fall back to Laravel for everything else
 <IfModule mod_rewrite.c>
