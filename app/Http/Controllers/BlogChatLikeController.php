@@ -6,6 +6,7 @@ use App\Events\BlogLiked;
 use App\Models\Admin;
 use App\Models\BlogChat;
 use App\Models\BlogChatLike;
+use App\Models\Membership;
 use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
@@ -31,6 +32,9 @@ class BlogChatLikeController extends Controller
             ->first();
 
         if ($like) {
+            if ((int)$like->blog->user_id !==  (int)$user->id || $like->blog->user_type !== get_class($user)) {
+                $like->blog->members()->where('member_id', $user->id)->where('member_type', get_class($user))->delete();
+            }
             $like->delete();
 
             event(new BlogLiked($user, $blog->id));
@@ -59,6 +63,13 @@ class BlogChatLikeController extends Controller
                 'blog_chat_id' => $blog->id,
                 'user_id' => $user->id,
                 'user_type' => get_class($user),
+            ]);
+
+            Membership::firstOrCreate([
+                'member_id'   => $user->id,
+                'member_type' => get_class($user),
+                'joinable_id' => $blog->id,
+                'joinable_type' => BlogChat::class,
             ]);
 
             event(new BlogLiked($user, $blog->id));

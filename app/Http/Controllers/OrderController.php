@@ -248,6 +248,15 @@ class OrderController extends Controller
 
         if (!$order) return response()->json(['message' => 'Order not found or cannot be cancelled.'], 404);
 
+        $hoursPassed = $order->created_at->diffInHours(now());
+
+        if ($hoursPassed >= 24) {
+            return response()->json(
+                ['message' => 'The 24-hour cancellation window has expired for this order.'],
+                401
+            );
+        }
+
         $order->update(['status' => 'cancelled']);
 
         $user->logActivity('order_cancelled', 'Order Cancelled', "You cancelled order #{$order->tracking_number}");

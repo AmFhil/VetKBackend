@@ -6,6 +6,7 @@ use App\Events\ForumLiked;
 use App\Models\Admin;
 use App\Models\ForumChat;
 use App\Models\ForumChatLike;
+use App\Models\Membership;
 use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
@@ -35,6 +36,10 @@ class ForumChatLikeController extends Controller
         if ($existingLike) {
             $existingLike->delete();
 
+            if ((int)$existingLike->forum->user_id !==  (int)$authUser->id || $existingLike->forum->user_type !== get_class($authUser)) {
+                $existingLike->forum->members()->where('member_id', $authUser->id)->where('member_type', get_class($authUser))->delete();
+            }
+
             event(new ForumLiked($forum->id, $authUser));
 
             if ($authUser instanceof Admin) {
@@ -63,6 +68,14 @@ class ForumChatLikeController extends Controller
             'user_id'       => $authUser->id,
             'user_type'     => get_class($authUser),
         ]);
+
+        Membership::firstOrCreate([
+            'member_id'   => $authUser->id,
+            'member_type' => get_class($authUser),
+            'joinable_id' => $forum->id,
+            'joinable_type' => ForumChat::class,
+        ]);
+
 
         event(new ForumLiked($forum->id, $authUser));
 
