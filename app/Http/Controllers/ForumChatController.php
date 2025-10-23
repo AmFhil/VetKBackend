@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Admin;
 use App\Models\ForumChat;
 use App\Models\ForumChatLike;
+use App\Models\Membership;
 use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
@@ -64,6 +65,13 @@ class ForumChatController extends Controller
             'image' => $imagePath,
             'status' => 'archived',
             'visibility' => $validated['visibility'] ?? 'everyone',
+        ]);
+
+        Membership::firstOrCreate([
+            'member_id'   => $user->id,
+            'member_type' => get_class($user),
+            'joinable_id' => $forum->id,
+            'joinable_type' => ForumChat::class,
         ]);
 
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogChat;
 use App\Models\BlogChatLike;
+use App\Models\Membership;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -52,6 +53,13 @@ class BlogChatController extends Controller
             'section'   => $request->section,
             'picture'   => $imageName,
             'status'    => 'draft',
+        ]);
+
+        Membership::firstOrCreate([
+            'member_id'   => $admin->id,
+            'member_type' => get_class($admin),
+            'joinable_id' => $blog->id,
+            'joinable_type' => BlogChat::class,
         ]);
 
 

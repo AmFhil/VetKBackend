@@ -8,6 +8,7 @@ use App\Events\BlogCommentUpdated;
 use App\Models\BlogChat;
 use App\Models\BlogChatComment;
 use App\Models\Admin;
+use App\Models\Membership;
 use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
@@ -36,6 +37,13 @@ class BlogChatCommentController extends Controller
             'user_type'    => get_class($user),
             'comment'      => $request->comment,
             'parent_id'    => $request->parent_id,
+        ]);
+
+        Membership::firstOrCreate([
+            'member_id'   => $user->id,
+            'member_type' => get_class($user),
+            'joinable_id' => $blog->id,
+            'joinable_type' => BlogChat::class,
         ]);
 
         event(new BlogCommentAdded($comment));
@@ -149,6 +157,10 @@ class BlogChatCommentController extends Controller
 
         $blogId = $comment->blog_chat_id;
         $commentContent = $comment->comment;
+
+        if ((int)$comment->blog->user_id !==  (int)$user->id || $comment->blog->user_type !== get_class($user)) {
+            $comment->blog->members()->where('member_id', $user->id)->where('member_type', get_class($user))->delete();
+        }
         $comment->delete();
 
         event(new BlogCommentDeleted($commentId, $blogId));

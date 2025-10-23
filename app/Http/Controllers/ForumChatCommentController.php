@@ -8,6 +8,7 @@ use App\Events\ForumCommentUpdated;
 use App\Models\ForumChat;
 use App\Models\ForumChatComment;
 use App\Models\Admin;
+use App\Models\Membership;
 use App\Models\User;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
@@ -38,6 +39,13 @@ class ForumChatCommentController extends Controller
             'user_type' => get_class($user),
             'comment'   => $request->comment,
             'parent_id' => $request->parent_id,
+        ]);
+
+        Membership::firstOrCreate([
+            'member_id'   => $user->id,
+            'member_type' => get_class($user),
+            'joinable_id' => $forum->id,
+            'joinable_type' => ForumChat::class,
         ]);
 
         event(new ForumCommentAdded($comment));
