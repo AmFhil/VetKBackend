@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use App\Traits\HasAuthorAttribute;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ForumChatComment extends Model
 {
-    use HasAuthorAttribute;
+    use SoftDeletes, HasAuthorAttribute;
 
     protected $table = 'forum_chat_comments';
 
@@ -45,6 +46,13 @@ class ForumChatComment extends Model
             self::clearCaches($comment);
             if ($comment->forum) {
                 ForumChat::clearCaches($comment->forum);
+            }
+        });
+
+        static::deleting(function ($comment) {
+            if ($comment->isForceDeleting()) {
+                $comment->forum->members()->delete();
+                $comment->replies()->delete();
             }
         });
     }

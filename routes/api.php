@@ -62,7 +62,7 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
  */
 Route::prefix('v3')->group(function () {
     // Broadcasting auth route (handles both user and admin guards via Sanctum tokens)
-    Broadcast::routes(['middleware' => ['auth:sanctum']]);
+    Broadcast::routes(['middleware' => ['broadcast.auth']]);
 
     // Public routes
     Route::middleware('throttle:auth')->group(function () {  // Uses your custom 'auth' limiter (10/min)

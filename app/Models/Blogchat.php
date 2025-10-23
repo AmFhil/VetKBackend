@@ -37,18 +37,16 @@ class BlogChat extends Model
     {
         static::deleting(function ($chat) {
             if ($chat->isForceDeleting()) {
-                $chat->comments()->forceDelete();
-                $chat->likes()->forceDelete();
-            } else {
+                $chat->members()->delete();
                 $chat->comments()->delete();
                 $chat->likes()->delete();
             }
         });
 
-        static::restoring(function ($chat) {
-            $chat->comments()->withTrashed()->restore();
-            $chat->likes()->withTrashed()->restore();
-        });
+        // static::restoring(function ($chat) {
+        //     $chat->comments()->withTrashed()->restore();
+        //     $chat->likes()->withTrashed()->restore();
+        // });
 
         static::created(fn($chat) => self::clearCaches($chat));
         static::updated(fn($chat) => self::clearCaches($chat));
@@ -99,5 +97,10 @@ class BlogChat extends Model
     public function likers()
     {
         return $this->hasMany(BlogChatLike::class, 'blog_chat_id')->with('user', 'user.profile', 'user.activeRole');
+    }
+
+    public function members()
+    {
+        return $this->morphMany(Membership::class, 'joinable');
     }
 }

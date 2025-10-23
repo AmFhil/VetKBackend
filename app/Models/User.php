@@ -354,4 +354,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(OrderComplaint::class, 'user_id');
     }
+
+    public function memberships()
+    {
+        return $this->morphMany(Membership::class, 'member');
+    }
 }

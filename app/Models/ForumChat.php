@@ -54,16 +54,16 @@ class ForumChat extends Model
         static::deleting(function ($chat) {
             if ($chat->isForceDeleting()) {
                 $chat->comments()->forceDelete();
-                $chat->likes()->forceDelete();
+                $chat->likes()->delete();
+                $chat->members()->delete();
             } else {
                 $chat->comments()->delete();
-                $chat->likes()->delete();
             }
         });
 
         static::restoring(function ($chat) {
             $chat->comments()->withTrashed()->restore();
-            $chat->likes()->withTrashed()->restore();
+            // $chat->likes()->withTrashed()->restore();
         });
 
         foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
@@ -132,5 +132,10 @@ class ForumChat extends Model
             ->where('user_id', $user->id)
             ->where('user_type', get_class($user))
             ->exists();
+    }
+
+    public function members()
+    {
+        return $this->morphMany(Membership::class, 'joinable');
     }
 }

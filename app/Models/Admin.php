@@ -113,4 +113,9 @@ class Admin extends Model
     {
         return $this->hasMany(AdminActivity::class, 'admin_id');
     }
+
+    public function memberships()
+    {
+        return $this->morphMany(Membership::class, 'member');
+    }
 }

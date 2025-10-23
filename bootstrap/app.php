@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
-        
+
         // Define middleware groups
         $middleware->group('web', [
             \Illuminate\Cookie\Middleware\EncryptCookies::class,
@@ -53,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'token.expiry' => \App\Http\Middleware\CheckTokenExpiry::class,
             'force.json' => \App\Http\Middleware\ForceJsonResponse::class,  // Alias if not already
             'subscription' => \App\Http\Middleware\CheckSubscription::class,
+            'broadcast.auth' => \App\Http\Middleware\BroadcastAuth::class,
         ]);
 
         // Middleware priority (Laravel 12.x recommended—ensures order)
