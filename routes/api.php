@@ -62,10 +62,10 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
  */
 Route::prefix('v3')->group(function () {
     // Broadcasting auth route (handles both user and admin guards via Sanctum tokens)
-    Broadcast::routes(['middleware' => ['broadcast.auth']]);
+    Broadcast::routes(['middleware' => ['auth:sanctum', 'token.expiry', 'broadcast.auth']]);
 
     // Public routes
-    Route::middleware('throttle:auth')->group(function () {  // Uses your custom 'auth' limiter (10/min)
+    Route::middleware(['throttle:auth'])->group(function () {  // Uses your custom 'auth' limiter (10/min)
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
         Route::post('/reset-mail', [ForgotPasswordController::class, 'sendResetLink']);
@@ -270,7 +270,7 @@ Route::prefix('v3')->group(function () {
     //     Route::get('/contacts/{id}', [ContactController::class, 'show'])->middleware('subscription:contact_info');
     // });
 
-    Route::post('/admin/login', [AdminAuthController::class, 'adminLogin']);
+    Route::post('/admin/login', [AdminAuthController::class, 'adminLogin'])->middleware(['throttle:auth']);
 
     //  Admin routes
     Route::middleware(['auth:admin',  'throttle:api', 'token.expiry'])->prefix('admin')->group(function () {

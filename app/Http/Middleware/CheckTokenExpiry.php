@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -23,8 +24,8 @@ class CheckTokenExpiry
         }
 
         // Refresh idle timeout → extend expiry 1h from now
-        if ($accessToken->expires_at && $accessToken->expires_at->diffInMinutes(now()) < 10) {
-            $accessToken->expires_at = now()->addMinutes(15);
+        if ($accessToken->expires_at && $accessToken->expires_at->diffInMinutes(now()) < 1) {
+            $accessToken->expires_at = Carbon::now()->addMinutes(15);
             $accessToken->save();
         }
 
