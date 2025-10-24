@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Admin;
 use App\Traits\BroadcastsAdminEvents;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -48,7 +49,8 @@ class AdminAuthController extends Controller
             $admin->tokens()->delete();
 
             // Generate the token and return a successful response.
-            $token = $admin->createToken('admin_token')->plainTextToken;
+           $expiration = Carbon::now()->addMinutes(30);
+            $token = $admin->createToken('admin_token', ['*'], $expiration)->plainTextToken;
 
             return response()->json([
                 'message' => 'Login successful',

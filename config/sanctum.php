@@ -17,7 +17,7 @@ return [
 
     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
         '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1,https://nextjs-frontend-beta-drab.vercel.app,http://localhost:3000',
+        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1,nextjs-frontend-beta-drab.vercel.app',
         Sanctum::currentApplicationUrlWithPort(),
         // Sanctum::currentRequestHost(),
     ))),

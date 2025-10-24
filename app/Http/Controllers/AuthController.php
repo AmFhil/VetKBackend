@@ -21,7 +21,8 @@ class AuthController extends Controller
 {
     private function issueToken(User $user)
     {
-        return $user->createToken('auth_token')->plainTextToken;
+        $expiration = Carbon::now()->addMinutes(15);
+        return $user->createToken('auth_token', ['*'], $expiration)->plainTextToken;
     }
 
     // user registration method
