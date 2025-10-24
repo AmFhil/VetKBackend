@@ -1,37 +1,33 @@
-# WebSocket Proxy for Laravel Reverb
+# .htaccess
 RewriteEngine On
+RewriteBase /
 
-RewriteRule ^broadcasting/auth$ index.php [L]
+# Broadcasting Auth - Explicit route
+RewriteRule ^api/v3/broadcasting/auth$ index.php [L,NC]
 
-# Match websocket requests
+# WebSocket Proxy for Reverb
 RewriteCond %{HTTP:Upgrade} =websocket [NC]
 RewriteCond %{HTTP:Connection} upgrade [NC]
 RewriteRule ^(.*)$ ws://127.0.0.1:8085/$1 [P,L]
 
-# Fall back to Laravel for everything else
-<IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
+# Handle Authorization Header
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    RewriteEngine On
-    RewriteBase /
+# Handle X-XSRF-Token Header
+RewriteCond %{HTTP:x-xsrf-token} .
+RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Handle Authorization Header
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+# Redirect Trailing Slashes If Not A Folder
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} (.+)/$
+RewriteRule ^ %1 [L,R=301]
 
-    # Handle X-XSRF-Token Header
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+# Laravel Frontend Controller
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
-
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+<IfModule mod_negotiation.c>
+    Options -MultiViews -Indexes
 </IfModule>
