@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DiseasePredictor;
 use Illuminate\Http\Request;
 
 class DiseasePredictorController extends Controller
@@ -11,6 +12,11 @@ class DiseasePredictorController extends Controller
     {
         $category = strtolower(trim($request->livestock_category));
         $symptoms = array_map('strtolower', $request->symptoms ?? []);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('disease_images', 'public');
+        }
 
         // Disease knowledge base (expand anytime)
         $diseaseDatabase = [
@@ -87,8 +93,15 @@ class DiseasePredictorController extends Controller
         $animal = ucfirst($category);
         $formattedSymptoms = ucfirst(implode(', ', $request->symptoms));
 
+        DiseasePredictor::create([
+            'specie' => $animal,
+            'symptoms' => $request->symptoms,
+            'description' => $bestMatch['description'],
+            'image' => $imagePath
+        ]);
+
         return "{$bestMatch['name']}: {$bestMatch['description']}
-Select animal species: {$animal}
-Likely symptoms: {$formattedSymptoms}.";
+                Select animal species: {$animal}
+                Likely symptoms: {$formattedSymptoms}.";
     }
 }
