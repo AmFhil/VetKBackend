@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Admin;
+use App\Models\SubscriptionReceipt;
 use App\Models\User;
+use App\Observers\SubscriptionReceiptObserver;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -48,5 +50,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });
+
+        SubscriptionReceipt::observe(SubscriptionReceiptObserver::class);
     }
 }

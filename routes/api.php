@@ -31,6 +31,7 @@ use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OthersController;
+use App\Http\Controllers\Payments\PaystackSubscriptionController;
 use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
 use App\Http\Controllers\ProductsController;
@@ -39,12 +40,15 @@ use App\Http\Controllers\PromotionPlanController;
 use App\Http\Controllers\RateController;
 use App\Http\Controllers\SocialLogin;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\SubscriptionReceiptController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserPromotionPlanController;
+use App\Http\Controllers\UserSubscriptionsController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VeterinaryClinicController;
 use App\Http\Controllers\VeterinaryDoctorController;
 use App\Http\Controllers\VeterinaryParaprofessionalController;
+use App\Http\Controllers\Webhook\PaystackWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -249,6 +253,15 @@ Route::prefix('v3')->group(function () {
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('order.cancel');
 
         Route::get('/get-categories', [CategoryController::class, 'index']);
+
+        Route::get('/subscriptions/current', [UserSubscriptionsController::class, 'current']);
+        Route::post('/subscriptions/cancel', [UserSubscriptionsController::class, 'cancel']);
+        Route::get('/subscriptions/history', [UserSubscriptionsController::class, 'history']);
+
+        Route::get('/subscription-receipts', [SubscriptionReceiptController::class, 'index']);
+
+        Route::post('/subscriptions/initialize', [PaystackSubscriptionController::class, 'initialize']);
+        Route::get('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
     });
 
     // User must have an active subscription
@@ -304,6 +317,7 @@ Route::prefix('v3')->group(function () {
         Route::put('/deactivate-subscription/{id}', [AdminSubscriptionController::class, 'deactivateSubscription']);
         Route::get('/get-subscription-approvals', [AdminSubscriptionController::class, 'getSubscriptionApprovals']);
         Route::get('/get-user-by-subscription-type/{type}', [AdminSubscriptionController::class, 'getUsersBySubscription']);
+        Route::get('/admin/subscription-receipts', [SubscriptionReceiptController::class, 'all']);
 
         Route::get('/promotion-plans', [PromotionPlanController::class, 'getAllPlans']);
         Route::post('/promotion-plans', [PromotionPlanController::class, 'createPlan']);
@@ -374,17 +388,24 @@ Route::prefix('v3')->group(function () {
         // Route::get('get-promotion-approvals', [AdminManageUserController::class, 'getPromotionApprovals']);
         // Route::get('get-subscription-approvals', [AdminManageUserController::class, 'getSubscriptionApprovals']);
     });
+
+    /**
+     * 🔹 Social login routes
+     */
+    Route::prefix('google')->group(function () {
+        Route::get('/loginUsingGoogle', [SocialLogin::class, 'redirectToGoogle']);
+        Route::any('/callback', [SocialLogin::class, 'handleGoogleCallback']);
+    });
+
+    Route::prefix('linkedin')->group(function () {
+        Route::get('/loginUsingLinkedin', [SocialLogin::class, 'redirectToLinkedin']);
+        Route::any('/callback', [SocialLogin::class, 'handleLinkedinCallback']);
+    });
+
+    Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
 });
 
-/**
- * 🔹 Social login routes
- */
-Route::prefix('google')->group(function () {
-    Route::get('/loginUsingGoogle', [SocialLogin::class, 'redirectToGoogle']);
-    Route::any('/callback', [SocialLogin::class, 'handleGoogleCallback']);
-});
 
-Route::prefix('linkedin')->group(function () {
-    Route::get('/loginUsingLinkedin', [SocialLogin::class, 'redirectToLinkedin']);
-    Route::any('/callback', [SocialLogin::class, 'handleLinkedinCallback']);
-});
+
+
+
