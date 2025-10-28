@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 
 class UserSubscriptions extends Model
@@ -35,6 +36,11 @@ class UserSubscriptions extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class, 'subscription_id');
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(SubscriptionReceipt::class, 'user_subscription_id');
     }
 
     // Helper to check if subscription is active

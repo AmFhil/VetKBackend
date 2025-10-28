@@ -44,7 +44,7 @@ class Subscription extends Model
     }
 
     /**
-     * 🔧 Clears subscription plan related caches
+     * Clears subscription plan related caches
      */
     private static function clearCaches(): void
     {

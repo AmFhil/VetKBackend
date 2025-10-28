@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Subscription;
+
 use App\Models\UserSubscriptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,75 +21,6 @@ class UserSubscriptionsController extends Controller
             'success' => true,
             'subscription' => $subscription,
         ]);
-    }
-
-    /**
-     *Subscribe to a new plan
-     */
-    public function subscribe(Request $request)
-    {
-        $request->validate([
-            'subscription_id' => 'required|exists:subscriptions,id',
-        ]);
-
-        $user = Auth::user();
-        $plan = Subscription::findOrFail($request->subscription_id);
-
-        $startDate = now();
-        $endDate = match ($plan->date_option) {
-            'days'  => $startDate->copy()->addDays($plan->duration),
-            'weeks' => $startDate->copy()->addWeeks($plan->duration),
-            'months' => $startDate->copy()->addMonths($plan->duration),
-            'years' => $startDate->copy()->addYears($plan->duration),
-            default => $startDate->copy()->addDays($plan->duration),
-        };
-
-        // expire old active subs
-        UserSubscriptions::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->update(['status' => 'expired']);
-
-        // create new
-        $subscription = UserSubscriptions::create([
-            'user_id'         => $user->id,
-            'subscription_id' => $plan->id,
-            'start_date'      => $startDate,
-            'end_date'        => $endDate,
-            'status'          => 'active',
-        ]);
-
-        // 🔹 use helpers
-        $user->logActivity(
-            action: 'subscription created',
-            title: 'Subscribed to Plan',
-            detail: "User subscribed to {$plan->subscription_title} (ID: {$plan->id}) from {$startDate->toDateString()} to {$endDate->toDateString()}",
-            meta: [
-                'subscription_id' => $subscription->id,
-                'plan_id' => $plan->id,
-                'plan_title' => $plan->subscription_title,
-                'start_date' => $startDate->toDateTimeString(),
-                'end_date' => $endDate->toDateTimeString(),
-                'status' => 'active',
-            ]
-        );
-
-        // Send notification
-        $user->sendNotification(
-            type: 'subscription created',
-            title: 'New Subscription Activated',
-            content: "You have successfully subscribed to {$plan->subscription_title}. Your subscription is active from {$startDate->toDateString()} to {$endDate->toDateString()}.",
-            meta: [
-                'subscription_id' => $subscription->id,
-                'plan_id' => $plan->id,
-                'plan_title' => $plan->subscription_title,
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription activated successfully',
-            'subscription' => $subscription->load('subscription'),
-        ], 201);
     }
 
     /**
@@ -113,7 +44,7 @@ class UserSubscriptionsController extends Controller
         $user->logActivity(
                 action: 'subscription cancelled',
                 title: 'Cancelled Subscription',
-                detail: "User cancelled subscription {$subscription->subscription->subscription_title} (ID: {$subscription->id})",
+                detail: "User cancelled subscription {$subscription->subscription->subscription_title}",
                 meta: [
                     'subscription_id' => $subscription->id,
                     'plan_id' => $subscription->subscription_id,
@@ -152,7 +83,7 @@ class UserSubscriptionsController extends Controller
         $cacheKey = "user_{$user->id}_subscriptions_page_{$page}_per_{$perPage}";
 
         $history = cache()->remember($cacheKey, now()->addMinutes(30), function () use ($user, $perPage) {
-            return UserSubscriptions::with('subscription')
+            return UserSubscriptions::with(['subscription', 'receipts'])
                 ->where('user_id', $user->id)
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
