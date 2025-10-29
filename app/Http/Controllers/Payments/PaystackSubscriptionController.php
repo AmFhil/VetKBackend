@@ -32,8 +32,9 @@ class PaystackSubscriptionController extends Controller
                 'email' => $user->email,
                 'amount' => $amount,
                 'currency' => config('services.paystack.currency', 'USD'),
-                'callback_url' => config('services.paystack.callback_url'),
+                'callback_url' => route('subscription.verify'),
                 'metadata' => [
+                    'type' => 'subscription',
                     'user_id' => $user->id,
                     'subscription_id' => $plan->id,
                     'plan_title' => $plan->subscription_title,
