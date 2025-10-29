@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class AdsPromotion extends Model
 {
@@ -27,6 +28,21 @@ class AdsPromotion extends Model
         'end_date'   => 'datetime',
     ];
 
+    protected static function booted()
+    {
+        static::created(function ($adsPromotion) {
+            self::clearCaches($adsPromotion);
+        });
+
+        static::updated(function ($adsPromotion) {
+            self::clearCaches($adsPromotion);
+        });
+
+        static::deleted(function ($adsPromotion) {
+            self::clearCaches($adsPromotion);
+        });
+    }
+
     /** Relationships */
     public function user()
     {
@@ -41,6 +57,22 @@ class AdsPromotion extends Model
     public function promotionPlan()
     {
         return $this->belongsTo(PromotionPlan::class, 'promotion_plan_id');
+    }
+
+    public function receipts()
+    {
+        return $this->hasMany(AdsPromotionReceipt::class, 'ads_promotion_id');
+    }
+
+    public static function clearCaches(?self $adsPromotion = null): void
+    {
+        Cache::forget("user_{$adsPromotion->user_id}_adsPromotions");
+        Cache::forget("admin_users_by_promotion_" . md5($adsPromotion->promotionPlan->title));
+
+        for ($i = 1; $i <= 10; $i++) {
+            Cache::forget("admin_user_promotions_page_{$i}");
+            Cache::forget("admin_promotion_approvals_page_{$i}");
+        }
     }
 
     /** Scope for active promotions */

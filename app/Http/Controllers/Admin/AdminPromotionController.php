@@ -66,13 +66,6 @@ class AdminPromotionController extends Controller
             'end_date' => now(),
         ]);
 
-        // clear relevant caches (we used page-based caching for listing — clear first 10 pages to be safe)
-        for ($i = 1; $i <= 10; $i++) {
-            Cache::forget("admin_user_promotions_page_{$i}");
-            Cache::forget("admin_promotion_approvals_page_{$i}");
-        }
-        Cache::forget("admin_users_by_promotion_" . md5($promo->promotion_title));
-
         // admin activity & notification
         $this->createAdminActivity(
             $admin->id,

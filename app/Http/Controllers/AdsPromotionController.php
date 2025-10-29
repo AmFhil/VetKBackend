@@ -11,70 +11,7 @@ use Illuminate\Support\Facades\Cache;
 
 class AdsPromotionController extends Controller
 {
-    /**
-     * Promote a product (auto-purchase a promotion plan for this product).
-     */
-    public function promoteAd(Request $request)
-    {
-        $user = auth('user')->user();
-        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'promotion_plan_id' => 'required|exists:promotion_plan,id',
-        ]);
-
-        // check how many active promotion user has for this promotion plan has the number of products limits
-        $activePromotionsCount = AdsPromotion::where('user_id', $user->id)
-            ->where('promotion_plan_id', $validated['promotion_plan_id'])
-            ->where('status', 'active')
-            ->where('end_date', '>=', now())
-            ->count();
-
-        // check no_of_products limit
-        $planDetails = PromotionPlan::find($validated['promotion_plan_id']);
-        if ($activePromotionsCount >= $planDetails->no_of_products) {
-            return response()->json(['message' => 'You have reached the maximum number of active promotions for this plan.'], 400);
-        }
-
-
-        $plan = PromotionPlan::active()->findOrFail($validated['promotion_plan_id']);
-
-        // Calculate start/end date
-        $startDate = Carbon::now();
-        $endDate = $plan->date_option === 'Days'
-            ? $startDate->copy()->addDays($plan->duration)
-            : $startDate->copy()->addMonths($plan->duration);
-
-        $promotion = AdsPromotion::create([
-            'user_id' => $user->id,
-            'product_id' => $validated['product_id'],
-            'promotion_plan_id' => $plan->id,
-            'active_role' => optional($user->activeRole())->name,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'status' => 'active',
-        ]);
-
-        // Log + Notify
-        $user->logActivity(
-            'ad_promotion',
-            "Promoted Product #{$promotion->product_id}",
-            "You purchased '{$plan->title}' plan for product ID {$promotion->product_id}. Active until {$endDate->toFormattedDateString()}",
-            ['promotion_id' => $promotion->id, 'plan_id' => $plan->id]
-        );
-
-        $user->sendNotification(
-            'ad_promoted',
-            'Product Promoted',
-            "Your product (ID {$promotion->product_id}) has been promoted with the <strong>{$plan->title}</strong> plan until {$endDate->toFormattedDateString()}.",
-            ['promotion_id' => $promotion->id, 'plan_id' => $plan->id]
-        );
-
-        Cache::forget("user_{$user->id}_adsPromotions");
-
-        return response()->json(['message' => 'Promotion created successfully', 'promotion' => $promotion], 201);
-    }
 
     /**
      * Cancel promotion
@@ -84,7 +21,7 @@ class AdsPromotionController extends Controller
         $user = Auth::user();
         $promotion = AdsPromotion::findOrFail($id);
 
-        if ($promotion->user_id !== $user->id) {
+        if ((int) $promotion->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -103,8 +40,6 @@ class AdsPromotionController extends Controller
             "Your promotion for product ID {$promotion->product_id} has been cancelled.",
             ['promotion_id' => $promotion->id]
         );
-
-        Cache::forget("user_{$user->id}_adsPromotions");
 
         return response()->json(['message' => 'Promotion cancelled successfully'], 200);
     }
