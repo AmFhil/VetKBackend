@@ -25,7 +25,7 @@ class SubscriptionService
         return DB::transaction(function () use ($subscriptionId, $paymentMethod, $paymentData) {
 
             /** @var \App\Models\User|null $user */
-            $user = $paymentData['user'] ?? Auth::user();
+            $user = Auth::user() ?? null;
 
             if (! $user instanceof User) {
                 $user = User::findOrFail($paymentData['user_id'] ?? null);

@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->group('api', [
-            \App\Http\Middleware\DisableOutputBuffering::class,
+            // \App\Http\Middleware\DisableOutputBuffering::class,
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,  // Enables auth:sanctum for SPA
             \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',  // Enables throttle:api (uses your 'api' limiter)
             \Illuminate\Routing\Middleware\SubstituteBindings::class,

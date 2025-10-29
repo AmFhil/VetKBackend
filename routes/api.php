@@ -31,6 +31,7 @@ use App\Http\Controllers\LivestockFarmerController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OthersController;
+use App\Http\Controllers\Payments\PaystackAdsPromotionController;
 use App\Http\Controllers\Payments\PaystackSubscriptionController;
 use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
@@ -261,7 +262,13 @@ Route::prefix('v3')->group(function () {
         Route::get('/subscription-receipts', [SubscriptionReceiptController::class, 'index']);
 
         Route::post('/subscriptions/initialize', [PaystackSubscriptionController::class, 'initialize']);
-        Route::get('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
+
+        Route::post('/ads-promotion/initialize', [PaystackAdsPromotionController::class, 'initialize']);
+
+        Route::get('/ads-promotion/receipts', [AdsPromotionController::class, 'index']);
+
+        Route::get('/cancel-ads-promotion/{id}/ad', [AdsPromotionController::class, 'cancelPromotion']);
+        Route::get('/get-my-ads-promotions', [AdsPromotionController::class, 'myPromotions']);
     });
 
     // User must have an active subscription
@@ -317,7 +324,7 @@ Route::prefix('v3')->group(function () {
         Route::put('/deactivate-subscription/{id}', [AdminSubscriptionController::class, 'deactivateSubscription']);
         Route::get('/get-subscription-approvals', [AdminSubscriptionController::class, 'getSubscriptionApprovals']);
         Route::get('/get-user-by-subscription-type/{type}', [AdminSubscriptionController::class, 'getUsersBySubscription']);
-        Route::get('/admin/subscription-receipts', [SubscriptionReceiptController::class, 'all']);
+
 
         Route::get('/promotion-plans', [PromotionPlanController::class, 'getAllPlans']);
         Route::post('/promotion-plans', [PromotionPlanController::class, 'createPlan']);
@@ -402,7 +409,9 @@ Route::prefix('v3')->group(function () {
         Route::any('/callback', [SocialLogin::class, 'handleLinkedinCallback']);
     });
 
-    Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
+    Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])->name('webhook.paystack');
+    Route::get('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
+    Route::get('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
 });
 
 

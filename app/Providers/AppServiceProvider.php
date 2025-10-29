@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Admin;
+use App\Models\AdsPromotionReceipt;
 use App\Models\SubscriptionReceipt;
 use App\Models\User;
+use App\Observers\AdsPromotionReceiptObserver;
 use App\Observers\SubscriptionReceiptObserver;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -52,5 +54,6 @@ class AppServiceProvider extends ServiceProvider
         });
 
         SubscriptionReceipt::observe(SubscriptionReceiptObserver::class);
+        AdsPromotionReceipt::observe(AdsPromotionReceiptObserver::class);
     }
 }
