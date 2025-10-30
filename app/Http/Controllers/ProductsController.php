@@ -85,7 +85,8 @@ class ProductsController extends Controller
             }
 
             // Check if user is a vendor
-            $isVendor = Vendor::where('user_id', $user->id)->exists();
+            $isVendor = $user->activeRole && $user->activeRole->name === 'vendor';
+            // $isVeterinary = $user->activeRole && $user->activeRole->name === 'veterinary_doctor';
 
 
             $images = $this->handleImageUpload($request);
@@ -237,7 +238,7 @@ class ProductsController extends Controller
     public function deleteProduct($id)
     {
         try {
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }

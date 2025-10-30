@@ -22,6 +22,24 @@ class VeterinaryClinicController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        DB::beginTransaction();
+
+        if ($user->activeRole && $user->activeRole->name === 'veterinary_clinic') {
+            return response()->json(['message' => 'You already have a veterinary clinic role.'], 400);
+        }
+
+        if ($user->activeRole->name !== 'veterinary_clinic' && $user->hasRole('veterinary_clinic')) {
+            $activeRole = Role::where('name', 'veterinary_clinic')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to veterinary clinic.'], 200);
+        }
+
         // validate request
         $validated = $request->validate([
             'practice_license_num' => 'required|string|max:100|unique:veterinary_clinic,practice_license_num',
@@ -34,7 +52,7 @@ class VeterinaryClinicController extends Controller
             'latitude' => 'required|numeric',
         ]);
 
-        DB::beginTransaction();
+
         try {
             $clinic = VeterinaryClinic::create([
                 'user_id' => $user->id,

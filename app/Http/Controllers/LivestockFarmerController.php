@@ -12,13 +12,25 @@ class LivestockFarmerController extends Controller
     //
     public function AddLivestockFarmer(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if (Livestock_farmer::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'You already registered as a Livestock Farmer.'], 400);
+        if ($user->activeRole && $user->activeRole->name === 'livestock_farmer') {
+            return response()->json(['message' => 'You already have a livestock farmer role.'], 400);
+        }
+
+        if ($user->activeRole->name !== 'livestock_farmer' && $user->hasRole('livestock_farmer')) {
+            $activeRole = Role::where('name', 'livestock_farmer')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to livestock farmer.'], 200);
         }
 
         DB::beginTransaction();

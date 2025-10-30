@@ -50,7 +50,7 @@ class StoreController extends Controller
         // create new store
         $store = Store::create([
             'user_id' => $user->id,
-            'role' => $request->role,
+            'role' => optional($user->activeRole())->name,
             'store_name' => $request->store_name,
             'email' => $request->email,
             'phone_number' => $request->phone_number,
@@ -188,7 +188,7 @@ class StoreController extends Controller
             return $store;
         });
 
-        return response()->json(['stores' => $stores], 200); 
+        return response()->json(['stores' => $stores], 200);
     }
 
     public function getMyStore()

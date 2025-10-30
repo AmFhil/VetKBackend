@@ -12,16 +12,29 @@ class VendorController extends Controller
     //
     public function addVendor()
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if (Vendor::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'You already registered as a Vendor.'], 400);
+        DB::beginTransaction();
+        if ($user->activeRole && $user->activeRole->name === 'vendor') {
+            return response()->json(['message' => 'You already have a vendor role.'], 400);
         }
 
-        DB::beginTransaction();
+        if ($user->activeRole->name !== 'vendor' && $user->hasRole('vendor')) {
+            $activeRole = Role::where('name', 'vendor')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to vendor.'], 200);
+        }
+
+
         try {
             $vendor = Vendor::create([
                 'user_id' => $user->id,

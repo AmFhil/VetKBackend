@@ -17,7 +17,7 @@ class MediaController extends Controller
         ]);
 
         // check if user is veterinaryDoctor || veterinaryClinic || veterinaryParaprofessional || vendor
-        $user = auth()->user();
+        $user = auth('user')->user();
         if ($user->activeRole?->name !== 'veterinary_doctor' && $user->activeRole?->name !== 'veterinary_clinic' && $user->activeRole?->name !== 'veterinary_paraprofessional' && $user->activeRole?->name !== 'vendor')
         {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -38,7 +38,7 @@ class MediaController extends Controller
 
     // get media for authenticated user
     public function getMedia(){
-        $user = auth()->user();
+        $user = auth('user')->user();
         $media = Media::where('user_id', $user->id)->get();
 
         return response()->json(['message' => 'Media fetched successfully', 'data' => $media], 200);
@@ -46,7 +46,7 @@ class MediaController extends Controller
 
     // delete media by id
     public function deleteMedia($id){
-        $user = auth()->user();
+        $user = auth('user')->user();
         $media = Media::where('id', $id)->where('user_id', $user->id)->first();
 
         if (!$media){

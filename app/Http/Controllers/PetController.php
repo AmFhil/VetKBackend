@@ -49,15 +49,16 @@ class PetController extends Controller
             'picture'  => 'required|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $isPetOwner = $user->activeRole && $user->activeRole->role === 'pet_owner';
-        $isOther = $user->activeRole && $user->activeRole->role === 'others';
+        $isPetOwner = $user->activeRole && $user->activeRole->name === 'pet_owner';
+        $isOther = $user->activeRole && $user->activeRole->name === 'others';
+        $isVeterinarian = $user->activeRole && $user->activeRole->name === 'veterinary_doctor';
 
-        if (!($isPetOwner || $isOther)) {
+        if (!($isPetOwner || $isOther || $isVeterinarian)) {
             return response()->json(['message' => 'You are not authorized to create a pet'], 403);
         }
 
@@ -110,7 +111,7 @@ class PetController extends Controller
             'picture'  => 'sometimes|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -149,7 +150,7 @@ class PetController extends Controller
     // get all pets for authenticated user
     public function getUserPets()
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -190,7 +191,7 @@ class PetController extends Controller
     public function deletePet($id)
     {
         try {
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }

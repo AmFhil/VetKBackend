@@ -23,6 +23,23 @@ class VeterinaryDoctorController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        DB::beginTransaction();
+        if ($user->activeRole && $user->activeRole->name === 'veterinary_doctor') {
+            return response()->json(['message' => 'You already have a veterinary doctor role.'], 400);
+        }
+
+        if ($user->activeRole->name !== 'veterinary_doctor' && $user->hasRole('veterinary_doctor')) {
+            $activeRole = Role::where('name', 'veterinary_doctor')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to veterinary doctor.'], 200);
+        }
+
         // validate request
         $validated = $request->validate([
             'practice_license_num' => 'required|string|max:255',
@@ -33,7 +50,6 @@ class VeterinaryDoctorController extends Controller
             'latitude' => 'required|numeric',
         ]);
 
-        DB::beginTransaction();
         try {
             // create veterinary doctor
             $veterinaryDoctor = VeterinaryDoctor::create([
@@ -196,25 +212,6 @@ class VeterinaryDoctorController extends Controller
         return response()->json(['veterinary_doctor' => $veterinaryDoctor], 200);
     }
 
-    public function getMyVeterinaryProfile()
-    {
-        $user = auth()->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $veterinaryDoctor = VeterinaryDoctor::where('user_id', $user->id)
-            ->with(['ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image'])
-            ->first();
-
-        if (!$veterinaryDoctor) {
-            return response()->json(['message' => 'No veterinary profile found.'], 404);
-        }
-
-        $veterinaryDoctor->average_rating = $veterinaryDoctor->averageRating();
-
-        return response()->json(['veterinary_doctor' => $veterinaryDoctor], 200);
-    }
 
     public function verify($id)
     {

@@ -12,17 +12,30 @@ class PetOwnerController extends Controller
     //
     public function choosePetOwnerRole(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        DB::beginTransaction();
         // check if already a pet owner
-        if (Pet_Owner::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'You already registered as a Pet Owner.'], 400);
+        if ($user->activeRole && $user->activeRole->name === 'pet_owner') {
+            return response()->json(['message' => 'You already have a pet owner role.'], 400);
         }
 
-        DB::beginTransaction();
+        if ($user->activeRole->name !== 'pet_owner' && $user->hasRole('pet_owner')) {
+            $activeRole = Role::where('name', 'pet_owner')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to pet owner.'], 200);
+        }
+
+
         try {
             // create profile
             $petOwner = Pet_Owner::create([

@@ -39,13 +39,15 @@ class FarmController extends Controller
             'description'    => 'nullable|string|max:255',
         ]);
 
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $isLivestockFarmer = livestock_farmer::where('user_id', $user->id)->exists();
-        if (!$isLivestockFarmer) {
+        $isVeterinary = $user->activeRole && $user->activeRole->name === 'veterinary_doctor';
+        $isLivestockFarmer = $user->activeRole && $user->activeRole->name === 'livestock_farmer';
+
+        if (!($isLivestockFarmer || $isVeterinary)) {
             return response()->json(['message' => 'You cannot create a farm'], 403);
         }
 
@@ -105,7 +107,7 @@ class FarmController extends Controller
             'description'    => 'sometimes|string|max:255',
         ]);
 
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -165,7 +167,7 @@ class FarmController extends Controller
 
         $farms = Cache::remember("user_farms_{$user->id}", now()->addMinutes(10), function () use ($user) {
             return Farm::where('user_id', $user->id)
-                ->with('user', 'user.activeRole', 'user.profile')
+                ->with('user', 'user.profile')
                 ->orderBy('created_at', 'asc')->paginate(10);
         });
 
@@ -180,7 +182,7 @@ class FarmController extends Controller
         }
 
         $farm = Cache::remember("farm_{$id}", now()->addMinutes(10), function () use ($id) {
-            return Farm::with(['user', 'user.activeRole', 'user.profile'])->find($id);
+            return Farm::with(['user', 'user.profile'])->find($id);
         });
 
 
@@ -198,7 +200,7 @@ class FarmController extends Controller
     public function deleteFarm($id)
     {
         try {
-            $user = auth()->user();
+            $user = auth('user')->user();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
@@ -208,7 +210,7 @@ class FarmController extends Controller
                 return response()->json(['message' => 'Farm not found.'], 404);
             }
 
-            if ($farm->user_id != $user->id) {
+            if ((int) $farm->user_id !== (int) $user->id) {
                 return response()->json(['message' => 'You are not authorized to delete this farm.'], 403);
             }
 

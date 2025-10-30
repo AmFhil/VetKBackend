@@ -22,6 +22,24 @@ class VeterinaryParaprofessionalController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        DB::beginTransaction();
+        // check if user already has paraprofessional role and change to vetrinary paraprofessional
+        if ($user->activeRole && $user->activeRole->name === 'veterinary_paraprofessional') {
+            return response()->json(['message' => 'You already have a veterinary paraprofessional profile.'], 400);
+        }
+
+        if ($user->activeRole->name !== 'veterinary_paraprofessional' && $user->hasRole('veterinary_paraprofessional')) {
+            $activeRole = $user->roles()->where('name', 'veterinary_paraprofessional')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to veterinary paraprofessional.'], 200);
+        }
+
         // validate request
         $validated = $request->validate([
             'name_of_institution' => 'required|string|max:255',
@@ -35,7 +53,7 @@ class VeterinaryParaprofessionalController extends Controller
             'latitude' => 'required|numeric',
         ]);
 
-        DB::beginTransaction();
+
         try {
             // create veterinary paraprofessional
             $veterinaryParaprofessional = VeterinaryParaprofessional::create([

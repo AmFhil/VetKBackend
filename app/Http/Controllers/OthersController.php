@@ -17,8 +17,20 @@ class OthersController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if (Others::where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'You already registered as Other role.'], 400);
+        if ($user->activeRole && $user->activeRole->name === 'others') {
+            return response()->json(['message' => 'You already have a others role.'], 400);
+        }
+
+        if ($user->activeRole->name !== 'others' && $user->hasRole('others')) {
+            $activeRole = Role::where('name', 'others')->first();
+            if (!$activeRole) {
+                return response()->json(['message' => 'Role not found.'], 404);
+            }
+            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+            $user->update([
+                'active_role_id' => $activeRole->id
+            ]);
+            return response()->json(['message' => 'Your active role has been changed to others.'], 200);
         }
 
         DB::beginTransaction();
