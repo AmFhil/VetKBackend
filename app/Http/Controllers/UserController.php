@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateProfileRequest;
+use App\Models\livestock_farmer;
+use App\Models\Others;
+use App\Models\Pet_Owner;
 use App\Models\Profiles;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserActivity;
 use App\Models\UserNotification;
+use App\Models\Vendor;
 use App\Models\VeterinaryClinic;
 use App\Models\VeterinaryDoctor;
 use App\Models\VeterinaryParaprofessional;
+use App\Services\UpdateProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -236,7 +242,7 @@ class UserController extends Controller
     }
 
     //update profile
-    public function updateProfile(Request $request)
+    public function updateProfiles(Request $request)
     {
         $user = auth()->user();
         if (!$user) {
@@ -381,6 +387,10 @@ class UserController extends Controller
                 'vet' => 'veterinary_doctor',
                 'vet_clinic' => 'veterinary_clinic',
                 'vet_paraprofessional' => 'veterinary_paraprofessional',
+                'vendor' => 'vendor',
+                'pet' => 'pet_owner',
+                'farmer' => 'livestock_farmer',
+                'others' => 'others'
             ];
 
             if (isset($roleNameMap[$status])) {
@@ -409,9 +419,6 @@ class UserController extends Controller
                     }
 
                     $vet->fill($roleData);
-                    $user->update([
-                        'active_role_id' => $vet->id,
-                    ]);
                     $vet->save();
                     $user->logActivity(
                         action: 'create_veterinary_doctor',
@@ -433,9 +440,6 @@ class UserController extends Controller
                     }
 
                     $clinic->fill($roleData);
-                    $user->update([
-                        'active_role_id' => $clinic->id,
-                    ]);
                     $clinic->save();
                     $user->logActivity(
                         action: 'create_veterinary_clinic',
@@ -457,9 +461,6 @@ class UserController extends Controller
                     }
 
                     $para->fill($roleData);
-                    $user->update([
-                        'active_role_id' => $para->id,
-                    ]);
                     $para->save();
                     $user->logActivity(
                         action: 'create_veterinary_paraprofessional',
@@ -467,6 +468,58 @@ class UserController extends Controller
                         detail: "User {$user->first_name} {$user->last_name} created a veterinary paraprofessional profile",
                         meta: ['veterinary_paraprofessional_id' => $para->id]
                     );
+                    break;
+                case 'vendor':
+                    $ven = Vendor::firstOrNew(['user_id' => $user->id]);
+                    if (!$ven->exists) {
+                        $ven->role = 'vendor';
+                        $ven->save();
+                        $user->logActivity(
+                            'create_vendor',
+                            'Created Vendor Profile',
+                            "User {$user->first_name} {$user->last_name} created a vendor profile",
+                            ['vendor_id' => $ven->id]
+                        );
+                    }
+                    break;
+                case 'pet':
+                    $pet = Pet_Owner::firstOrNew(['user_id' => $user->id]);
+                    if (!$pet->exists) {
+                        $pet->role = 'pet_owner';
+                        $pet->save();
+                        $user->logActivity(
+                            'create_pet_owner',
+                            'Created Pet Owner Profile',
+                            "User {$user->first_name} {$user->last_name} created a pet owner profile",
+                            ['pet_owner_id' => $pet->id]
+                        );
+                    }
+                    break;
+                case 'farmer':
+                    $farmer = livestock_farmer::firstOrNew(['user_id' => $user->id]);
+                    if (!$farmer->exists) {
+                        $farmer->role = 'livestock_farmer';
+                        $farmer->save();
+                        $user->logActivity(
+                            'create_livestock_farmer',
+                            'Created Livestock Farmer Profile',
+                            "User {$user->first_name} {$user->last_name} created a livestock farmer profile",
+                            ['livestock_farmer_id' => $farmer->id]
+                        );
+                    }
+                    break;
+                case 'others':
+                    $others = Others::firstOrNew(['user_id' => $user->id]);
+                    if (!$others->exists) {
+                        $others->role = 'others';
+                        $others->save();
+                        $user->logActivity(
+                            'create_others',
+                            'Created Others Profile',
+                            "User {$user->first_name} {$user->last_name} created an others profile",
+                            ['others_id' => $others->id]
+                        );
+                    }
                     break;
             }
         }
@@ -477,6 +530,18 @@ class UserController extends Controller
 
 
         return response()->json(['message' => 'Profile updated successfully'], 200);
+    }
+
+    public function updateProfile(UpdateProfileRequest $request)
+    {
+        $user = auth('user')->user(); // Auth check is in FormRequest
+
+        try {
+            app(UpdateProfileService::class)->execute($user, $request->validated());
+            return response()->json(['message' => 'Profile updated successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Update failed: ' . $e->getMessage()], 500);
+        }
     }
 
     public function secureEndpoint($email): JsonResponse

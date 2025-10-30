@@ -21,7 +21,7 @@ trait HasUserEvents
             'meta'   => $meta,
         ]);
 
-        broadcast(new UserActivityEvent($activity))->toOthers();
+        broadcast(new UserActivityEvent($activity));
 
         return $activity;
     }
@@ -38,7 +38,7 @@ trait HasUserEvents
             'meta'    => $meta,
         ]);
 
-        broadcast(new UserNotificationEvent($notification))->toOthers();
+        broadcast(new UserNotificationEvent($notification));
 
         return $notification;
     }
