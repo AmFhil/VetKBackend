@@ -11,8 +11,15 @@ class DiseasePredictorController extends Controller
     //
     public function diseasePredictor(Request $request)
     {
+        $request->validate([
+            'livestock_category' => 'required|string',
+            'symptom' => 'required|array|min:1',
+            'symptom.*' => 'string',
+            'image' => 'nullable|image|max:2048' // max 2MB
+        ]);
+
         $category = strtolower(trim($request->livestock_category));
-        $symptoms = array_map('strtolower', $request->symptom ?? []);
+        $symptoms = array_map('strtolower', $request->symptom);
         Log::info('Disease prediction requested', [
             'category' => $category,
             'symptoms' => $symptoms
