@@ -237,6 +237,11 @@ class ForumChatController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        // check if forum is approved
+        if ($forum->status === 'published') {
+            return response()->json(['message' => 'Cannot edit an approved forum'], 401);
+        }
+
         // Determine user active role
         $roleName = $user instanceof \App\Models\Admin
             ? 'admin'
@@ -486,6 +491,32 @@ class ForumChatController extends Controller
             $forums = $query->latest()->paginate(10);
 
             return $forums->through(function ($chat) use ($user) {
+                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                });
+                return $chat;
+            });
+        });
+
+        return response()->json($forums, 200);
+    }
+
+    // get all users post
+    public function getUserPosts()
+    {
+        $user = auth('user')->user() ?: auth('admin')->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $cacheKey = "user_forum_posts_" . class_basename(get_class($user)) . "_{$user->id}";
+
+        $forums = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user) {
+            $query = ForumChat::where('user_id', $user->id)
+                ->where('user_type', get_class($user))
+                ->with(['likers'])
+                ->latest()
+                ->paginate(10);
+
+            return $query->through(function ($chat) use ($user) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
                     return $like->user_id === $user->id && $like->user_type === get_class($user);
                 });

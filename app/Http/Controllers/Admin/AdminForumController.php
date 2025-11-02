@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
 use App\Models\ForumChat;
+use App\Models\User;
+use App\Notifications\AdminActionNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
 class AdminForumController extends Controller
@@ -120,6 +124,59 @@ class AdminForumController extends Controller
         } catch (\Throwable $th) {
             return response()->json(['code' => 400, 'detail' => $th->getMessage()]);
         }
+    }
+
+    /**
+     * Delete a forum post.
+     */
+    public function destroy($id)
+    {
+        $user = auth('admin')->user();
+        $forum = ForumChat::findOrFail($id);
+
+        $forum->delete();
+
+        $userPost =  $forum->user;
+
+        //    notify user if the forum post was deleted
+        if ($userPost instanceof Admin) {
+            $this->createAdminNotification(
+                $userPost->id,
+                'forum_deleted',
+                "Your forum {$forum->title} was deleted by an admin.",
+                null,
+                ['forum_id' => $id]
+            );
+        } else if ($userPost instanceof User) {
+            $userPost->notify(new AdminActionNotification(
+                'forum_deleted',
+                "Your Forum {$forum->title} has been found to violate our community guidelines and has been deleted by our admin team."
+            ));
+            $userPost->sendNotification(
+                'forum_deleted',
+                'Forum Deleted',
+                "Your forum {$forum->title} was deleted by an admin.",
+                ['forum_id' => $id]
+            );
+        }
+
+        $this->createAdminActivity(
+            $user->id,
+            'forum_deleted',
+            "Deleted forum '{$forum->title}'",
+            null,
+            ['forum_id' => $id]
+        );
+
+        $this->createAdminNotification(
+            $user->id,
+            'forum',
+            "Your forum '{$forum->title}' was deleted.",
+            null,
+            ['forum_id' => $id]
+        );
+
+        return response()->json(['message' => 'Forum chat deleted successfully']);
     }
 
     public function getForumApprovals()

@@ -236,6 +236,7 @@ Route::prefix('v3')->group(function () {
                 Route::put('/{id}/flag', [ForumChatCommentController::class, 'flag']);   // User flag
             });
             Route::post('/{id}/like', [ForumChatLikeController::class, 'toggleLike']);   // Like/Unlike
+            Route::get('/get-user-forum', [ForumChatController::class, 'getUserPosts']);
         });
 
         Route::prefix('appointment')->group(function () {
@@ -348,6 +349,7 @@ Route::prefix('v3')->group(function () {
             Route::post('/reject', [AdminForumController::class, 'rejectForumChat']); // Reject forum
             Route::get('/search', [ForumChatController::class, 'searchForumChats']); // Search forums
             Route::get('/forum-approvals', [AdminForumController::class, 'getForumApprovals']); // pending forums
+            Route::delete('/{id}/delete', [AdminForumController::class, 'destroy']);
         });
 
         Route::patch('/disable/{id}/store', [StoreController::class, 'disableStore']);
