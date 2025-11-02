@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use App\Traits\HasAuthorAttribute;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Log;
 
 class ForumChatComment extends Model
 {
@@ -73,6 +74,8 @@ class ForumChatComment extends Model
         }
 
         Cache::forget('admin_forums');
+        Cache::forget("forum_chat_comment_{$comment->forum->id}");
+        Log::info("cleared cache comment for forum id:{$comment->forum->id}");
 
         if ($comment->forum->user_id && $comment->forum->user_type) {
             $classBase = class_basename($comment->forum->user_type);
