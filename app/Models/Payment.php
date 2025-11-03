@@ -13,14 +13,17 @@ class Payment extends Model
         'order_id',
         'method',
         'transaction_id',
+        'reference_number',
         'amount',
         'currency',
         'status',
-        'meta',            
+        'meta',
+        'gateway_response'            
     ];
 
     protected $casts = [
         'meta' => 'array',
+        'gateway_response' =
     ];
 
     public function order()
