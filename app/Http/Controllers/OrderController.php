@@ -13,6 +13,8 @@ use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -239,33 +241,103 @@ class OrderController extends Controller
     public function cancelOrder($orderId)
     {
         $user = auth('user')->user();
-        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
-        $order = Order::where('id', $orderId)
+        $order = Order::with('payment', 'merchant')
+            ->where('id', $orderId)
             ->where('buyer_user_id', $user->id)
             ->where('status', 'active')
             ->first();
 
-        if (!$order) return response()->json(['message' => 'Order not found or cannot be cancelled.'], 404);
-
-        $hoursPassed = $order->created_at->diffInHours(now());
-
-        if ($hoursPassed >= 24) {
-            return response()->json(
-                ['message' => 'The 24-hour cancellation window has expired for this order.'],
-                401
-            );
+        if (!$order) {
+            return response()->json(['message' => 'Order not found or cannot be cancelled.'], 404);
         }
 
-        $order->update(['status' => 'cancelled']);
+        // Check time limit (24 hours)
+        $hoursPassed = $order->created_at->diffInHours(now());
+        if ($hoursPassed >= 24) {
+            return response()->json([
+                'message' => 'The 24-hour cancellation window has expired for this order.'
+            ], 401);
+        }
 
+        // If paid via Paystack, refund before cancel
+        if ($order->payment_status === 'paid' && $order->payment_method === 'paystack') {
+            try {
+                $refundResponse = Http::withToken(config('services.paystack.secret_key'))
+                    ->post('https://api.paystack.co/refund', [
+                        'transaction' => $order->payment->reference_number, // from payment record
+                        'amount' => intval($order->total_amount * 100), // in kobo
+                        'currency' => 'USD',
+                        'customer_note' => "Refund for cancelled order #{$order->tracking_number}"
+                    ]);
+
+                $refundData = $refundResponse->json();
+
+                if (!$refundResponse->successful() || !($refundData['status'] ?? false)) {
+                    return response()->json([
+                        'message' => 'Order cancellation failed. Refund could not be processed.',
+                        'error' => $refundData['message'] 
+                    ], 400);
+                    Log::info([
+                        'message' => 'Order cancellation failed. Refund could not be processed.',
+                        'paystack_response' => $refundData
+                    ]);
+                }
+
+                // Update payment record
+                $order->payment->update([
+                    'status' => 'refunded',
+                    'refund_reference' => $refundData['data']['reference'] ?? null,
+                    'refund_details' => $refundData['data'] ?? [],
+                ]);
+
+                // Update order status
+                $order->update(['status' => 'cancelled', 'payment_status' => 'refunded']);
+
+                // Log & notify
+                $user->logActivity(
+                    'order_refunded',
+                    'Order Cancelled & Refunded',
+                    "You cancelled and received a refund for order #{$order->tracking_number}"
+                );
+
+                $order->merchant->sendNotification(
+                    'order_cancelled',
+                    'Order Cancelled & Refunded',
+                    "Buyer cancelled and was refunded for order #{$order->tracking_number}.",
+                    ['order_id' => $order->id]
+                );
+
+                return response()->json([
+                    'message' => 'Order cancelled and refunded successfully.',
+                    'refund_details' => $refundData['data'] ?? null,
+                ], 200);
+            } catch (\Throwable $e) {
+                Log::error('Paystack refund failed', ['error' => $e->getMessage()]);
+                return response()->json([
+                    'message' => 'Refund failed, please contact support.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        // If not paid through Paystack, just cancel
+        $order->update(['status' => 'cancelled']);
         $user->logActivity('order_cancelled', 'Order Cancelled', "You cancelled order #{$order->tracking_number}");
-        $order->merchant->sendNotification('order_cancelled', 'Order Cancelled', "Buyer has cancelled order #{$order->tracking_number}.", [
-            'order_id' => $order->id,
-        ]);
+
+        $order->merchant->sendNotification(
+            'order_cancelled',
+            'Order Cancelled',
+            "Buyer cancelled order #{$order->tracking_number}.",
+            ['order_id' => $order->id]
+        );
 
         return response()->json(['message' => 'Order cancelled successfully.'], 200);
     }
+
 
     public function getOrderDetails($orderId)
     {

@@ -23,7 +23,7 @@ class Payment extends Model
 
     protected $casts = [
         'meta' => 'array',
-        'gateway_response' =
+        'gateway_response' => 'array'
     ];
 
     public function order()
