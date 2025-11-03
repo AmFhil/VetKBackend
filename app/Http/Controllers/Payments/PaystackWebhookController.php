@@ -60,6 +60,8 @@ class PaystackWebhookController extends Controller
                         $this->handleSubscriptionPayment($data);
                     } elseif (($metadata['type'] ?? null) === 'ads_promotion') {
                         $this->handleAdsPromotionPayment($data);
+                    } elseif (($data['metadata']['type'] ?? null) === 'order') {
+                        app('App\Services\OrderService')->createOrderFromPayment($data);
                     } else {
                         Log::info('Paystack charge.success ignored — no recognized type', ['metadata' => $metadata]);
                     }

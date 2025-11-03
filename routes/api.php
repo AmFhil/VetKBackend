@@ -32,6 +32,7 @@ use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\Payments\PaystackAdsPromotionController;
+use App\Http\Controllers\Payments\PaystackOrderController;
 use App\Http\Controllers\Payments\PaystackSubscriptionController;
 use App\Http\Controllers\PetController;
 use App\Http\Controllers\PetOwnerController;
@@ -246,13 +247,14 @@ Route::prefix('v3')->group(function () {
             Route::get('/{id}/complete', [AppointmentController::class, 'completeAppointment']);
         });
 
-        Route::post('/orders', [OrderController::class, 'createOrder']);
+        // Route::post('/orders', [OrderController::class, 'createOrder']);
         Route::get('/orders/buyer', [OrderController::class, 'getBuyerOrders']);
         Route::get('/orders/merchant', [OrderController::class, 'getMerchantOrders']);
         Route::get('/orders/{id}', [OrderController::class, 'getOrderDetails'])->name('order.show');
         Route::post('/orders/{id}/confirm', [OrderController::class, 'confirmOrder']);
         Route::post('/orders/{id}/complaint', [OrderController::class, 'fileComplaint']);
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('order.cancel');
+        Route::post('/order/initialize', [PaystackOrderController::class, 'initialize']);
 
         Route::get('/get-categories', [CategoryController::class, 'index']);
 
@@ -414,6 +416,7 @@ Route::prefix('v3')->group(function () {
     Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])->name('webhook.paystack');
     Route::get('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
     Route::get('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
+    Route::get('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
 });
 
 
