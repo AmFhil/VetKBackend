@@ -377,7 +377,7 @@ class BlogChatController extends Controller
 
             return $blogChat->map(function ($blog) use ($user) {
                 $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
-                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
 
                 return $blog;
@@ -408,7 +408,7 @@ class BlogChatController extends Controller
 
             return $blogChat->through(function ($blog) use ($user) {
                 $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
-                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
 
                 return $blog;
@@ -451,7 +451,7 @@ class BlogChatController extends Controller
         });
 
         $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
-            return $like->user_id === $user->id && $like->user_type === get_class($user);
+            return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
         });
 
         // Don't increment if viewer is admin or the creator

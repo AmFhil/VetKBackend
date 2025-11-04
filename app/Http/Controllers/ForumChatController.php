@@ -150,7 +150,7 @@ class ForumChatController extends Controller
 
             return $chats->through(function ($chat) use ($user) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
                 return $chat;
             });
@@ -204,7 +204,7 @@ class ForumChatController extends Controller
 
         // Use eager-loaded likers to avoid extra query
         $forum->has_liked = $forum->likers->contains(function ($like) use ($user) {
-            return $like->user_id === $user->id && $like->user_type === get_class($user);
+           return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
         });
 
         // Don't increment if viewer is admin or the creator
@@ -401,7 +401,7 @@ class ForumChatController extends Controller
 
             return $forums->map(function ($chat) use ($user) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
                 return $chat;
             });
@@ -427,7 +427,7 @@ class ForumChatController extends Controller
 
             return $forumChat->through(function ($chat) use ($admin) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($admin) {
-                    return $like->user_id === $admin->id && $like->user_type === get_class($admin);
+                    return ((int) $like->user_id === (int) $admin->id) && ($like->user_type === get_class($admin));
                 });
 
                 return $chat;
@@ -492,7 +492,7 @@ class ForumChatController extends Controller
 
             return $forums->through(function ($chat) use ($user) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
                 return $chat;
             });
@@ -518,7 +518,7 @@ class ForumChatController extends Controller
 
             return $query->through(function ($chat) use ($user) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return $like->user_id === $user->id && $like->user_type === get_class($user);
+                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
                 return $chat;
             });

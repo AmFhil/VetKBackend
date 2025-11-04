@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-
+use App\Models\Admin;
 use App\Models\UserSubscriptions;
+use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class UserSubscriptionsController extends Controller
 {
+    use BroadcastsAdminEvents;
     /**
      *Get current user’s active subscription
      */
@@ -42,28 +44,45 @@ class UserSubscriptionsController extends Controller
 
         // 🔹 use helpers
         $user->logActivity(
-                action: 'subscription cancelled',
-                title: 'Cancelled Subscription',
-                detail: "User cancelled subscription {$subscription->subscription->subscription_title}",
-                meta: [
-                    'subscription_id' => $subscription->id,
-                    'plan_id' => $subscription->subscription_id,
-                    'plan_title' => $subscription->subscription->subscription_title,
-                    'cancelled_at' => now()->toDateTimeString(),
-                ]
-            );
+            action: 'subscription cancelled',
+            title: 'Cancelled Subscription',
+            detail: "User cancelled subscription {$subscription->subscription->subscription_title}",
+            meta: [
+                'subscription_id' => $subscription->id,
+                'plan_id' => $subscription->subscription_id,
+                'plan_title' => $subscription->subscription->subscription_title,
+                'cancelled_at' => now()->toDateTimeString(),
+            ]
+        );
 
-            // Send notification
-            $user->sendNotification(
+        // Send notification
+        $user->sendNotification(
+            type: 'subscription cancelled',
+            title: 'Subscription Cancelled',
+            content: "Your subscription to {$subscription->subscription->subscription_title} has been cancelled.",
+            meta: [
+                'subscription_id' => $subscription->id,
+                'plan_id' => $subscription->subscription_id,
+                'plan_title' => $subscription->subscription->subscription_title,
+            ]
+        );
+
+        // send notification to all admin
+        $admin = Admin::all();
+        foreach ($admin as $adminUser) {
+            $this->createAdminNotification(
+                adminId: $adminUser->id,
+                title: 'User Subscription Cancelled',
                 type: 'subscription cancelled',
-                title: 'Subscription Cancelled',
-                content: "Your subscription to {$subscription->subscription->subscription_title} has been cancelled.",
+                content: "User {$user->name} cancelled their subscription to {$subscription->subscription->subscription_title}.",
                 meta: [
+                    'user_id' => $user->id,
                     'subscription_id' => $subscription->id,
                     'plan_id' => $subscription->subscription_id,
                     'plan_title' => $subscription->subscription->subscription_title,
                 ]
             );
+        }
 
         return response()->json([
             'success' => true,
