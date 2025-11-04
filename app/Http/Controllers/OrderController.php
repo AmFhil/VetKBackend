@@ -163,7 +163,7 @@ class OrderController extends Controller
         $isMerchant = $user->id === $order->merchant_user_id;
         $isBuyer = $user->id === $order->buyer_user_id;
 
-        if (!$isMerchant && !$isBuyer) {
+        if (!$isMerchant || !$isBuyer) {
             return response()->json(['message' => 'You are not authorized for this order.'], 403);
         }
 
@@ -248,7 +248,7 @@ class OrderController extends Controller
         $order = Order::with('payment', 'merchant')
             ->where('id', $orderId)
             ->where('buyer_user_id', $user->id)
-            ->where('status', 'active')
+            ->where('status', 'completed')
             ->first();
 
         if (!$order) {
@@ -279,7 +279,7 @@ class OrderController extends Controller
                 if (!$refundResponse->successful() || !($refundData['status'] ?? false)) {
                     return response()->json([
                         'message' => 'Order cancellation failed. Refund could not be processed.',
-                        'error' => $refundData['message'] 
+                        'error' => $refundData['message']
                     ], 400);
                     Log::info([
                         'message' => 'Order cancellation failed. Refund could not be processed.',

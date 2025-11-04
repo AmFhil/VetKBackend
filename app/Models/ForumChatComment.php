@@ -35,11 +35,30 @@ class ForumChatComment extends Model
             }
         });
 
+        // After delete (soft or force) adjust counts carefully
         static::deleted(function ($comment) {
-            $comment->forum->decrement('comments_count');
+            $forum = $comment->forum;
+            if (!$forum) {
+                return;
+            }
+
+            // If it was a soft delete, simply decrement by 1
+            if ($comment->trashed()) {
+                $forum->decrement('comments_count');
+            } else {
+                // For force delete recompute comments_count from DB to avoid double-decrements
+                if (method_exists($forum, 'comments')) {
+                    $forum->comments_count = $forum->comments()->count();
+                    $forum->save();
+                } else {
+                    // fallback: decrement once if comments relation not available
+                    $forum->decrement('comments_count');
+                }
+            }
+
             self::clearCaches($comment);
-            if ($comment->forum) {
-                ForumChat::clearCaches($comment->forum);
+            if ($forum) {
+                ForumChat::clearCaches($forum);
             }
         });
 
@@ -50,10 +69,26 @@ class ForumChatComment extends Model
             }
         });
 
+        // handle related cleanup on deleting
         static::deleting(function ($comment) {
+            // if force-deleting, remove related resources permanently
             if ($comment->isForceDeleting()) {
-                $comment->forum->members()->delete();
-                $comment->replies()->delete();
+                if ($comment->forum && method_exists($comment->forum, 'members')) {
+                    $comment->forum->members()->delete();
+                }
+                // force delete replies
+                if ($comment->replies()->exists()) {
+                    $comment->replies()->forceDelete();
+                }
+            }
+        });
+
+        // when restoring a soft-deleted comment increment forum counter
+        static::restored(function ($comment) {
+            if ($comment->forum) {
+                $comment->forum->increment('comments_count');
+                self::clearCaches($comment);
+                ForumChat::clearCaches($comment->forum);
             }
         });
     }
