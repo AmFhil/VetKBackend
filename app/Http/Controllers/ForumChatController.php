@@ -204,7 +204,7 @@ class ForumChatController extends Controller
 
         // Use eager-loaded likers to avoid extra query
         $forum->has_liked = $forum->likers->contains(function ($like) use ($user) {
-           return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
+            return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
         });
 
         // Don't increment if viewer is admin or the creator
@@ -233,7 +233,7 @@ class ForumChatController extends Controller
         $user = Auth::user();
         $forum = ForumChat::findOrFail($id);
 
-        if ($forum->user_id !== $user->id || get_class($user) !== $forum->user_type) {
+        if (((int) $forum->user_id !== (int) $user->id) || (get_class($user) !== $forum->user_type)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -323,7 +323,7 @@ class ForumChatController extends Controller
         $user = Auth::user();
         $forum = ForumChat::findOrFail($id);
 
-        if ($forum->user_id !== $user->id || get_class($user) !== $forum->user_type) {
+        if (((int) $forum->user_id !== (int) $user->id) || (get_class($user) !== $forum->user_type)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

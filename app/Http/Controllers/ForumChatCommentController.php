@@ -209,7 +209,7 @@ class ForumChatCommentController extends Controller
         //     "info" => "delete"
         // ]);
 
-        if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
+        if (((int)$comment->user_id !== (int)$user->id) || ($comment->user_type !== get_class($user))) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -268,7 +268,7 @@ class ForumChatCommentController extends Controller
             'comment' => 'required|string|max:500',
         ]);
 
-        if ((int)$comment->user_id !== (int)$user->id || $comment->user_type !== get_class($user)) {
+        if (((int)$comment->user_id !== (int)$user->id) || ($comment->user_type !== get_class($user))) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
