@@ -101,7 +101,7 @@ class StoreController extends Controller
         if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
 
         $store = Store::findOrFail($id);
-        if ($store->user_id !== $user->id) {
+        if ((int) $store->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden: not your store.'], 403);
         }
 
@@ -308,7 +308,7 @@ class StoreController extends Controller
         if (!$user) return response()->json(['message' => 'Unauthorized.'], 403);
 
         $store = Store::findOrFail($id);
-        if ($store->user_id !== $user->id) {
+        if ((int) $store->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden: not your store.'], 403);
         }
 

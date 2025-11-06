@@ -175,7 +175,7 @@ class ProductsController extends Controller
                 return response()->json(['message' => 'Product not found.'], 404);
             }
 
-            if ($product->user_id !== $user->id) {
+            if ((int) $product->user_id !== (int) $user->id) {
                 return response()->json(['message' => 'You are not authorized to update this product.'], 403);
             }
 
@@ -248,7 +248,7 @@ class ProductsController extends Controller
                 return response()->json(['message' => 'Product not found.'], 404);
             }
 
-            if ($product->user_id !== $user->id) {
+            if ((int) $product->user_id !== (int) $user->id) {
                 return response()->json(['message' => 'You are not authorized to delete this product.'], 403);
             }
 
