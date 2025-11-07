@@ -37,20 +37,26 @@ class PaystackAdsPromotionController extends Controller
         $plan = PromotionPlan::active()->findOrFail($request->promotion_plan_id);
 
         $amountUSD = $plan->price;
-        $amountCents = intval($amountUSD * 100);
+
+        // add vat
+        $vat = ($plan->vat / 100) * $amountUSD;
+        $totalAmount = $amountUSD + $vat;
+        $amountCents = intval($totalAmount * 100);
 
         $response = Http::withToken(config('services.paystack.secret_key'))
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $user->email,
                 'amount' => $amountCents,
                 'currency' => 'USD',
-                'callback_url' => route('ads.promotion.verify'),
+                'callback_url' => config('services.paystack.callback_ads_promotion_url'),
                 'metadata' => [
                     'type' => 'ads_promotion',
                     'user_id' => $user->id,
                     'promotion_plan_id' => $plan->id,
                     'promotion_title' => $plan->title,
                     'product_id' => $request->product_id,
+                    'price' => $plan->price,
+                    'vat' => $plan->vat
                 ],
             ]);
 

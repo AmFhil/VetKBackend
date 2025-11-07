@@ -24,20 +24,26 @@ class PaystackSubscriptionController extends Controller
         $plan = Subscription::findOrFail($request->subscription_id);
 
 
-        // For USD, use amount * 100 (just like for NGN).
-        $amount = $plan->price * 100;
+        // For USD, use amount * 100.
+        $planAmount = $plan->price * 100;
+
+        // add vat
+        $vat = ($plan->vat / 100) * $planAmount;
+        $amount = intval($planAmount + $vat);
 
         $response = Http::withToken(config('services.paystack.secret_key'))
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $user->email,
                 'amount' => $amount,
                 'currency' => config('services.paystack.currency', 'USD'),
-                'callback_url' => route('subscription.verify'),
+                'callback_url' => config('services.paystack.callback_subscription_url'),
                 'metadata' => [
                     'type' => 'subscription',
                     'user_id' => $user->id,
                     'subscription_id' => $plan->id,
                     'plan_title' => $plan->subscription_title,
+                    'price' => $plan->price,
+                    'vat' => $plan->vat
                 ],
             ]);
 

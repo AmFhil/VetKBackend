@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\AdminNotification;
 use App\Http\Controllers\Admin\AdminPromotionController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\AdsPromotionController;
+use App\Http\Controllers\AdsPromotionReceiptController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogChatCommentController;
@@ -195,9 +196,11 @@ Route::prefix('v3')->group(function () {
         Route::delete('/delete-comment/{id}/case', [CaseCommentController::class, 'deleteComment']);
         Route::put('/edit-comment/{id}/case', [CaseCommentController::class, 'updateComment']);
 
-        Route::post('/promote-ad', [AdsPromotionController::class, 'promoteAd']);
+        // Route::post('/promote-ad', [AdsPromotionController::class, 'promoteAd']);
         Route::get('/cancel-promotion/{id}/ad', [AdsPromotionController::class, 'cancelPromotion']);
         Route::get('/get-my-promotions', [AdsPromotionController::class, 'myPromotions']);
+        Route::post('/ads-promotion/initialize', [PaystackAdsPromotionController::class, 'initialize']);
+        Route::get('/ads-promotion/receipts', [AdsPromotionReceiptController::class, 'index']);
 
 
         Route::get('/get-profile', [ProfileController::class, 'getMyProfile']);
@@ -261,17 +264,9 @@ Route::prefix('v3')->group(function () {
         Route::get('/subscriptions/current', [UserSubscriptionsController::class, 'current']);
         Route::post('/subscriptions/cancel', [UserSubscriptionsController::class, 'cancel']);
         Route::get('/subscriptions/history', [UserSubscriptionsController::class, 'history']);
-
         Route::get('/subscription-receipts', [SubscriptionReceiptController::class, 'index']);
-
         Route::post('/subscriptions/initialize', [PaystackSubscriptionController::class, 'initialize']);
 
-        Route::post('/ads-promotion/initialize', [PaystackAdsPromotionController::class, 'initialize']);
-
-        Route::get('/ads-promotion/receipts', [AdsPromotionController::class, 'index']);
-
-        Route::get('/cancel-ads-promotion/{id}/ad', [AdsPromotionController::class, 'cancelPromotion']);
-        Route::get('/get-my-ads-promotions', [AdsPromotionController::class, 'myPromotions']);
     });
 
     // User must have an active subscription
@@ -414,9 +409,9 @@ Route::prefix('v3')->group(function () {
     });
 
     Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])->name('webhook.paystack');
-    Route::get('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
-    Route::get('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
-    Route::get('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
+    Route::any('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
+    Route::any('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
+    Route::any('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
 });
 
 

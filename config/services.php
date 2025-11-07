@@ -51,8 +51,9 @@ return [
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
         'currency' => env('PAYSTACK_CURRENCY', 'USD'),
+        'callback_ads_promotion_url' => env('PAYSTACK_CALLBACK_ADS_PROMOTION_URL'),
+        'callback_subscription_url' => env('PAYSTACK_CALLBACK_SUBSCRIPTION_URL'),
+        'callback_order_url' => env('PAYSTACK_CALLBACK_ORDER_URL'),
+        'paystack_webhook_url' => env('PAYSTACK_WEBHOOK_URL')
     ],
-
-
-
 ];

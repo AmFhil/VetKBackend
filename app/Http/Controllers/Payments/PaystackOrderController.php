@@ -34,7 +34,7 @@ class PaystackOrderController extends Controller
                 'email' => $user->email,
                 'amount' => $amountKobo,
                 'currency' => 'USD',
-                'callback_url' => route('order.verify'),
+                'callback_url' => config('services.paystack.callback_order_url'),
                 'metadata' => [
                     'type' => 'order',
                     'buyer_user_id' => $user->id,
@@ -86,7 +86,7 @@ class PaystackOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Payment not successful'], 400);
         }
 
-        // ✅ Delegate order creation
+        // Delegate order creation
         $order = $orderServices->createOrderFromPayment($payment);
 
         return response()->json([
