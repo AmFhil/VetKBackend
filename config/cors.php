@@ -17,10 +17,6 @@ return [
 
     'paths' => ['api/*', 'broadcasting/*', 'sanctum/*'],
 
-    'allowed_methods' => ['*'],
-
-    'allowed_origins' => ['*'],
-
     'allowed_origins' => ['*'],
     // 'allowed_origins' => [
     //     'https://nextjs-frontend-beta-drab.vercel.app',

@@ -5,11 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redirect;
 use Laravel\Socialite\Facades\Socialite;
 
 class SocialLogin extends AuthController
 {
     //
+    private function issueToken(User $user)
+    {
+        $expiration = Carbon::now()->addMinutes(15);
+        return $user->createToken('auth_token', ['*'], $expiration)->plainTextToken;
+    }
+
+    // verification of email
+    private function emailVerified(User $user)
+    {
+        $user->email_verified_at = now();
+        $user->save();
+    }
+
     public function redirectToGoogle()
     {
         // logic to redirect to google for authentication
@@ -36,22 +50,29 @@ class SocialLogin extends AuthController
                 }
 
                 // social user exists, login
-                $token = $exitingUser->createToken('auth_token')->plainTextToken;
-                return response()->json(['token' => $token, 'user' => $exitingUser], 200);
+                $token = $this->issueToken($exitingUser);
+
+                $token = $this->issueToken($exitingUser);
+                $url = env('FRONTEND_URL');
+
+                return Redirect::to($url . "/success?form=Login&token={$token}");
+                // return response()->json(['token' => $token, 'user' => $exitingUser], 200);
             }
 
             // if user does not exit -> create with social data
             $newUser = User::create([
                 'email' => $googleUser->getEmail(),
-                'email_verified_at' => Carbon::now(),
                 'provider' => 'google',
                 'provider_id' => $googleUser->getId(),
-                'password' => null, // no password for social login
-                'created_at' => Carbon::now(),
+                'password' => null,
             ]);
 
-            $token = $newUser->createToken('auth_token')->plainTextToKen;
-            return response()->json(['message' => 'Login successful. Please complete your profile.', 'token' => $token, 'user' => $newUser, 'next_step' => 'complete_profile'], 200);
+            $this->emailVerified($newUser);
+
+            $token = $this->issueToken($newUser);
+            $url = env('FRONTEND_URL');
+
+            return Redirect::to($url . "/signup/personal-info?token={$token}");
         } catch (\Exception $e) {
             return response()->json(['error' => 'Authentication failed', 'message' => $e->getMessage()], 500);
         }
@@ -81,21 +102,26 @@ class SocialLogin extends AuthController
                 }
 
                 // social user exists, login
-                $token = $exitingUser->createToken('auth_token')->plainTextToken;
-                return response()->json(['token' => $token, 'user' => $exitingUser], 200);
+                $token = $this->issueToken($exitingUser);
+                $url = env('FRONTEND_URL');
+
+                return Redirect::to($url . "/success?form=Login&token={$token}");
+                // return response()->json(['token' => $token, 'user' => $exitingUser], 200);
             }
             // if user does not exit -> create with social data
             $newUser = User::create([
                 'email' => $linkedInUser->getEmail(),
-                'email_verified_at' => Carbon::now(),
                 'provider' => 'linkedin',
                 'provider_id' => $linkedInUser->getId(),
                 'password' => null, // no password for social login
-                'created_at' => Carbon::now(),
             ]);
 
-            $token = $newUser->createToken('auth_token')->plainTextToKen;
-            return response()->json(['message' => 'Login successful. Please complete your profile.', 'token' => $token, 'user' => $newUser, 'next_step' => 'complete_profile'], 200);
+            $this->emailVerified($newUser);
+
+            $token = $this->issueToken($newUser);
+            $url = env('FRONTEND_URL');
+
+            return Redirect::to($url . "/signup/personal-info?token={$token}");
         } catch (\Exception $e) {
             return response()->json(['error' => 'Authentication failed', 'message' => $e->getMessage()], 500);
         };
