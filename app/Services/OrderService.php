@@ -27,8 +27,8 @@ class OrderService
 
             // idempotency check
             $existingPayment = Payment::where('transaction_id', $transaction_id)->first();
-            if($existingPayment){
-               return $existingPayment->order;
+            if ($existingPayment) {
+                return $existingPayment->order;
             }
 
             // Create order

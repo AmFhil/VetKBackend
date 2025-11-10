@@ -359,4 +359,14 @@ class User extends Authenticatable
     {
         return $this->morphMany(Membership::class, 'member');
     }
+
+    public function merchantProfile()
+    {
+        return $this->hasOne(merchantProfile::class, 'user_id');
+    }
+
+    public function merchantPayouts()
+    {
+        return $this->hasMany(MerchantPayout::class, 'merchant_id');
+    }
 }

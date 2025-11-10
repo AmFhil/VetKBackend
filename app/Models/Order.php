@@ -106,4 +106,9 @@ class Order extends Model
     {
         return $this->hasOne(Payment::class);
     }
+
+    public function merchantPayouts()
+    {
+        return $this->hasOne(MerchantPayout::class, 'order_id');
+    }
 }
