@@ -41,13 +41,13 @@ class SocialLogin extends AuthController
 
             if ($exitingUser) {
                 // if exits but not social login, block
-                if (is_null($exitingUser->provider)) {
-                    return response()->json(['error' => 'Email already in use with normal registration'], 409);
-                }
+                // if (is_null($exitingUser->provider)) {
+                //     return response()->json(['error' => 'Email already in use with normal registration'], 409);
+                // }
 
-                if ($exitingUser->provider !== 'google') {
-                    return response()->json(['error' => 'Email already linked with another provider'], 409);
-                }
+                // if ($exitingUser->provider !== 'google') {
+                //     return response()->json(['error' => 'Email already linked with another provider'], 409);
+                // }
 
                 // social user exists, login
                 $token = $this->issueToken($exitingUser);
@@ -93,13 +93,13 @@ class SocialLogin extends AuthController
 
             if ($exitingUser) {
                 // if exits but not social login, block
-                if (is_null($exitingUser->provider)) {
-                    return response()->json(['error' => 'Email already in use with normal registration'], 409);
-                }
+                // if (is_null($exitingUser->provider)) {
+                //     return response()->json(['error' => 'Email already in use with normal registration'], 409);
+                // }
 
-                if ($exitingUser->provider !== 'linkedin') {
-                    return response()->json(['error' => 'Email already linked with another provider'], 409);
-                }
+                // if ($exitingUser->provider !== 'linkedin') {
+                //     return response()->json(['error' => 'Email already linked with another provider'], 409);
+                // }
 
                 // social user exists, login
                 $token = $this->issueToken($exitingUser);
