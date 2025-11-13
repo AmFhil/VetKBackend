@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Webhook;
+namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
+use App\Models\MerchantPayout;
 use App\Services\AdsPromotionService;
+use App\Services\OrderService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -13,11 +15,13 @@ class PaystackWebhookController extends Controller
 {
     protected SubscriptionService $subscriptionService;
     protected AdsPromotionService $adsPromotionService;
+    protected OrderService $orderService;
 
-    public function __construct(SubscriptionService $subscriptionService, AdsPromotionService $adsPromotionService)
+    public function __construct(SubscriptionService $subscriptionService, AdsPromotionService $adsPromotionService, OrderService $orderService)
     {
         $this->subscriptionService = $subscriptionService;
         $this->adsPromotionService = $adsPromotionService;
+        $this->orderService = $orderService;
     }
 
 
@@ -26,7 +30,7 @@ class PaystackWebhookController extends Controller
      */
     public function handle(Request $request)
     {
-        $secret = config('services.paystack.secret_key'); // make sure it's in config/services.php
+        $secret = config('services.paystack.secret_key');
 
         $signature = $request->header('x-paystack-signature');
         $payload = $request->getContent();
@@ -61,15 +65,21 @@ class PaystackWebhookController extends Controller
                     } elseif (($metadata['type'] ?? null) === 'ads_promotion') {
                         $this->handleAdsPromotionPayment($data);
                     } elseif (($data['metadata']['type'] ?? null) === 'order') {
-                        app('App\Services\OrderService')->createOrderFromPayment($data);
+                        $this->orderService->createOrderFromPayment($data);
                     } else {
                         Log::info('Paystack charge.success ignored — no recognized type', ['metadata' => $metadata]);
                     }
                     break;
+                case 'transfer.success':
+                    $this->handleMerchantTransferSuccess($data);
+                    break;
 
+                case 'transfer.failed':
+                    $this->handleMerchantTransferFailed($data);
+                    break;
 
                 /**
-                     * (Optional) Handle refund or failed charge events later
+                     * Handle refund or failed charge events later
                      */
                 case 'charge.failed':
                     Log::warning('Paystack charge failed', [
@@ -105,7 +115,7 @@ class PaystackWebhookController extends Controller
             return;
         }
 
-        // Normalize amount to USD (Paystack sends in kobo/cents)
+        // Normalize amount to USD
         $amount = isset($data['amount']) ? $data['amount'] / 100 : 0;
 
         // Delegate to SubscriptionService (idempotent)
@@ -140,7 +150,7 @@ class PaystackWebhookController extends Controller
             return;
         }
 
-        // Normalize amount to USD (Paystack sends in kobo/cents)
+        // Normalize amount to USD 
         $amount = isset($data['amount']) ? $data['amount'] / 100 : 0;
 
         $userId = $metadata['user_id'];
@@ -166,5 +176,72 @@ class PaystackWebhookController extends Controller
             'reference' => $data['reference'],
             'user_id' => $metadata['user_id'],
         ]);
+    }
+
+    /**
+     * Handle successful merchant payout confirmation
+     */
+    protected function handleMerchantTransferSuccess(array $data): void
+    {
+        $reference = $data['reference'] ?? null;
+
+        $payout = MerchantPayout::where('transaction_reference', $reference)->first();
+        if (!$payout) {
+            Log::warning('Paystack transfer.success: payout not found', ['reference' => $reference]);
+            return;
+        }
+
+        $payout->update([
+            'status' => 'completed',
+            'paid_at' => now(),
+            'response_data' => $data,
+        ]);
+
+        Log::info('Merchant payout confirmed successful by Paystack', [
+            'payout_id' => $payout->id,
+            'merchant_id' => $payout->merchant_id,
+            'reference' => $reference,
+        ]);
+
+        // notify merchant
+        $payout->merchant->sendNotification(
+            'payout_completed',
+            'Withdrawal Successful',
+            'Your payout has been successfully processed by Paystack.',
+            ['order_id' => $payout->order_id, 'reference' => $reference]
+        );
+    }
+
+    /**
+     * Handle failed merchant payout
+     */
+    protected function handleMerchantTransferFailed(array $data): void
+    {
+        $reference = $data['reference'] ?? null;
+
+        $payout = MerchantPayout::where('transaction_reference', $reference)->first();
+        if (!$payout) {
+            Log::warning('Paystack transfer.failed: payout not found', ['reference' => $reference]);
+            return;
+        }
+
+        $payout->update([
+            'status' => 'failed',
+            'response_data' => $data,
+        ]);
+
+        Log::error('Merchant payout failed (Paystack)', [
+            'payout_id' => $payout->id,
+            'merchant_id' => $payout->merchant_id,
+            'reference' => $reference,
+        ]);
+
+        // notify merchant
+        $payout->merchant->sendNotification(
+            'payout_failed',
+            'Withdrawal Failed',
+            'Your payout could not be processed. Please verify your Paystack details.',
+            ['order_id' => $payout->order_id, 'reference' => $reference]
+        );
     }
 }

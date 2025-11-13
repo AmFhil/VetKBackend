@@ -29,7 +29,7 @@ class ProcessMerchantPayoutJob implements ShouldQueue
     /**
      * Execute the job.
      */
-   public function handle(PaystackTransferService $paystack)
+    public function handle(PaystackTransferService $paystack)
     {
         try {
             if ($this->payout->status !== 'pending') {
@@ -53,6 +53,13 @@ class ProcessMerchantPayoutJob implements ShouldQueue
                 'payout_id' => $this->payout->id,
                 'merchant_id' => $this->payout->merchant_id,
             ]);
+
+            $this->payout->user->sendNotification(
+                'payout_completed',
+                'Withdrawal Successful',
+                'Your payout has been successfully processed by Paystack.',
+                ['order_id' => $this->payout->order_id, 'reference' => $transfer['reference']]
+            );
 
         } catch (\Throwable $e) {
             $this->payout->update(['status' => 'failed']);
