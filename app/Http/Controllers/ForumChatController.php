@@ -11,6 +11,7 @@ use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ForumChatController extends Controller
@@ -136,9 +137,12 @@ class ForumChatController extends Controller
             ? [] // Admin sees all
             : ['everyone', $roleName];
 
-        $cacheKey = "forum_chats_index_" . class_basename(get_class($user)) . "_{$user->id}";
+        // Cache key now per-role only (no user ID)
+        $cacheKey = "forum_chats_index_{$roleName}";
+        Log::info("Fetching forum chats with cache key: {$cacheKey}");
 
-        $chats = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $visibilityFilter) {
+        // Cache the base paginator (without user-specific transformations)
+        $paginator = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($visibilityFilter) {
             $query = ForumChat::where('status', 'published')
                 ->with(['likers']);
 
@@ -146,14 +150,15 @@ class ForumChatController extends Controller
                 $query->whereIn('visibility', $visibilityFilter);
             }
 
-            $chats = $query->latest()->paginate(10);
+            return $query->latest()->paginate(10);
+        });
 
-            return $chats->through(function ($chat) use ($user) {
-                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
-                });
-                return $chat;
+        // Apply user-specific transformations after caching
+        $chats = $paginator->through(function ($chat) use ($user) {
+            $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
             });
+            return $chat;
         });
 
         return response()->json(['chats' => $chats], 200);
@@ -380,9 +385,9 @@ class ForumChatController extends Controller
             ? [] // Admin sees all
             : ['everyone', $roleName];
 
-        $cacheKey = "trending_forums_chat_" . class_basename(get_class($user)) . "_{$user->id}";
+        $cacheKey = "trending_forums_chat_{$roleName}";
 
-        $trending = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $visibilityFilter) {
+        $trending = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($visibilityFilter) {
             $query = ForumChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with(['likers'])
@@ -397,17 +402,17 @@ class ForumChatController extends Controller
                 $query->whereIn('visibility', $visibilityFilter);
             }
 
-            $forums = $query->orderByDesc('score')->take(10)->get();
-
-            return $forums->map(function ($chat) use ($user) {
-                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
-                });
-                return $chat;
-            });
+            return $query->orderByDesc('score')->take(10)->get();
         });
 
-        return response()->json($trending, 200);
+        $forum = $trending->map(function ($chat) use ($user) {
+            $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
+            });
+            return $chat;
+        });
+
+        return response()->json($forum, 200);
     }
 
     /**
@@ -419,22 +424,22 @@ class ForumChatController extends Controller
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
         $forums = Cache::remember('forum_chats_admin', now()->addMinutes(10), function () use ($admin) {
-            $forumChat = ForumChat::with([
+            return ForumChat::with([
                 'likers'
             ])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
-
-            return $forumChat->through(function ($chat) use ($admin) {
-                $chat->has_liked = $chat->likers->contains(function ($like) use ($admin) {
-                    return ((int) $like->user_id === (int) $admin->id) && ($like->user_type === get_class($admin));
-                });
-
-                return $chat;
-            });
         });
 
-        return response()->json($forums, 200);
+        $AdminChat = $forums->through(function ($chat) use ($admin) {
+            $chat->has_liked = $chat->likers->contains(function ($like) use ($admin) {
+                return ((int) $like->user_id === (int) $admin->id) && ($like->user_type === get_class($admin));
+            });
+
+            return $chat;
+        });
+
+        return response()->json($AdminChat, 200);
     }
 
     /**
@@ -442,26 +447,36 @@ class ForumChatController extends Controller
      */
     public function share($id)
     {
+        $user = auth('user')->user() ?: auth('admin')->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $roleName = $user instanceof \App\Models\Admin
+            ? 'admin'
+            : $user->activeRole?->name;
+
         $forum = ForumChat::findOrFail($id);
         $forum->increment('shares_count');
 
         // ✅ model events don’t fire on increment, so clear manually
         Cache::forget("forum_show_{$forum->slug}");
+        Cache::forget('forum_chats_admin');
         Cache::forget('admin_forums');
-        Cache::forget('forum_visibility');
 
         if ($forum?->id) {
             Cache::forget("forum_likers_{$forum->id}");
+            Cache::forget("forum_chat_comment_{$forum->id}");
         }
 
         if ($forum?->user_id && $forum?->user_type) {
             $classBase = class_basename($forum->user_type);
 
             // Forget per-user cache variants
-            Cache::forget("forum_chats_index_{$classBase}_{$forum->user_id}");
-            Cache::forget("trending_forums_chat_{$classBase}_{$forum->user_id}");
-            Cache::forget("forum_visibility_{$classBase}_{$forum->user_id}_{$forum->visibility}");
+            Cache::forget("user_forum_posts_{$classBase}_{$forum->user_id}");
         }
+        Cache::forget("forum_visibility_{$forum->visibility}");
+        Cache::forget("forum_chats_index_{$roleName}");
+        Cache::forget("trending_forums_chat_{$roleName}");
+
 
         return response()->json(['message' => 'Share recorded']);
     }
@@ -481,21 +496,21 @@ class ForumChatController extends Controller
             return response()->json(['message' => "You are not allowed to view '{$visibility}' forums."], 403);
         }
 
-        $cacheKey = "forum_visibility_" . class_basename(get_class($user)) . "_{$user->id}_{$visibility}";
+        $cacheKey = "forum_visibility_{$visibility}";
 
-        $forums = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($visibility, $user) {
+        $paginate = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($visibility, $user) {
             $query = ForumChat::where('status', 'published')
                 ->where('visibility', $visibility)
                 ->with(['likers']);
 
-            $forums = $query->latest()->paginate(10);
+            return $query->latest()->paginate(10);
+        });
 
-            return $forums->through(function ($chat) use ($user) {
-                $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
-                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
-                });
-                return $chat;
+        $forums = $paginate->through(function ($chat) use ($user) {
+            $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
+                return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
             });
+            return $chat;
         });
 
         return response()->json($forums, 200);
@@ -509,20 +524,20 @@ class ForumChatController extends Controller
 
         $cacheKey = "user_forum_posts_" . class_basename(get_class($user)) . "_{$user->id}";
 
-        $forums = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user) {
-            $query = ForumChat::where('user_id', $user->id)
+        $query = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user) {
+            return ForumChat::where('user_id', $user->id)
                 ->where('user_type', get_class($user))
                 ->with(['likers'])
                 ->latest()
                 ->paginate(10);
+        });
 
-            return $query->through(function ($chat) use ($user) {
+        $forums = $query->through(function ($chat) use ($user) {
                 $chat->has_liked = $chat->likers->contains(function ($like) use ($user) {
                     return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
                 });
                 return $chat;
             });
-        });
 
         return response()->json($forums, 200);
     }

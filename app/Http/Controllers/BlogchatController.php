@@ -360,7 +360,7 @@ class BlogChatController extends Controller
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
         $trending = Cache::remember('trending_blogs', now()->addMinutes(10), function () use ($user) {
-            $blogChat = BlogChat::where('status', 'published')
+            return BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
                     'likers'
@@ -374,17 +374,16 @@ class BlogChatController extends Controller
                 ->orderByDesc('score')
                 ->take(10)
                 ->get();
-
-            return $blogChat->map(function ($blog) use ($user) {
-                $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
-                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
-                });
-
-                return $blog;
-            });
         });
 
-        return response()->json($trending);
+        $blogChat = $trending->map(function ($blog) use ($user) {
+            $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
+                return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
+            });
+
+            return $blog;
+        });
+        return response()->json($blogChat);
     }
 
     /**
@@ -398,24 +397,23 @@ class BlogChatController extends Controller
         $cacheKey = "blogs_index_" . class_basename(get_class($user)) . "_{$user->id}";
 
         $blogs = $this->rememberWithRegistry($cacheKey, function () use ($user) {
-            $blogChat = BlogChat::where('status', 'published')
+            return BlogChat::where('status', 'published')
                 ->withCount(['comments', 'likes'])
                 ->with([
                     'likers'
                 ])
                 ->orderByDesc('created_at')
                 ->paginate(10);
-
-            return $blogChat->through(function ($blog) use ($user) {
-                $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
-                    return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
-                });
-
-                return $blog;
-            });
         });
 
-        return response()->json($blogs);
+        $blogChat = $blogs->through(function ($blog) use ($user) {
+            $blog->has_liked = $blog->likers->contains(function ($like) use ($user) {
+                return ((int) $like->user_id === (int) $user->id) && ($like->user_type === get_class($user));
+            });
+
+            return $blog;
+        });
+        return response()->json($blogChat);
     }
 
 

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Traits\HasAuthorAttribute;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ForumChat extends Model
@@ -43,6 +44,17 @@ class ForumChat extends Model
         });
     }
 
+    // In ForumChat model, add at the top:
+    protected const ALL_ROLES = [
+        'veterinary_doctor',
+        'veterinary_clinic',
+        'veterinary_paraprofessional',
+        'pet_owner',
+        'livestock_farmer',
+        'vendor',
+        'others'
+    ];
+
     // get image url
     public function getImageUrlAttribute()
     {
@@ -66,9 +78,22 @@ class ForumChat extends Model
             // $chat->likes()->withTrashed()->restore();
         });
 
-        foreach (['created', 'updated', 'deleted', 'restored'] as $event) {
-            static::$event(fn($chat) => self::clearCaches($chat));
-        }
+
+        static::created(function ($chat) {
+            self::clearCaches($chat);
+        });
+
+        static::updated(function ($chat) {
+            self::clearCaches($chat);
+        });
+
+        static::deleted(function ($chat) {
+            self::clearCaches($chat);
+        });
+
+        static::restored(function ($chat) {
+            self::clearCaches($chat);
+        });
     }
 
     /**
@@ -76,29 +101,39 @@ class ForumChat extends Model
      */
     public static function clearCaches(?self $chat = null): void
     {
-
-        // Forget index and admin listing
+        // Existing forgets (keep these)
         Cache::forget("forum_chats_admin");
-
-        // Forget single forum show cache (if slug available)
         if ($chat?->slug) {
             Cache::forget("forum_show_{$chat->slug}");
         }
-
         Cache::forget('admin_forums');
-
         if ($chat?->id) {
             Cache::forget("forum_likers_{$chat->id}");
             Cache::forget("forum_chat_comment_{$chat->id}");
         }
 
+        // New: Clear index caches per affected role
+        Cache::forget('forum_chats_index_admin');
+        Cache::forget("trending_forums_chat_admin");
+
+        if ($chat?->visibility) {
+            Cache::forget("forum_visibility_{$chat->visibility}");
+            if ($chat->visibility === 'everyone') {
+                foreach (self::ALL_ROLES as $role) {
+                    Cache::forget("forum_chats_index_{$role}");
+                    Cache::forget("trending_forums_chat_{$role}");
+                }
+            } else {
+                Cache::forget("forum_chats_index_{$chat->visibility}");
+                Cache::forget("trending_forums_chat_{$chat->visibility}");
+            }
+        }
+
+        // Existing per-user clears
         if ($chat?->user_id && $chat?->user_type) {
             $classBase = class_basename($chat->user_type);
+            Log::info("Clearing forum caches for user type: {$classBase}, user ID: {$chat->user_id}");
 
-            // Forget per-user cache variants
-            Cache::forget("forum_chats_index_{$classBase}_{$chat->user_id}");
-            Cache::forget("trending_forums_chat_{$classBase}_{$chat->user_id}");
-            Cache::forget("forum_visibility_{$classBase}_{$chat->user_id}_{$chat->visibility}");
             Cache::forget("user_forum_posts_{$classBase}_{$chat->user_id}");
         }
     }
