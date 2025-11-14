@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\ProcessMerchantPayoutJob;
 use App\Models\MerchantPayout;
+use App\Models\MerchantProfile;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +39,25 @@ class MerchantPayoutScheduler
         }
 
         //  merchant subaccount exists on Paystack
-        $merchantProfile = $this->PaystackSubaccountService->ensureMerchantSubaccount($merchant);
+        // $merchantProfile = $this->PaystackSubaccountService->ensureMerchantSubaccount($merchant);
+        $merchantProfile = MerchantProfile::where('user_id', $merchant->id)->first();
+
+        if (! $merchantProfile || ! $merchantProfile->paystack_subaccount_code) {
+            Log::warning("Payout skipped — merchant has no Paystack subaccount", [
+                'merchant_id' => $merchant->id,
+                'order_id' => $order->id,
+            ]);
+
+            // (optional) notify merchant to connect Paystack
+            $merchant->sendNotification(
+                'payout_pending_setup',
+                'Payout Setup Required',
+                'You need to connect your Paystack account to receive payouts.',
+                ['order_id' => $order->id]
+            );
+
+            return;
+        }
 
         // Idempotency: no duplicate payouts
         if (MerchantPayout::where('order_id', $order->id)->exists()) {
@@ -63,6 +82,7 @@ class MerchantPayoutScheduler
             Log::info("Merchant payout scheduled", [
                 'order_id' => $order->id,
                 'merchant_id' => $order->merchant_user_id,
+                'payout_id' => $payout->id,
             ]);
 
             ProcessMerchantPayoutJob::dispatch($payout)

@@ -34,6 +34,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\Payments\PaystackAdsPromotionController;
 use App\Http\Controllers\Payments\PaystackOrderController;
+use App\Http\Controllers\Payments\PaystackSubaccountController;
 use App\Http\Controllers\Payments\PaystackSubscriptionController;
 use App\Http\Controllers\Payments\PaystackWebhookController;
 use App\Http\Controllers\PetController;
@@ -267,6 +268,8 @@ Route::prefix('v3')->group(function () {
         Route::get('/subscription-receipts', [SubscriptionReceiptController::class, 'index']);
         Route::post('/subscriptions/initialize', [PaystackSubscriptionController::class, 'initialize']);
 
+        Route::post('/merchant/paystack/connect', [PaystackSubaccountController::class, 'connect'])->name('paystack.connect');
+
     });
 
     // User must have an active subscription
@@ -412,6 +415,7 @@ Route::prefix('v3')->group(function () {
     Route::any('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
     Route::any('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
     Route::any('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
+    Route::get('/merchant/paystack/callback', [PaystackSubaccountController::class, 'callback'])->name('paystack.callback');
 });
 
 

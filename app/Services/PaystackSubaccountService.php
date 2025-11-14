@@ -9,6 +9,15 @@ use Illuminate\Support\Facades\Log;
 
 class PaystackSubaccountService
 {
+    protected string $baseUrl;
+    protected string $secretKey;
+
+    public function __construct()
+    {
+        $this->baseUrl = 'https://api.paystack.co';
+        $this->secretKey = config('services.paystack.secret_key');
+    }
+
     /**
      * Create or update a merchant subaccount on Paystack.
      */
@@ -52,5 +61,37 @@ class PaystackSubaccountService
                 'response_data' => $data,
             ]
         );
+    }
+
+    public function createSubaccount(MerchantProfile $merchant): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/subaccount", [
+                'business_name' => "{$merchant->user->first_name} {$merchant->user->last_name}",
+                'settlement_bank' => '000', // placeholder
+                'account_number' => '0000000000',
+                'percentage_charge' => 0,
+                'primary_contact_email' => $merchant->user->email,
+                'primary_contact_name'  => "{$merchant->user->first_name} {$merchant->user->last_name}",
+                'metadata' => [
+                    'user_id' => $merchant->user->id,
+                    'callback_url' => config('services.paystack.paystack_subacccount_callback_url'),
+                ],
+            ]);
+
+        if ($response->failed()) {
+            Log::error('Paystack Subaccount creation failed', ['response' => $response->json()]);
+            throw new \Exception('Failed to create Paystack subaccount');
+        }
+
+        $data = $response->json()['data'];
+        $merchant->update([
+            'paystack_subaccount_code' => $data['subaccount_code'],
+            'verified' => true,
+            'integration' => $data['integration'],
+            'response_data' => $data,
+        ]);
+
+        return $data;
     }
 }

@@ -54,6 +54,7 @@ return [
         'callback_ads_promotion_url' => env('PAYSTACK_CALLBACK_ADS_PROMOTION_URL'),
         'callback_subscription_url' => env('PAYSTACK_CALLBACK_SUBSCRIPTION_URL'),
         'callback_order_url' => env('PAYSTACK_CALLBACK_ORDER_URL'),
-        'paystack_webhook_url' => env('PAYSTACK_WEBHOOK_URL')
+        'paystack_webhook_url' => env('PAYSTACK_WEBHOOK_URL'),
+        'paystack_subacccount_callback_url' => env('PAYSTACK_SUBACCOUNT_CALLBACK_URL')
     ],
 ];
