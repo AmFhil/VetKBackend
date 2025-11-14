@@ -249,55 +249,55 @@ class DirectMessageController extends Controller
         $cacheKey = "chat_list_{$user->id}";
 
         $chatList = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
-            $messages = DirectMessage::with(['sender.profile', 'receiver.profile'])
+            return DirectMessage::with(['sender.profile', 'receiver.profile'])
                 ->where(function ($q) use ($user) {
                     $q->where('sender_id', $user->id)
                         ->orWhere('receiver_id', $user->id);
                 })
                 ->orderBy('created_at', 'desc')
                 ->get();
-
-            $conversations = collect();
-
-            foreach ($messages as $msg) {
-                $partnerId = $msg->sender_id === $user->id ? $msg->receiver_id : $msg->sender_id;
-
-                // skip duplicates
-                if ($conversations->has($partnerId)) continue;
-
-                $partner = $msg->sender_id === $user->id ? $msg->receiver : $msg->sender;
-
-                // count unread messages
-                $unreadCount = DirectMessage::where('sender_id', $partnerId)
-                    ->where('receiver_id', $user->id)
-                    ->where('is_read', false)
-                    ->count();
-
-                // format the time
-                $formattedTime = Carbon::parse($msg->created_at)->diffForHumans(null, true);
-
-                $conversations->put($partnerId, [
-                    'user' => [
-                        'id' => $partner->id,
-                        'name' => trim("{$partner->first_name} {$partner->last_name}"),
-                        'email' => $partner->email,
-                        'location' => trim("{$partner->country} {$partner->state}"),
-                        'profile_image' => $partner->profile->profile_picture ?? null,
-                        'role' => $partner->activeRole?->name
-
-                    ],
-                    'last_message' => $msg->content,
-                    'last_message_images' => $msg->image_urls ?? [],
-                    'last_message_time' => $msg->created_at,
-                    'last_message_display_time' => $formattedTime,
-                    'unread_count' => $unreadCount
-                ]);
-            }
-
-            // sort chats to the top
-            return $conversations->sortByDesc('last_message_time')->values();
         });
 
-        return response()->json($chatList, 200);
+        $conversations = collect();
+
+        foreach ($chatList as $msg) {
+            $partnerId = $msg->sender_id === $user->id ? $msg->receiver_id : $msg->sender_id;
+
+            // skip duplicates
+            if ($conversations->has($partnerId)) continue;
+
+            $partner = $msg->sender_id === $user->id ? $msg->receiver : $msg->sender;
+
+            // count unread messages
+            $unreadCount = DirectMessage::where('sender_id', $partnerId)
+                ->where('receiver_id', $user->id)
+                ->where('is_read', false)
+                ->count();
+
+            // format the time
+            $formattedTime = Carbon::parse($msg->created_at)->diffForHumans(null, true);
+
+            $conversations->put($partnerId, [
+                'user' => [
+                    'id' => $partner->id,
+                    'name' => trim("{$partner->first_name} {$partner->last_name}"),
+                    'email' => $partner->email,
+                    'location' => trim("{$partner->country} {$partner->state}"),
+                    'profile_image' => $partner->profile->profile_picture ?? null,
+                    'role' => $partner->activeRole?->name
+
+                ],
+                'last_message' => $msg->content,
+                'last_message_images' => $msg->image_urls ?? [],
+                'last_message_time' => $msg->created_at,
+                'last_message_display_time' => $formattedTime,
+                'unread_count' => $unreadCount
+            ]);
+        }
+
+        // sort chats to the top
+        $conversation = $conversations->sortByDesc('last_message_time')->values();
+
+        return response()->json($conversation, 200);
     }
 }
