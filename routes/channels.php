@@ -86,3 +86,12 @@ Broadcast::channel('direct-chat.{user1Id}.{user2Id}', function ($authenticated, 
     ]);
     return false;
 });
+
+BroadCast::channel('notifications.{userId}', function ($authenticated, $userId) {
+    if ($authenticated instanceof User){
+        if((int)  $authenticated->id() === (int) $userId){
+            return true;
+        }
+        return false;
+    }
+});

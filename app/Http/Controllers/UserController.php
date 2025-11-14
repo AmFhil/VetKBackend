@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NotificationRead;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Models\livestock_farmer;
 use App\Models\Others;
@@ -566,10 +567,14 @@ class UserController extends Controller
         $user = Auth::user();
 
         $userActivity = UserActivity::where('user_id', $user->id)
-            ->orderBy('created_at', 'asc')
-            ->paginate(10);
+            ->orderBy('created_at', 'asc');
+            // ->paginate(10);
 
-        return response()->json($userActivity, 200);
+            // get count of total activity
+            $totalActivity = $userActivity->count();
+            $userActivity = $userActivity->paginate(10);
+
+        return response()->json(['userActivity' => $userActivity, 'totalActivity' => $totalActivity], 200);
     }
 
     // get user notification
@@ -578,10 +583,51 @@ class UserController extends Controller
         $user = Auth::user();
 
         $userNotification = UserNotification::where('user_id', $user->id)
-            ->latest()
-            ->paginate(10);
+            ->latest();
 
-        return response()->json($userNotification, 200);
+            $totalNotification = $userNotification->where('is_read', false)->count();
+            $userNotification = $userNotification->paginate(10);
+
+        return response()->json(['totalNotification' => $totalNotification, 'userNotification' => $userNotification], 200);
+    }
+
+    // mark notification as read
+    public function markNotification($id){
+        $user = auth('user')->user();
+
+        $notification = UserNotification::where('user_id', $user->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$notification) {
+            return response()->json(['message' => 'Notification not found'], 404);
+        }
+
+        $notification->is_read = true;
+        $notification->read_at = now();
+        $notification->save();
+
+        $unreadCount = $user->notifications->where('is_read', false)->count();
+        // live broadcast event for real time
+        
+        event(new NotificationRead($user->id, $unreadCount));
+
+        return response()->json(['message' => 'Notification marked as read', "notification" => $notification, "unreadCount" => $unreadCount], 200);
+    }
+
+    // activity by id
+    public function getActivity($id){
+        $user = Auth::user();
+
+        $activity = UserActivity::where('user_id', $user->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$activity) {
+            return response()->json(['message' => 'Activity not found'], 404);
+        }
+
+        return response()->json([$activity], 200);
     }
 }
 // add image

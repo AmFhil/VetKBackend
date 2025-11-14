@@ -217,7 +217,9 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-chat-list', [DirectMessageController::class, 'getChatList']);
 
         Route::get('/get-user-activity', [UserController::class, 'getUserActivity']);
+        Route::get('/get-activity/{id}/activity', [UserController::class, 'getActivity']);
         Route::get('/get-user-notification', [UserController::class, 'getUserNotification']);
+        Route::get('/get-notification/{id}/notification', [UserController::class, 'markNotification']);
 
         Route::get('/promotion-plans', [PromotionPlanController::class, 'getActivePlans']);
 
