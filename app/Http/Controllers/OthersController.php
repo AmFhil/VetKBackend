@@ -47,6 +47,12 @@ class OthersController extends Controller
             $user->roles()->attach($activeRole->id);
             $user->update(['active_role_id' => $activeRole->id]);
 
+            $user->logActivity(
+                action: 'create_others',
+                title: 'Created Others Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a Others profile",
+                meta: ['others_id' => $other->id]
+            );
             DB::commit();
             return response()->json([
                 'message' => 'Other role activated successfully.',

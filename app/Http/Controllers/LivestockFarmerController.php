@@ -48,6 +48,13 @@ class LivestockFarmerController extends Controller
             $user->roles()->attach($activeRole->id);
             $user->update(['active_role_id' => $activeRole->id]);
 
+            $user->logActivity(
+                action: 'create_livestock_farmer',
+                title: 'Created Livestock Farmer Profile',
+                detail: "User {$user->first_name} {$user->last_name} created a Livestock Farmer profile",
+                meta: ['livestock_farmer_id' => $farmer->id]
+            );
+
             DB::commit();
             return response()->json([
                 'message' => 'Livestock Farmer role activated successfully.',

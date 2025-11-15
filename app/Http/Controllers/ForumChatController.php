@@ -293,25 +293,10 @@ class ForumChatController extends Controller
                 null,
                 ['forum_id' => $forum->id]
             );
-
-            $this->createAdminNotification(
-                $user->id,
-                'forum',
-                "Your forum '{$forum->title}' was updated.",
-                null,
-                ['forum_id' => $forum->id]
-            );
         } elseif ($user instanceof User) {
             $user->logActivity(
                 'forum_updated',
                 "Updated forum '{$forum->title}'",
-                null,
-                ['forum_id' => $forum->id]
-            );
-
-            $user->sendNotification(
-                'forum',
-                "Your forum '{$forum->title}' was updated.",
                 null,
                 ['forum_id' => $forum->id]
             );
@@ -331,6 +316,8 @@ class ForumChatController extends Controller
         if (((int) $forum->user_id !== (int) $user->id) || (get_class($user) !== $forum->user_type)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+        $forumTitle = $forum->title;
+        $forumId = $forum->id;
 
         $forum->delete();
 
@@ -338,31 +325,16 @@ class ForumChatController extends Controller
             $this->createAdminActivity(
                 $user->id,
                 'forum_deleted',
-                "Deleted forum '{$forum->title}'",
+                "Deleted forum '{$forumTitle}'",
                 null,
-                ['forum_id' => $id]
-            );
-
-            $this->createAdminNotification(
-                $user->id,
-                'forum',
-                "Your forum '{$forum->title}' was deleted.",
-                null,
-                ['forum_id' => $id]
+                ['forum_id' => $forumId]
             );
         } elseif ($user instanceof User) {
             $user->logActivity(
                 'forum_deleted',
-                "Deleted forum '{$forum->title}'",
+                "Deleted forum '{$forumTitle}'",
                 null,
-                ['forum_id' => $id]
-            );
-
-            $user->sendNotification(
-                'forum',
-                "Your forum '{$forum->title}' was deleted.",
-                null,
-                ['forum_id' => $id]
+                ['forum_id' => $forumId]
             );
         }
 
@@ -457,7 +429,7 @@ class ForumChatController extends Controller
         $forum = ForumChat::findOrFail($id);
         $forum->increment('shares_count');
 
-        // ✅ model events don’t fire on increment, so clear manually
+        // model events don’t fire on increment, so clear manually
         Cache::forget("forum_show_{$forum->slug}");
         Cache::forget('forum_chats_admin');
         Cache::forget('admin_forums');

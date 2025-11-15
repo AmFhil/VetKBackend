@@ -59,27 +59,12 @@ class ForumChatCommentController extends Controller
                 "You commented on forum '{$forum->title}': \"{$comment->comment}\"",
                 ['forum_id' => $forum->id, 'comment_id' => $comment->id]
             );
-
-            $this->createAdminNotification(
-                $user->id,
-                'forum',
-                'Forum Created',
-                "Your forum post '{$forum->title}' was created.",
-                ['forum_id' => $forum->id]
-            );
         } elseif ($user instanceof User) {
             $user->logActivity(
                 'forum_comment_add',
                 'Comment Added',
                 "You commented on forum '{$forum->title}': \"{$comment->comment}\"",
                 ['forum_id' => $forum->id, 'comment_id' => $comment->id]
-            );
-
-            $user->sendNotification(
-                'forum',
-                'Forum Created',
-                "Your forum post '{$forum->title}' was created.",
-                ['forum_id' => $forum->id]
             );
         }
 
@@ -91,7 +76,7 @@ class ForumChatCommentController extends Controller
                 $forumOwner->sendNotification(
                     'forum_comment_received',
                     'New Comment on Your Forum',
-                    "{$user->first_name} {$user->last_name} commented on your forum <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                    "{$user->first_name} {$user->last_name} commented on your forum {$forum->title}: {$comment->comment}",
                     [
                         'forum_id'   => $forum->id,
                         'comment_id' => $comment->id,
@@ -103,7 +88,7 @@ class ForumChatCommentController extends Controller
                     $forumOwner->id,
                     'forum_comment_received',
                     'New Comment on Your Forum',
-                    "{$user->first_name} {$user->last_name} commented on your forum <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                    "{$user->first_name} {$user->last_name} commented on your forum {$forum->title}: {$comment->comment}",
                     [
                         'forum_id'   => $forum->id,
                         'comment_id' => $comment->id,
@@ -124,7 +109,7 @@ class ForumChatCommentController extends Controller
                     $parentOwner->sendNotification(
                         'forum_comment_reply',
                         'Reply to Your Comment',
-                        "{$user->first_name} {$user->last_name} replied to your comment on <strong>{$forum->title}</strong>: \"{$comment->comment}\"",
+                        "{$user->first_name} {$user->last_name} replied to your comment on {$forum->title}: {$comment->comment}",
                         [
                             'forum_id'     => $forum->id,
                             'comment_id'   => $comment->id,
@@ -227,26 +212,11 @@ class ForumChatCommentController extends Controller
                 "You deleted your comment: \"{$commentContent}\"",
                 ['comment_id' => $commentId]
             );
-
-            $this->createAdminNotification(
-                $user->id,
-                'forum_comment_deleted',
-                'Comment deleted',
-                "Your comment <em>\"{$commentContent}\"</em> has been removed.",
-                ['comment_id' => $commentId]
-            );
         } elseif ($user instanceof User) {
             $user->logActivity(
                 'forum_comment_delete',
                 'Deleted a comment',
                 "You deleted your comment: \"{$commentContent}\"",
-                ['comment_id' => $commentId]
-            );
-
-            $user->sendNotification(
-                'forum_comment_deleted',
-                'Comment deleted',
-                "Your comment <em>\"{$commentContent}\"</em> has been removed.",
                 ['comment_id' => $commentId]
             );
         }
@@ -286,26 +256,11 @@ class ForumChatCommentController extends Controller
                 "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
                 ['comment_id' => $commentId]
             );
-
-            $this->createAdminNotification(
-                $user->id,
-                'forum_comment_updated',
-                'Comment updated',
-                "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
-                ['comment_id' => $commentId]
-            );
         } elseif ($user instanceof User) {
             $user->logActivity(
                 'forum_comment_edit',
                 'Edited a comment',
                 "You updated your comment from \"{$oldComment}\" to \"{$comment->comment}\"",
-                ['comment_id' => $commentId]
-            );
-
-            $user->sendNotification(
-                'forum_comment_updated',
-                'Comment updated',
-                "Your comment has been updated to: <em>\"{$comment->comment}\"</em>.",
                 ['comment_id' => $commentId]
             );
         }
@@ -346,18 +301,7 @@ class ForumChatCommentController extends Controller
         $user->logActivity(
             'forum_comment_flagged',
             'You flagged a comment',
-            "You flagged comment #{$comment->id} (forum #{$comment->forum_chat_id}) as '{$request->flag}'. Previous flag: '{$oldFlag}'.",
-            [
-                'comment_id' => $comment->id,
-                'forum_id'   => $comment->forum_chat_id,
-                'flag'       => $request->flag,
-            ]
-        );
-
-        $user->sendNotification(
-            'forum_comment_flag',
-            'Comment flagged',
-            "You flagged a forum comment as <strong>{$request->flag}</strong>. Our moderators may review this action.",
+            "You flagged comment #{$comment->id} (forum title: {$comment->forum->title}) as '{$request->flag}'. Previous flag: '{$oldFlag}'.",
             [
                 'comment_id' => $comment->id,
                 'forum_id'   => $comment->forum_chat_id,
@@ -368,19 +312,6 @@ class ForumChatCommentController extends Controller
         // notify all admins
         $admins = Admin::all();
         foreach ($admins as $admin) {
-            $this->createAdminActivity(
-                $admin->id,
-                'forum_comment_flagged',
-                'Forum comment flagged',
-                "User {$user->first_name} {$user->last_name} flagged comment #{$comment->id} (forum #{$comment->forum_chat_id}) as '{$request->flag}'. Previous flag: '{$oldFlag}'.",
-                [
-                    'comment_id' => $comment->id,
-                    'forum_id'   => $comment->forum_chat_id,
-                    'user_id'    => $user->id,
-                    'flag'       => $request->flag
-                ]
-            );
-
             $this->createAdminNotification(
                 $admin->id,
                 'Forum Comment Flagged',
@@ -423,10 +354,8 @@ class ForumChatCommentController extends Controller
         $oldFlag = $comment->flag;
         $comment->update(['flag' => $request->flag]);
 
-        $admins = Admin::all();
-        foreach ($admins as $admin) {
-            $this->createAdminActivity(
-                $admin->id,
+        $this->createAdminActivity(
+                $actor->id,
                 'forum_comment_flag_updated',
                 'Forum comment flag updated',
                 "Admin {$actor->first_name} {$actor->last_name} set flag '{$request->flag}' on forum comment #{$comment->id} (forum #{$comment->forum_chat_id}), previous flag: '{$oldFlag}'.",
@@ -438,6 +367,8 @@ class ForumChatCommentController extends Controller
                 ]
             );
 
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
             $this->createAdminNotification(
                 $admin->id,
                 'Forum Comment Flag Updated',
@@ -454,13 +385,6 @@ class ForumChatCommentController extends Controller
         if ($comment->user_type === User::class) {
             $owner = User::find($comment->user_id);
             if ($owner) {
-                $owner->logActivity(
-                    'forum_comment_flagged_by_admin',
-                    'Forum comment flagged by admin',
-                    "Admin {$actor->first_name} {$actor->last_name} updated your forum comment #{$comment->id} to '{$request->flag}'.",
-                    ['comment_id' => $comment->id, 'flag' => $request->flag]
-                );
-
                 $owner->sendNotification(
                     'forum_comment_flagged_admin',
                     'Your forum comment was flagged',
