@@ -93,13 +93,6 @@ class VeterinaryDoctorController extends Controller
                     "A new veterinary doctor profile has been created by {$user->first_name} {$user->last_name}.",
                     ['doctor_id' => $veterinaryDoctor->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
                 );
-                $this->createAdminActivity(
-                    $admin->id,
-                    "vet_profile_review",
-                    "New Vet Doctor Created",
-                    "Review vet doctor {$veterinaryDoctor->id} created by user {$user->name}",
-                    ['doctor_id' => $veterinaryDoctor->id, 'staff_id' => $admin->staff_id]
-                );
             }
 
             // return
@@ -203,7 +196,7 @@ class VeterinaryDoctorController extends Controller
         $isAdmin = $user && Admin::where('email', $user->email)->exists();
 
         // increment views if not self and not admin
-        if ($user && $user->id !== $veterinaryDoctor->user_id && !$isAdmin) {
+        if ($user && (int) $user->id !== (int) $veterinaryDoctor->user_id && !$isAdmin) {
             $veterinaryDoctor->recordView();
         }
 
@@ -233,14 +226,6 @@ class VeterinaryDoctorController extends Controller
                 'Verified Veterinary Doctor',
                 "Dr {$user->first_name}, You have been verified.",
                 ['veterinary_doctor_id' => $doctor->id, 'user_id' => $user->id]
-            );
-
-            // Log user activity
-            $user->logActivity(
-                'veterinary_doctor_verified',
-                'Verified Veterinary Doctor',
-                "Dr {$user->first_name}Your verification was approved by admin.",
-                ['doctor_id' => $doctor->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(

@@ -98,13 +98,6 @@ class VeterinaryParaprofessionalController extends Controller
                     "A new veterinary paraprofessional profile has been created by {$user->first_name} {$user->last_name}.",
                     ['paraprofessional_id' => $veterinaryParaprofessional->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
                 );
-                $this->createAdminActivity(
-                    $admin->id,
-                    "vet_profile_review",
-                    "New Vet Paraprofessional Created",
-                    "Review vet paraprofessional {$veterinaryParaprofessional->id} created by user {$user->name}",
-                    ['paraprofessional_id' => $veterinaryParaprofessional->id, 'staff_id' => $admin->staff_id]
-                );
             }
 
             // return
@@ -201,7 +194,7 @@ class VeterinaryParaprofessionalController extends Controller
         $isAdmin = $user && Admin::where('email', $user->email)->exists();
 
         // increment views if not self and not admin
-        if ($user && $user->id !== $veterinaryParaprofessional->user_id && !$isAdmin) {
+        if ($user && (int) $user->id !== (int) $veterinaryParaprofessional->user_id && !$isAdmin) {
             $veterinaryParaprofessional->recordView();
         }
 
@@ -231,14 +224,6 @@ class VeterinaryParaprofessionalController extends Controller
                 'Verified Veterinary Paraprofessional',
                 "{$user->first_name} You have been verified.",
                 ['veterinary_paraprofessional_id' => $paraprofessional->id, 'user_id' => $user->id]
-            );
-
-            // Log user activity
-            $user->logActivity(
-                'veterinary_paraprofessional_verified',
-                'Verified Veterinary paraprofessional',
-                "{$user->first_name} Your verification was approved by admin.",
-                ['paraprofessional_id' => $paraprofessional->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(

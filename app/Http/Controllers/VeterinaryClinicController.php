@@ -97,13 +97,6 @@ class VeterinaryClinicController extends Controller
                     "A new veterinary clinic profile has been created by {$user->first_name} {$user->last_name}.",
                     ['clinic_id' => $clinic->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
                 );
-                $this->createAdminActivity(
-                    $admin->id,
-                    "vet_profile_review",
-                    "New Vet Clinic Created",
-                    "Review vet clinic {$clinic->id} created by user {$user->name}",
-                    ['clinic_id' => $clinic->id, 'staff_id' => $admin->staff_id]
-                );
             }
 
             return response()->json(['message' => 'Veterinary clinic added successfully. Pending approval.', 'clinic' => $clinic], 200);
@@ -203,7 +196,7 @@ class VeterinaryClinicController extends Controller
         $isAdmin = $user && Admin::where('email', $user->email)->exists();
 
         // increment views if not self and not admin
-        if ($user && $user->id !== $clinic->user_id && !$isAdmin) {
+        if ($user && (int) $user->id !== (int) $clinic->user_id && !$isAdmin) {
             $clinic->recordView();
         }
 
@@ -253,14 +246,6 @@ class VeterinaryClinicController extends Controller
                 'Verified Clinic',
                 "{$user->first_name} Your clinic have been verified.",
                 ['veterinary_clinic_id' => $clinic->id, 'user_id' => $user->id]
-            );
-
-            // Log user activity
-            $user->logActivity(
-                'veterinary_clinic_verified',
-                'Verified Clinic',
-                "{$user->first_name} Your clinic verification was approved by admin.",
-                ['clinic_id' => $clinic->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(
