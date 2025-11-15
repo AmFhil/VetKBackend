@@ -67,6 +67,13 @@ class SocialLogin extends AuthController
                 'password' => null,
             ]);
 
+            $newUser->logActivity(
+                action: 'social_signup',
+                title: 'User Registered via Google',
+                detail: "User {$newUser->email} registered using Google social login.",
+                meta: [],
+            );
+            
             $this->emailVerified($newUser);
 
             $token = $this->issueToken($newUser);
@@ -151,6 +158,13 @@ class SocialLogin extends AuthController
             'country' => $validated['country'],
             'update_at' => Carbon::now(),
         ]);
+
+        $user->logActivity(
+            'account completed',
+            "Completed User Registration",
+            "User {$user->first_name} {$user->last_name} completed their registration.",
+            [],
+        );
 
         return response()->json([
             'message' => 'Profile updated successfully',

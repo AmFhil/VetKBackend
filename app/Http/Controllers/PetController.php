@@ -84,14 +84,7 @@ class PetController extends Controller
             'pet_created',
             'Pet Created',
             "A new pet '{$pet->pet_name}' (ID: {$pet->pet_id}) was created by {$user->first_name}.",
-            ['pet_id' => $pet->id]
-        );
-
-        $user->sendNotification(
-            'pet',
-            'Pet Created',
-            "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been successfully added to your account.",
-            ['pet_id' => $pet->id]
+            ['pet_id' => $pet->pet_id]
         );
 
 
@@ -133,14 +126,7 @@ class PetController extends Controller
             'pet_updated',
             'Pet Updated',
             "Pet '{$pet->pet_name}' (ID: {$pet->pet_id}) was updated by {$user->first_name}.",
-            ['pet_id' => $pet->id]
-        );
-
-        $user->sendNotification(
-            'pet',
-            'Pet Updated',
-            "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been updated successfully.",
-            ['pet_id' => $pet->id]
+            ['pet_id' => $pet->pet_id]
         );
 
 
@@ -209,6 +195,7 @@ class PetController extends Controller
                 Storage::disk('public')->delete($pet->picture);
             }
             $pet_name = $pet->pet_name;
+            $pet_id = $pet->pet_id;
             $pet->delete();
 
             Cache::forget("user_pets_{$user->id}");
@@ -217,15 +204,8 @@ class PetController extends Controller
             $user->logActivity(
                 'pet_deleted',
                 'Pet Deleted',
-                "Pet '{$pet_name}' (ID: {$pet->pet_id}) was deleted by {$user->first_name}.",
-                ['pet_id' => $pet->id]
-            );
-
-            $user->sendNotification(
-                'pet',
-                'Pet Deleted',
-                "Your pet <strong>{$pet_name}</strong> (ID: {$pet->pet_id}) has been permanently deleted.",
-                ['pet_id' => $pet->id]
+                "Pet '{$pet_name}' (ID: {$pet_id}) was deleted by {$user->first_name}.",
+                ['pet_id' => $pet_id]
             );
 
 
@@ -254,30 +234,23 @@ class PetController extends Controller
                 'pet',
                 'Pet Disabled',
                 "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been disabled by an administrator. Please contact support for more details.",
-                ['pet_id' => $pet->id, 'user_id' => $user->id]
-            );
-
-            $user->logActivity(
-                'pet_disabled',
-                'Pet Disabled',
-                "Your pet '{$pet->pet_name}' (ID: {$pet->pet_id}) was disabled by an admin.",
-                ['pet_id' => $pet->id]
+                ['pet_id' => $pet->pet_id, 'user_id' => $user->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(
                 'Pet Disabled by Administrator',
                 'Dear ' . $user->first_name . ', we regret to inform you that your pet "' . $pet->pet_name . '" (ID: ' . $pet->pet_id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
             ));
-
-            // Admin-facing
-            $this->createAdminActivity(
-                $admin->id,
-                'pet_disabled',
-                'Pet Disabled',
-                "Admin {$admin->name} disabled pet '{$pet->pet_name}' (ID: {$pet->pet_id}) belonging to {$user->first_name}.",
-                ['pet_id' => $pet->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
-            );
         }
+
+        // Admin-facing
+        $this->createAdminActivity(
+            $admin->id,
+            'pet_disabled',
+            'Pet Disabled',
+            "Admin {$admin->name} disabled pet '{$pet->pet_name}' (ID: {$pet->pet_id}) belonging to {$user->first_name}.",
+            ['pet_id' => $pet->pet_id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+        );
 
         Cache::forget("user_pets_{$user->id}");
         Cache::forget("pet_{$id}");

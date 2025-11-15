@@ -125,15 +125,8 @@ class ProductsController extends Controller
             $user->logActivity(
                 'product_created',
                 'Product Created',
-                "A new product '{$product->product_name}' (ID: {$product->product_id}) was created by {$user->first_name}.",
-                ['product_id' => $product->id]
-            );
-
-            $user->sendNotification(
-                'product',
-                'Product Created',
-                "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been successfully added.",
-                ['product_id' => $product->id]
+                "A new product '{$product->product_name}' (ID: {$product->$productId}) was created by {$user->first_name}.",
+                ['product_id' => $product->$productId]
             );
 
 
@@ -214,14 +207,7 @@ class ProductsController extends Controller
                 'product_updated',
                 'Product Updated',
                 "Product '{$product->product_name}' (ID: {$product->product_id}) was updated by {$user->first_name}.",
-                ['product_id' => $product->id]
-            );
-
-            $user->sendNotification(
-                'product',
-                'Product Updated',
-                "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been updated successfully.",
-                ['product_id' => $product->id]
+                ['product_id' => $product->product_id]
             );
 
             return response()->json(['message' => 'Product updated successfully.', 'product' => $product], 200);
@@ -273,14 +259,7 @@ class ProductsController extends Controller
                 'product_deleted',
                 'Product Deleted',
                 "Product '{$name}' (ID: {$product->product_id}) was deleted by {$user->first_name}.",
-                ['product_id' => $id]
-            );
-
-            $user->sendNotification(
-                'product',
-                'Product Deleted',
-                "Your product <strong>{$name}</strong> (ID: {$product->product_id}) has been permanently deleted.",
-                ['product_id' => $id]
+                ['product_id' => $product->product_id]
             );
 
             return response()->json(['message' => 'Product deleted successfully.'], 200);
@@ -503,30 +482,23 @@ class ProductsController extends Controller
                 'product',
                 'Product Disabled',
                 "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been disabled by an administrator. Please contact support for assistance.",
-                ['product_id' => $product->id, 'user_id' => $user->id]
-            );
-
-            $user->logActivity(
-                'product_disabled',
-                'Product Disabled',
-                "Your product '{$product->product_name}' (ID: {$product->product_id}) was disabled by an admin.",
-                ['product_id' => $product->id]
+                ['product_id' => $product->product_id, 'user_id' => $user->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(
                 'Product Disabled by Administrator',
                 'Dear ' . $user->first_name . ', we regret to inform you that your product "' . $product->product_name . '" (ID: ' . $product->product_id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
             ));
-
-            // Admin-facing
-            $this->createAdminActivity(
-                $admin->id,
-                'product_disabled',
-                'Product Disabled',
-                "Admin {$admin->name} disabled product '{$product->product_name}' (ID: {$product->product_id}) belonging to {$user->first_name}.",
-                ['product_id' => $product->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
-            );
         }
+
+        // Admin-facing
+        $this->createAdminActivity(
+            $admin->id,
+            'product_disabled',
+            'Product Disabled',
+            "Admin {$admin->name} disabled product '{$product->product_name}' (ID: {$product->product_id}) belonging to {$user->first_name}.",
+            ['product_id' => $product->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+        );
 
         Cache::forget("product_{$product->id}");
         Cache::forget("products_by_user_{$user->id}");

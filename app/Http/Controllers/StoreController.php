@@ -69,13 +69,6 @@ class StoreController extends Controller
             ['store_id' => $store->id]
         );
 
-        $user->sendNotification(
-            'store_created',
-            'Store Created',
-            "Your store '{$store->store_name}' has been successfully created.",
-            ['store_id' => $store->id]
-        );
-
         // return response
         return response()->json(['message' => 'Store created successfully.', 'store' => $store], 200);
     }
@@ -130,13 +123,6 @@ class StoreController extends Controller
             'store_updated',
             'Store Updated',
             "Updated store '{$store->store_name}'.",
-            ['store_id' => $store->id]
-        );
-
-        $user->sendNotification(
-            'store_updated',
-            'Store Updated',
-            "Your store '{$store->store_name}' details have been updated.",
             ['store_id' => $store->id]
         );
 
@@ -340,13 +326,6 @@ class StoreController extends Controller
             ['store_id' => $storeId]
         );
 
-        $user->sendNotification(
-            'store_deleted',
-            'Store Deleted',
-            "Your store '{$storeName}' and its products have been removed.",
-            ['store_id' => $storeId]
-        );
-
         return response()->json(['message' => 'Store and related products deleted successfully.'], 200);
     }
 
@@ -368,14 +347,7 @@ class StoreController extends Controller
                 'store_disabled',
                 'Store Disabled',
                 "Your store '{$store->store_name}' has been disabled by an administrator.",
-                ['store_id' => $store->id, 'user_id' => $user->id]
-            );
-
-            $user->logActivity(
-                'store_disabled',
-                'Store Disabled',
-                "Your store '{$store->store_name}' was disabled by an administrator.",
-                ['store_id' => $store->id]
+                ['store_id' => $store->id, 'user_name' => $user->first_name . '' . $user->last_name]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(

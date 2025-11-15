@@ -224,7 +224,7 @@ class DirectMessageController extends Controller
         return response()->json($messages, 200);
     }
 
-    // ✅ Received Messages (cached)
+    // Received Messages (cached)
     public function getAllReceivedMessage()
     {
         $user = auth('user')->user();

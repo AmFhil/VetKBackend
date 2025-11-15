@@ -49,12 +49,10 @@ class RateController extends Controller
                 $user->logActivity(
                     action: 'update_rating',
                     title: 'Rating Updated',
-                    detail: "You updated your rating for {$validated['rateable_type']} #{$validated['rateable_id']}.",
+                    detail: "You updated your rating for {$this->prettyType($validated['rateable_type'])}.",
                     meta: [
-                        'rate_id' => $existingRate->id,
                         'rating' => $validated['rating'],
-                        'rateable_type' => $validated['rateable_type'],
-                        'rateable_id' => $validated['rateable_id'],
+                        'rateable_type' => $this->prettyType($validated['rateable_type']),
                     ]
                 );
 
@@ -65,8 +63,8 @@ class RateController extends Controller
                         title: 'Rating Updated',
                         content: "Your {$this->prettyType($validated['rateable_type'])} just got its rating updated.",
                         meta: [
-                            'rate_id' => $existingRate->id,
-                            'rating' => $validated['rating']
+                            'rating' => $validated['rating'],
+                            'rateable_type' => $this->prettyType($validated['rateable_type']),
                         ]
                     );
                 }
@@ -90,12 +88,10 @@ class RateController extends Controller
             $user->logActivity(
                 action: 'create_rating',
                 title: 'New Rating',
-                detail: "You rated {$validated['rateable_type']} #{$validated['rateable_id']} with {$validated['rating']} stars.",
+                detail: "You rated {$this->prettyType($validated['rateable_type'])} with {$validated['rating']} stars.",
                 meta: [
-                    'rate_id' => $rate->id,
                     'rating' => $validated['rating'],
-                    'rateable_type' => $validated['rateable_type'],
-                    'rateable_id' => $validated['rateable_id'],
+                    'rateable_type' => $this->prettyType($validated['rateable_type']),
                 ]
             );
 
@@ -106,8 +102,8 @@ class RateController extends Controller
                     title: 'New Rating',
                     content: "Your {$this->prettyType($validated['rateable_type'])} just received a new {$validated['rating']}-star rating.",
                     meta: [
-                        'rate_id' => $rate->id,
-                        'rating' => $validated['rating']
+                        'rating' => $validated['rating'],
+                        'rateable_type' => $this->prettyType($validated['rateable_type']),
                     ]
                 );
             }
@@ -116,7 +112,6 @@ class RateController extends Controller
                 'message' => 'Entity rated successfully.',
                 'rate' => $rate
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
         }
