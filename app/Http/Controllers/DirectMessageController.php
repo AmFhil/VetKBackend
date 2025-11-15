@@ -83,8 +83,8 @@ class DirectMessageController extends Controller
             return response()->json(['message' => 'unauthorized'], 400);
         }
 
-        $request->validate(['content' => 'required|string']);
-        $message->update(['content' => $request->content]);
+        $request->validate(['contents' => 'required|string']);
+        $message->update(['content' => $request->contents]);
 
         event(new DirectMessageEdited($message));
 
@@ -120,17 +120,16 @@ class DirectMessageController extends Controller
             return response()->json(['message' => 'unauthorized'], 400);
         }
 
-        $message->delete();
-
-
-
         event(new DirectMessageDeleted($message->id, $user->id, $message->receiver_id));
 
-        $user->logActivity(
+
+        $message->delete();
+
+        $user instanceof User && $user->logActivity(
             'delete_message',
             'Message deleted',
-            "You deleted message #{$message->id}",
-            ['message_id' => $message->id]
+            "You deleted message #{$id}",
+            ['message_id' => $id]
         );
 
         $receiver = $message->receiver;
@@ -139,7 +138,7 @@ class DirectMessageController extends Controller
                 'direct_message_delete',
                 'Message deleted',
                 "{$user->first_name} deleted a message in your chat.",
-                ['message_id' => $message->id, 'sender_id' => $user->id]
+                ['message_id' => $id, 'sender_id' => $user->id]
             );
         }
 
@@ -157,7 +156,7 @@ class DirectMessageController extends Controller
         $message->update(['is_flagged' => true]);
 
 
-        $user->logActivity(
+        $user instanceof User && $user->logActivity(
             'flag_message',
             'Message flagged',
             "You flagged message #{$message->id} from {$message->sender_id}",
