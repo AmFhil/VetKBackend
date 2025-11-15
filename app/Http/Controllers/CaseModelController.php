@@ -116,13 +116,6 @@ class CaseModelController extends Controller
 
         Cache::forget("user_cases_{$user->id}");
 
-        $user->sendNotification(
-            'case_created',
-            'New Case Created',
-            "You created a new case titled \"{$case->case_title}\" (Case ID: {$case->case_id}).",
-            ['case_id' => $case->id]
-        );
-
         $user->logActivity(
             'case_created',
             'Case Created',
@@ -216,18 +209,10 @@ class CaseModelController extends Controller
         Cache::forget("user_cases_{$user->id}");
 
         // After saving updates
-        $user = Auth::user();
-        $user->sendNotification(
-            'case_updated',
-            'Case Updated',
-            "Your case titled \"{$case->case_title}\" (ID: {$case->case_id}) has been updated successfully.",
-            ['case_id' => $case->id]
-        );
-
         $user->logActivity(
             'case_updated',
             'Case Updated',
-            "Case \"{$case->case_title}\" (ID: {$case->case_id}) was updated.",
+            "Your case titled \"{$case->case_title}\" (ID: {$case->case_id}) has been updated successfully.",
             ['case_id' => $case->id]
         );
 
@@ -240,8 +225,8 @@ class CaseModelController extends Controller
     {
         $case = CaseModel::findOrFail($id);
 
-        $userId = Auth::id();
-        if ($userId !== $case->user_id) {
+         $user = Auth::user();
+        if ($user->id !== $case->user_id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -253,16 +238,9 @@ class CaseModelController extends Controller
         $case_id = $case->case_id;
         $caseId = $case->id;
         $case->delete();
-        Cache::forget("user_cases_{$userId}");
+        Cache::forget("user_cases_{$user->id}");
         Cache::forget("cases_{$id}");
 
-        $user = Auth::user();
-        $user->sendNotification(
-            'case_deleted',
-            'Case Deleted',
-            "Your case \"{$case_title}\" (ID: {$case_id}) has been deleted.",
-            ['case_id' => $caseId]
-        );
 
         $user->logActivity(
             'case_deleted',
@@ -389,14 +367,7 @@ class CaseModelController extends Controller
                 'case_disabled',
                 'Case Disabled',
                 "Your case titled \"{$case->case_title}\" (ID: {$case->case_id}) has been disabled by an administrator.",
-                ['case_id' => $case->id, 'user_id' => $user->id]
-            );
-
-            $user->logActivity(
-                'case_disabled',
-                'Case Disabled',
-                "Your case \"{$case->case_title}\" (ID: {$case->case_id}) was disabled by an administrator.",
-                ['case_id' => $case->id]
+                ['case_id' => $case->case_id, 'user_id' => $user->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(
@@ -411,7 +382,7 @@ class CaseModelController extends Controller
             'case_disabled',
             'CASE',
             "Admin {$admin->name} disabled {$user->first_name} case (ID: {$case->id}).",
-            ['case_id' => $case->id, 'user_id' => $case->user_id, 'staff_id' => $admin->staff_id]
+            ['case_id' => $case->case_id, 'user_id' => $case->user_id, 'staff_id' => $admin->staff_id]
         );
 
         Cache::forget("user_cases_{$user->id}");

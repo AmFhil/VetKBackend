@@ -82,7 +82,7 @@ class ClinicController extends Controller
         $user->sendNotification(
             'clinic',
             'Clinic Created',
-            "Your clinic <strong>{$clinic->clinic_name}</strong> has been created and is pending license verification.",
+            "Your clinic {$clinic->clinic_name} has been created and is pending license verification.",
             ['clinic_id' => $clinic->id]
         );
 
@@ -96,14 +96,6 @@ class ClinicController extends Controller
                 "Clinic",
                 "Clinic {$clinic->clinic_name} was created by {$user->first_name} {$user->last_name}.",
                 ['clinic_id' => $clinic->id, 'user_id' => $user->id]
-            );
-
-            $this->createAdminActivity(
-                $admin->id,
-                "clinic_review",
-                "New Clinic Created",
-                "Review clinic {$clinic->clinic_name} created by user {$user->first_name}",
-                ['clinic_id' => $clinic->id]
             );
         }
 
@@ -169,13 +161,6 @@ class ClinicController extends Controller
             ['clinic_id' => $clinic->id]
         );
 
-        $user->sendNotification(
-            'clinic',
-            'Clinic Updated',
-            "Your clinic <strong>{$clinic->clinic_name}</strong> (ID: {$clinic->id}) has been updated successfully.",
-            ['clinic_id' => $clinic->id]
-        );
-
 
         return response()->json(['message' => "Clinic {$clinic->clinic_name} updated successfully.", 'clinic' => $clinic], 200);
     }
@@ -211,14 +196,7 @@ class ClinicController extends Controller
             $user->logActivity(
                 'clinic_deleted',
                 'Clinic Deleted',
-                "Clinic '{$clinicName}' (ID: {$clinic->id}) was deleted by {$user->first_name}.",
-                ['clinic_id' => $id]
-            );
-
-            $user->sendNotification(
-                'clinic',
-                'Clinic Deleted',
-                "Your clinic <strong>{$clinicName}</strong> (ID: {$clinic->id}) has been permanently deleted.",
+                "Clinic {$clinicName} was deleted by you, {$user->first_name}.",
                 ['clinic_id' => $id]
             );
 
@@ -305,13 +283,6 @@ class ClinicController extends Controller
                 ['clinic_id' => $clinic->id, 'user_id' => $user->id]
             );
 
-            $user->logActivity(
-                'clinic_verified',
-                'Clinic Verified',
-                "Clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) was verified by Admin {$admin->name}.",
-                ['clinic_id' => $clinic->id]
-            );
-
             $user->notify(new \App\Notifications\AdminActionNotification(
                 'License Number Verified',
                 'Congratulations ' . $user->first_name . ', We are so pleased to inform you that your Clinic License Number has been verified and your clinic is now visible on our platform.'
@@ -350,14 +321,6 @@ class ClinicController extends Controller
                 'Clinic Disabled',
                 "Your clinic <strong>{$clinic->clinic_name}</strong> (ID: {$clinic->id}) has been disabled by an administrator. Please contact support for further details.",
                 ['clinic_id' => $clinic->id, 'user_id' => $user->id]
-            );
-
-            // Log user activity
-            $user->logActivity(
-                'clinic_disabled',
-                'Clinic Disabled',
-                "Your clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) was disabled by an administrator.",
-                ['clinic_id' => $clinic->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(

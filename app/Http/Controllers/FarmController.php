@@ -82,12 +82,6 @@ class FarmController extends Controller
             ['farm_id' => $farm->id]
         );
 
-        $user->sendNotification(
-            'farm',
-            'Farm Created',
-            "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been successfully added.",
-            ['farm_id' => $farm->id]
-        );
 
 
         return response()->json(['message' => "A new farm created", 'farm' => $farm], 201);
@@ -144,13 +138,6 @@ class FarmController extends Controller
             'farm_updated',
             'Farm Updated',
             "Farm '{$farm->farm_name}' (ID: {$farm->farm_id}) was updated by {$user->first_name}.",
-            ['farm_id' => $farm->id]
-        );
-
-        $user->sendNotification(
-            'farm',
-            'Farm Updated',
-            "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been updated successfully.",
             ['farm_id' => $farm->id]
         );
 
@@ -219,6 +206,7 @@ class FarmController extends Controller
             }
 
             $farmName = $farm->farm_name;
+            $farmId = $farm->farm_id;
             $farm->delete();
 
             Cache::forget("user_farms_{$user->id}");
@@ -228,15 +216,8 @@ class FarmController extends Controller
             $user->logActivity(
                 'farm_deleted',
                 'Farm Deleted',
-                "Farm '{$farmName}' (ID: {$farm->farm_id}) was deleted by {$user->first_name}.",
-                ['farm_id' => $id]
-            );
-
-            $user->sendNotification(
-                'farm',
-                'Farm Deleted',
-                "Your farm <strong>{$farmName}</strong> (ID: {$farm->farm_id}) has been permanently deleted.",
-                ['farm_id' => $id]
+                "Farm '{$farmName}' (ID: {$farmId}) was deleted by {$user->first_name}.",
+                ['farm_id' => $farmId]
             );
 
 
@@ -266,31 +247,23 @@ class FarmController extends Controller
                 'farm',
                 'Farm Disabled',
                 "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been disabled by an administrator. Please contact support for further details.",
-                ['farm_id' => $farm->id, 'user_id' => $user->id]
-            );
-
-            // Log user activity
-            $user->logActivity(
-                'farm_disabled',
-                'Farm Disabled',
-                "Your farm '{$farm->farm_name}' (ID: {$farm->farm_id}) was disabled by an administrator.",
-                ['farm_id' => $farm->id]
+                ['farm_id' => $farm->farm_id, 'user_id' => $user->id]
             );
 
             $user->notify(new \App\Notifications\AdminActionNotification(
                 'Farm Disabled by Administrator',
                 'Dear ' . $user->first_name . ', we regret to inform you that your farm "' . $farm->farm_name . '" (ID: ' . $farm->farm_id . ') has been disabled by an administrator. Please contact support if you believe this is an error or wish to appeal.'
             ));
-
-            // Log admin activity
-            $this->createAdminActivity(
-                $admin->id,
-                'farm_disabled',
-                'Farm Disabled',
-                "Admin {$admin->name} disabled farm '{$farm->farm_name}' (ID: {$farm->farm_id}) belonging to {$user->first_name}.",
-                ['farm_id' => $farm->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
-            );
         }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'farm_disabled',
+            'Farm Disabled',
+            "Admin {$admin->name} disabled farm '{$farm->farm_name}' (ID: {$farm->farm_id}) belonging to {$user->first_name}.",
+            ['farm_id' => $farm->farm_id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+        );
 
 
         Cache::forget("user_farms_{$user->id}");

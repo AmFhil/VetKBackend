@@ -47,7 +47,7 @@ class CaseCommentController extends Controller
             ->with(['user', 'replies.user'])
             ->get();
         });
-        
+
         return response()->json(['comments' => $comments], 200);
     }
 
