@@ -20,6 +20,7 @@ class ForumChat extends Model
         'user_id',
         'user_type',
         'slug',
+        'category',
         'title',
         'content',
         'image',

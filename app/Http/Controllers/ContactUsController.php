@@ -10,7 +10,7 @@ class ContactUsController extends Controller
     //
     public function addContactUs(Request $request){
         $request->validate([
-            'email' => 'required|email|unique:newsletter,email,',
+            'email' => 'required|email',
             'content' => 'required|string|max:500'
         ]);
 

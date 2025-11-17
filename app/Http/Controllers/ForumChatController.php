@@ -41,6 +41,7 @@ class ForumChatController extends Controller
 
         // Validate request with dynamic visibility rule
         $validated = $request->validate([
+            'category' => 'required|string|max:50',
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
@@ -61,10 +62,10 @@ class ForumChatController extends Controller
         $forum = ForumChat::create([
             'user_id' => $user->id,
             'user_type' => get_class($user),
+            'category' => $validated['category'],
             'title' => $validated['title'],
             'content' => $validated['content'],
             'image' => $imagePath,
-            'status' => 'archived',
             'visibility' => $validated['visibility'] ?? 'everyone',
         ]);
 
@@ -259,6 +260,7 @@ class ForumChatController extends Controller
         };
 
         $validated = $request->validate([
+            'category' => 'sometimes|string|max:50',
             'title'    => 'sometimes|string|max:255',
             'content'  => 'sometimes|string',
             'image' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
@@ -279,6 +281,7 @@ class ForumChatController extends Controller
         }
 
         $forum->update([
+            'category' => $validated['category'] ?? $forum->category,
             'title'   => $validated['title'] ?? $forum->title,
             'content' => $validated['content'] ?? $forum->content,
             'image'  => $imagePaths,
@@ -493,7 +496,7 @@ class ForumChatController extends Controller
     {
         $user = auth('user')->user() ?: auth('admin')->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
-
+        
         $cacheKey = "user_forum_posts_" . class_basename(get_class($user)) . "_{$user->id}";
 
         $query = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user) {
