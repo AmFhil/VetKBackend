@@ -45,14 +45,14 @@ class BlogChatLikeController extends Controller
                     $user->id,
                     'blog_unlike',
                     "UnLiked Blog Chat",
-                    "You unLiked the blog chat titled '{$blog->title}'.",
+                    "You unLiked the blog chat titled {$blog->title}.",
                     ['blog_id' => $blog->id, 'action' => 'unlike']
                 );
             } elseif ($user instanceof User) {
                 $user->logActivity(
                     'blog_unlike',
                     "UnLiked Blog Chat",
-                    "You unLiked the blog chat titled '{$blog->title}'.",
+                    "You unLiked the blog chat titled {$blog->title}.",
                     ['blog_id' => $blog->id, 'action' => 'unlike']
                 );
             }
@@ -80,14 +80,14 @@ class BlogChatLikeController extends Controller
                     $user->id,
                     'blog_like',
                     "Liked Blog Chat",
-                    "You liked the blog chat titled '{$blog->title}'.",
+                    "You liked the blog chat titled {$blog->title}.",
                     ['blog_id' => $blog->id, 'action' => 'like']
                 );
             } elseif ($user instanceof User) {
                 $user->logActivity(
                     'blog_like',
                     "Liked Blog Chat",
-                    "You liked the blog chat titled '{$blog->title}'.",
+                    "You liked the blog chat titled {$blog->title}.",
                     ['blog_id' => $blog->id, 'action' => 'like']
                 );
             }
@@ -101,7 +101,7 @@ class BlogChatLikeController extends Controller
                         $blogUser->id,
                         'blog_liked_by_other',
                         'Your Blog Chat was Liked',
-                        "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled <strong>{$blog->title}</strong>.",
+                        "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled {$blog->title}.",
                         ['blog_id' => $blog->id, 'liker_id' => $user->id]
                     );
                 }
@@ -109,7 +109,7 @@ class BlogChatLikeController extends Controller
                     $blog->user->sendNotification(
                         'blog_liked_by_other',
                         'Your Blog Chat was Liked',
-                        "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled <strong>{$blog->title}</strong>.",
+                        "<strong>{$user->first_name} {$user->last_name}</strong> liked your blog chat titled {$blog->title}.",
                         ['blog_id' => $blog->id, 'liker_id' => $user->id]
                     );
                 }

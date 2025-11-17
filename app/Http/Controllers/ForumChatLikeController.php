@@ -47,14 +47,14 @@ class ForumChatLikeController extends Controller
                     $authUser->id,
                     'forum_unlike',
                     'Forum Unliked',
-                    "You removed your like from the forum '{$forum->title}'.",
+                    "You removed your like from the forum {$forum->title}.",
                     ['forum_id' => $forum->id, 'action' => 'unlike']
                 );
             } elseif ($authUser instanceof User) {
                 $authUser->logActivity(
                     'forum_unlike',
                     'Forum Unliked',
-                    "You removed your like from the forum '{$forum->title}'.",
+                    "You removed your like from the forum {$forum->title}.",
                     ['forum_id' => $forum->id, 'action' => 'unlike']
                 );
             }
@@ -103,7 +103,7 @@ class ForumChatLikeController extends Controller
                 $forumOwner->sendNotification(
                     'forum_liked',
                     'Your Forum Was Liked',
-                    "{$authUser->first_name} {$authUser->last_name} liked your forum <strong>{$forum->title}</strong>.",
+                    "{$authUser->first_name} {$authUser->last_name} liked your forum {$forum->title}.",
                     ['forum_id' => $forum->id, 'from_user' => $authUser->id]
                 );
             }else if($forumOwner instanceof Admin){
@@ -111,7 +111,7 @@ class ForumChatLikeController extends Controller
                     $forumOwner->id,
                     'forum_liked',
                     'Your Forum Was Liked',
-                    "{$authUser->first_name} {$authUser->last_name} liked your forum <strong>{$forum->title}</strong>.",
+                    "{$authUser->first_name} {$authUser->last_name} liked your forum {$forum->title}.",
                     ['forum_id' => $forum->id, 'from_user' => $authUser->id]
                 );
             }
