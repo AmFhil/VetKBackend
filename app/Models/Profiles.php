@@ -10,6 +10,7 @@ class Profiles extends Model
     protected $table = 'profile';
 
     protected $fillable = [
+        'user_id',
         'bio',
         'profile_image',
         'cover_page_image'

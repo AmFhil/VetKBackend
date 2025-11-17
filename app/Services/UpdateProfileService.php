@@ -74,8 +74,8 @@ class UpdateProfileService
             }
 
             // Handles notifications/logging in listener
-            $user->logActivity('update', 'Profile Updated', 'User updated their profile')->queue();
-            $user->sendNotification('profile', 'Profile Updated', 'Your profile was successfully updated.')->queue();
+            $user->logActivity('update', 'Profile Updated', 'User updated their profile');
+            $user->sendNotification('profile', 'Profile Updated', 'Your profile was successfully updated.');
         });
     }
 
@@ -108,7 +108,9 @@ class UpdateProfileService
     private function handleImages($user, $profile, array $data): void
     {
         if ($file = Arr::get($data, 'profile_image')) {
+            if($profile->profile_image !== null){
             Storage::disk('public')->delete($profile->profile_image);
+            }
             $profile->update(['profile_image' => $file->store('profiles', 'public')]);
             $user->logActivity(
                 action: 'update_profile_image',
@@ -118,14 +120,16 @@ class UpdateProfileService
             );
         }
         if ($file = Arr::get($data, 'cover_page_image')) {
+            if($profile->cover_page_image !== null){
             Storage::disk('public')->delete($profile->cover_page_image);
-            $profile->update(['cover_page_image' => $file->store('profiles', 'public')]);
+            }
+            $profile->update(['cover_page_image' => $file->store('profiles/coverPage', 'public')]);
             $user->logActivity(
                 action: 'update_cover_image',
                 title: 'Cover Image Updated',
                 detail: "User {$user->first_name} {$user->last_name} updated their cover page image",
                 meta: ['cover_page_image' => $profile->cover_page_image]
-            )->queue();
+            );
         }
     }
 
@@ -150,6 +154,6 @@ class UpdateProfileService
             'role_changed',
             'Role has been changed',
             "Your Role has been changed to {$user->activeRole?->name}"
-        )->queue();
+        );
     }
 }
