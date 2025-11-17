@@ -43,6 +43,8 @@ class User extends Authenticatable
         'password_algorithm',
         'old_id',
         'old_table',
+        'deleted_at',
+        'updated_at'
     ];
 
     protected function casts(): array
@@ -368,5 +370,10 @@ class User extends Authenticatable
     public function merchantPayouts()
     {
         return $this->hasMany(MerchantPayout::class, 'merchant_id');
+    }
+
+    public function customerSupport()
+    {
+        return $this->hasMany(CustomerSupport::class, 'user_id');
     }
 }

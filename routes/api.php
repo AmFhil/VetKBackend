@@ -20,6 +20,7 @@ use App\Http\Controllers\CaseModelController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\ContactUsController;
+use App\Http\Controllers\CustomerSupportController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\DiseasePredictorController;
 use App\Http\Controllers\FarmController;
@@ -225,6 +226,7 @@ Route::prefix('v3')->group(function () {
 
 
         Route::prefix('forums')->group(function () {
+            Route::get('/get-user-forum', [ForumChatController::class, 'getUserPosts']);
             Route::get('/index', [ForumChatController::class, 'index']);          // List published forums
             Route::get('/trending', [ForumChatController::class, 'trending']); // Trending forums
             Route::get('/{slug}', [ForumChatController::class, 'show']);     // Show single forum
@@ -243,7 +245,7 @@ Route::prefix('v3')->group(function () {
                 Route::put('/{id}/flag', [ForumChatCommentController::class, 'flag']);   // User flag
             });
             Route::post('/{id}/like', [ForumChatLikeController::class, 'toggleLike']);   // Like/Unlike
-            Route::get('/get-user-forum', [ForumChatController::class, 'getUserPosts']);
+
         });
 
         Route::prefix('appointment')->group(function () {
@@ -272,6 +274,7 @@ Route::prefix('v3')->group(function () {
 
         Route::post('/merchant/paystack/connect', [PaystackSubaccountController::class, 'connect'])->name('paystack.connect');
 
+        Route::post('/drop-complain', [CustomerSupportController::class, 'DropAComplain']);
     });
 
     // User must have an active subscription
