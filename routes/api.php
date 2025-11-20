@@ -146,7 +146,7 @@ Route::prefix('v3')->group(function () {
         Route::match(['post', 'patch'], '/update-product/{id}/product', [ProductsController::class, 'updateProduct']);
         Route::delete('/delete-product/{id}/product', [ProductsController::class, 'deleteProduct']);
         Route::get('/get-products-by-user-id/{id}/product', [ProductsController::class, 'getProductByUserId']);
-        Route::get('/get-product-not-on-store', [ProductsController::class, 'getProductNotOnStore']);
+        Route::get('/get-all-product', [ProductsController::class, 'getAllProduct']);
         Route::get('/get-product-by-store/{id}/product', [ProductsController::class, 'getProductsByStore']);
         Route::get('/get-product-by-store-for-customer/{id}/product', [ProductsController::class, 'getProductsByStoreForCustomers']);
         Route::get('/get-related-product/{id}/related', [ProductsController::class, 'getRelatedProducts']);
@@ -203,6 +203,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-my-promotions', [AdsPromotionController::class, 'myPromotions']);
         Route::post('/ads-promotion/initialize', [PaystackAdsPromotionController::class, 'initialize']);
         Route::get('/ads-promotion/receipts', [AdsPromotionReceiptController::class, 'index']);
+        Route::get('/get-all-ads-product', [AdsPromotionController::class, 'getAllAdsProducts']);
 
 
         Route::get('/get-profile', [ProfileController::class, 'getMyProfile']);
@@ -255,7 +256,7 @@ Route::prefix('v3')->group(function () {
             Route::get('/{id}/complete', [AppointmentController::class, 'completeAppointment']);
         });
 
-        // Route::post('/orders', [OrderController::class, 'createOrder']);
+        Route::post('/orders', [OrderController::class, 'createOrder']);
         Route::get('/orders/buyer', [OrderController::class, 'getBuyerOrders']);
         Route::get('/orders/merchant', [OrderController::class, 'getMerchantOrders']);
         Route::get('/orders/{id}', [OrderController::class, 'getOrderDetails'])->name('order.show');

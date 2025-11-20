@@ -27,12 +27,16 @@ class OrderController extends Controller
             'merchant_user_id' => 'required|exists:users_registration,id',
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
-            'payment_method' => 'required|string|in:paypal,paystack,transfer',
+            //'payment_method' => 'required|string|in:paypal,paystack,transfer',
         ]);
 
         try {
             return DB::transaction(function () use ($request, $user) {
                 $product = Products::findOrFail($request->product_id);
+
+                if ($product->product_type === 1) {
+                    return response()->json(['success' => false, 'message' => 'forbidden'], 400);
+                }
 
                 if (!$product->availability || $product->available_unit < $request->quantity) {
                     return response()->json(['message' => 'Product not available or insufficient stock.'], 400);
@@ -41,40 +45,40 @@ class OrderController extends Controller
                 $price = $product->price;
                 $totalAmount = $price * $request->quantity;
 
-                $order = Order::create([
-                    'merchant_user_id' => $request->merchant_user_id,
-                    'buyer_user_id' => $user->id,
-                    'product_id' => $product->id,
-                    'tracking_number' => strtoupper(uniqid('TRK')),
-                    'payment_method' => $request->payment_method,
-                    'payment_status' => 'pending',
-                    'status' => 'active',
-                    'total_amount' => $totalAmount,
-                    'price' => $price,
-                    'quantity' => $request->quantity,
-                    'timeline' => [
-                        'created_at' => now()->toDateTimeString(),
-                        'events' => ['Order created'],
-                    ],
-                ]);
+                // $order = Order::create([
+                //     'merchant_user_id' => $request->merchant_user_id,
+                //     'buyer_user_id' => $user->id,
+                //     'product_id' => $product->id,
+                //     'tracking_number' => strtoupper(uniqid('TRK')),
+                //     'payment_method' => $request->payment_method,
+                //     'payment_status' => 'pending',
+                //     'status' => 'active',
+                //     'total_amount' => $totalAmount,
+                //     'price' => $price,
+                //     'quantity' => $request->quantity,
+                //     'timeline' => [
+                //         'created_at' => now()->toDateTimeString(),
+                //         'events' => ['Order created'],
+                //     ],
+                // ]);
 
                 // order item snapshot
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $product->id,
-                    'product_name' => $product->product_name,
-                    'price' => $price,
-                    'quantity' => $request->quantity,
-                    'subtotal' => $totalAmount,
-                    'product_snapshot' => $product->toArray(),
-                ]);
+                // OrderItem::create([
+                //     'order_id' => $order->id,
+                //     'product_id' => $product->id,
+                //     'product_name' => $product->product_name,
+                //     'price' => $price,
+                //     'quantity' => $request->quantity,
+                //     'subtotal' => $totalAmount,
+                //     'product_snapshot' => $product->toArray(),
+                // ]);
 
                 // initialize and verify payment
-                $payment = PaymentService::initialize($order, $request->payment_method);
-                PaymentService::verify($payment);
+                //$payment = PaymentService::initialize($order, $request->payment_method);
+                //PaymentService::verify($payment);
 
                 // confirmation record
-                OrderConfirmation::create(['order_id' => $order->id]);
+                //OrderConfirmation::create(['order_id' => $order->id]);
 
                 // reduce stock
                 $product->decrement('available_unit', $request->quantity);
@@ -82,30 +86,29 @@ class OrderController extends Controller
                 // send message to merchant
                 $message = DirectMessage::create([
                     'sender_id' => $user->id,
-                    'receiver_id' => $order->merchant_user_id,
+                    'receiver_id' => $request->merchant_user_id,
                     'type' => 'order',
                     'content' => "{$user->first_name} {$user->last_name} just made an order for {$product->product_name}",
                     'meta' => [
-                        'order_id' => $order->id,
+                        // 'order_id' => $order->id,
                         'product_images' => $product->images,
-                        'view_url'       => route('order.show', $product->id),
-                        'cancel_url'     => route('order.cancel', $product->id),
+                        // 'view_url'       => route('order.show', $product->id),
+                        // 'cancel_url'     => route('order.cancel', $product->id),
                     ]
                 ]);
 
                 event(new DirectMessageSent($message));
 
-                $user->logActivity('order_created', 'You placed an order', "Order #{$order->tracking_number} for {$product->product_name}");
-                $order->merchant->sendNotification(
+                $user->logActivity("order_created, You placed an order for {$product->product_name}");
+                $request->merchant_user_id->sendNotification(
                     'order_created',
                     'New Order Received',
                     "{$user->first_name} {$user->last_name} just placed an order for {$product->product_name}.",
-                    ['order_id' => $order->id]
+                    []
                 );
 
                 return response()->json([
                     'message' => 'Order created successfully.',
-                    'order' => $order->load('items', 'confirmation'),
                 ], 201);
             });
         } catch (\Throwable $th) {
