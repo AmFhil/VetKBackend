@@ -362,7 +362,7 @@ class ProductsController extends Controller
     }
 
     // get product by product type
-    public function getProductNotOnStore()
+    public function getAllProduct()
     {
         try {
             $user = auth()->user();
@@ -371,8 +371,7 @@ class ProductsController extends Controller
             }
 
             $products = Cache::remember("product_not_on_store", now()->addMinutes(15), function () {
-                $products = Products::where('product_type', 0)
-                    ->with('ratings:id,rating,comment,rateable_id', 'tags')
+                $products = Products::with('ratings:id,rating,comment,rateable_id', 'tags')
                     ->where('availability', true)
                     ->where('disabled', false)
                     ->where('available_unit', '>', 0)

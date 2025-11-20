@@ -22,6 +22,11 @@ class PaystackOrderController extends Controller
         $user = Auth::user();
         $product = Products::findOrFail($request->product_id);
 
+        // allowed payment for only vendors
+        if($product->product_type === 0){
+            return response()->json(['success' => false, 'message' => 'Product is not registered to use this platform for payment'], 400);
+        }
+
         if (!$product->availability || $product->available_unit < $request->quantity) {
             return response()->json(['success' => false, 'message' => 'Product not available or insufficient stock'], 400);
         }
