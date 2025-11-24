@@ -74,7 +74,7 @@ class ProductsController extends Controller
                 'tags'   => 'required|array',
                 'tags.*' => 'string|max:50',
                 'images' => 'required|array',
-                'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+                'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
                 'availability' => 'required|boolean',
                 'available_unit' => 'required|integer|min:0',
             ]);
@@ -125,8 +125,8 @@ class ProductsController extends Controller
             $user->logActivity(
                 'product_created',
                 'Product Created',
-                "A new product '{$product->product_name}' (ID: {$product->$productId}) was created by {$user->first_name}.",
-                ['product_id' => $product->$productId]
+                "A new product '{$product->product_name}' (ID: {$product->product_id}) was created by {$user->first_name}.",
+                ['product_id' => $product->product_id]
             );
 
 
@@ -153,7 +153,7 @@ class ProductsController extends Controller
                 'tags'   => 'sometimes|nullable|array',
                 'tags.*' => 'string|max:50',
                 'images' => 'sometimes|array',
-                'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+                'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
                 'availability' => 'sometimes|boolean',
                 'available_unit' => 'sometimes|integer|min:0',
             ]);

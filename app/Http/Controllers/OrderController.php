@@ -9,6 +9,7 @@ use App\Models\OrderComplaint;
 use App\Models\OrderConfirmation;
 use App\Models\OrderItem;
 use App\Models\Products;
+use App\Models\User;
 use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -32,7 +33,8 @@ class OrderController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $user) {
-                $product = Products::findOrFail($request->product_id);
+                $product = Products::with('user:id,first_name,last_name')->findOrFail($request->product_id);
+                $merchant = User::findOrFail($request->merchant_user_id);
 
                 if ($product->product_type === 1) {
                     return response()->json(['success' => false, 'message' => 'forbidden'], 400);
@@ -99,8 +101,8 @@ class OrderController extends Controller
 
                 event(new DirectMessageSent($message));
 
-                $user->logActivity("order_created, You placed an order for {$product->product_name}");
-                $request->merchant_user_id->sendNotification(
+                $user->logActivity("order_created", "You placed an order for {$product->product_name}", "{$product->user->first_name} {$product->user->last_name} has receive the order and will get in touch with you.", ["product_id" => $product->product_id]);
+                $merchant->sendNotification(
                     'order_created',
                     'New Order Received',
                     "{$user->first_name} {$user->last_name} just placed an order for {$product->product_name}.",

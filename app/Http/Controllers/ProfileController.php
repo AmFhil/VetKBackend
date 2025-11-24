@@ -9,7 +9,7 @@ class ProfileController extends Controller
     //
     public function getMyProfile(Request $request)
     {
-        $user = auth()->user();
+        $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -17,7 +17,7 @@ class ProfileController extends Controller
         $roleRelation = $user->activeRoleModel();
 
         if (!$roleRelation) {
-            return response()->json(['message' => 'No active role found'], 404);
+            return response()->json(['message' => 'No active role found'], 401);
         }
 
         $profile = $roleRelation

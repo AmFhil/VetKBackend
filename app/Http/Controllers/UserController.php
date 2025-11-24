@@ -567,7 +567,7 @@ class UserController extends Controller
         $user = Auth::user();
 
         $userActivity = UserActivity::where('user_id', $user->id)
-            ->orderBy('created_at', 'asc');
+            ->orderBy('created_at', 'desc');
             // ->paginate(10);
 
             // get count of total activity
@@ -609,7 +609,7 @@ class UserController extends Controller
 
         $unreadCount = $user->notifications->where('is_read', false)->count();
         // live broadcast event for real time
-        
+
         event(new NotificationRead($user->id, $unreadCount));
 
         return response()->json(['message' => 'Notification marked as read', "notification" => $notification, "unreadCount" => $unreadCount], 200);

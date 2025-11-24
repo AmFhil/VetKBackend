@@ -30,7 +30,7 @@ class StoreController extends Controller
             'email' => 'required|email|unique:store,email|max:100',
             'phone_number' => 'required|string',
             'location' => 'required|string|max:255',
-            'picture' => 'required|image|mimes:jpeg,png,jpg,svg|max:2048',
+            'picture' => 'required|image|mimes:jpeg,png,jpg,svg,webp|max:2048',
             'availability' => 'required|boolean',
             'longitude' => 'required|string|max:50',
             'latitude' => 'required|string|max:50',
@@ -50,7 +50,7 @@ class StoreController extends Controller
         // create new store
         $store = Store::create([
             'user_id' => $user->id,
-            'role' => optional($user->activeRole())->name,
+            'role' => $user->activeRole->name,
             'store_name' => $request->store_name,
             'email' => $request->email,
             'phone_number' => $request->phone_number,
@@ -84,7 +84,7 @@ class StoreController extends Controller
             'email'        => 'sometimes|email|unique:store,email,' . $id . '|max:100',
             'phone_number' => 'sometimes|string',
             'location'     => 'sometimes|string|max:255',
-            'picture'      => 'sometimes|image|mimes:jpeg,png,jpg,svg|max:2048',
+            'picture'      => 'sometimes|image|mimes:jpeg,png,jpg,svg,webp|max:2048',
             'availability' => 'sometimes|boolean',
             'longitude'    => 'sometimes|string|max:50',
             'latitude'     => 'sometimes|string|max:50',
