@@ -21,6 +21,10 @@ class LivestockFarmerController extends Controller
             return response()->json(['message' => 'You already have a livestock farmer role.'], 400);
         }
 
+        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('livestock_farmer')){
+            return response()->json(['message' => 'forbidden'], 401);
+        }
+
         if ($user->activeRole->name !== 'livestock_farmer' && $user->hasRole('livestock_farmer')) {
             $activeRole = Role::where('name', 'livestock_farmer')->first();
             if (!$activeRole) {

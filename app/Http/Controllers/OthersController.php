@@ -21,6 +21,10 @@ class OthersController extends Controller
             return response()->json(['message' => 'You already have a others role.'], 400);
         }
 
+        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('others')){
+            return response()->json(['message' => 'forbidden'], 401);
+        }
+
         if ($user->activeRole->name !== 'others' && $user->hasRole('others')) {
             $activeRole = Role::where('name', 'others')->first();
             if (!$activeRole) {

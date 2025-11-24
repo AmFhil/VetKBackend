@@ -23,6 +23,10 @@ class PetOwnerController extends Controller
             return response()->json(['message' => 'You already have a pet owner role.'], 400);
         }
 
+        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('pet_owner')){
+            return response()->json(['message' => 'forbidden'], 401);
+        }
+
         if ($user->activeRole->name !== 'pet_owner' && $user->hasRole('pet_owner')) {
             $activeRole = Role::where('name', 'pet_owner')->first();
             if (!$activeRole) {
