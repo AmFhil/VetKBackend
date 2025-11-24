@@ -10,6 +10,8 @@ use App\Models\DirectMessage;
 use Illuminate\Support\Facades\DB;
 use App\Events\DirectMessageSent;
 use App\Models\Payment;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class OrderService
 {
@@ -20,9 +22,10 @@ class OrderService
             $product = Products::findOrFail($metadata['product_id']);
             $quantity = $metadata['quantity'];
             $totalAmount = $paymentData['amount'] / 100;
-            $buyer_user = auth('user')->user() ?? $metadata['buyer_user_id'];
+            $buyer_user = $metadata['buyer_user_id'];
+            $buyerUser = User::findOrFail($buyer_user);
             $merchant_user = $metadata['merchant_user_id'];
-            $transaction_id = $paymentData['transaction_id'];
+            $transaction_id = $paymentData['transaction_id'] ?? $paymentData['id'];
             $reference = $paymentData['reference'];
 
             // idempotency check
@@ -83,22 +86,22 @@ class OrderService
                 'sender_id' => $metadata['buyer_user_id'],
                 'receiver_id' => $metadata['merchant_user_id'],
                 'type' => 'order',
-                'content' => "{$buyer_user->first_name} {$buyer_user->last_name} just made an order for {$product->product_name}",
+                'content' => "{$buyerUser->first_name} {$buyerUser->last_name} just made an order for {$product->product_name}",
                 'meta' => [
                     'order_id' => $order->id,
                     'product_images' => $product->images,
-                    'view_url'       => route('order.show', $product->id),
-                    'cancel_url'     => route('order.cancel', $product->id),
+                    'view_url'       => route('order.show', $order->id),
+                    'cancel_url'     => route('order.cancel', $order->id),
                 ]
             ]);
 
             event(new DirectMessageSent($message));
 
-            $buyer_user->logActivity('order_created', 'You placed an order', "Order #{$order->tracking_number} for {$product->product_name}");
+            $buyerUser->logActivity('order_created', 'You placed an order', "Order #{$order->tracking_number} for {$product->product_name}");
             $order->merchant->sendNotification(
                 'order_created',
                 'New Order Received',
-                "{$buyer_user->first_name} {$buyer_user->last_name} just placed an order for {$product->product_name}.",
+                "{$buyerUser->first_name} {$buyerUser->last_name} just placed an order for {$product->product_name}.",
                 ['order_id' => $order->id]
             );
 

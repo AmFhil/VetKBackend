@@ -94,6 +94,9 @@ class OrderController extends Controller
                     'meta' => [
                         // 'order_id' => $order->id,
                         'product_images' => $product->images,
+                        'quantity' => $request->quantity,
+                        'price' => $price,
+                        'total_amount' => $totalAmount,
                         // 'view_url'       => route('order.show', $product->id),
                         // 'cancel_url'     => route('order.cancel', $product->id),
                     ]

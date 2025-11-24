@@ -88,6 +88,13 @@ Route::prefix('v3')->group(function () {
         Route::post('/contact-us', [ContactUsController::class, 'addContactUs']);
     });
 
+    Route::middleware(['throttle:api'])->group(function () {
+        Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])->name('webhook.paystack');
+        Route::any('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
+        Route::any('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
+        Route::any('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
+        Route::get('/merchant/paystack/callback', [PaystackSubaccountController::class, 'callback'])->name('paystack.callback');
+    });
 
 
 
@@ -407,24 +414,13 @@ Route::prefix('v3')->group(function () {
     /**
      * 🔹 Social login routes
      */
-    Route::prefix('google')->group(function () {
+    Route::middleware('throttle:auth')->prefix('google')->group(function () {
         Route::get('/loginUsingGoogle', [SocialLogin::class, 'redirectToGoogle']);
         Route::any('/callback', [SocialLogin::class, 'handleGoogleCallback']);
     });
 
-    Route::prefix('linkedin')->group(function () {
+    Route::middleware('throttle:auth')->prefix('linkedin')->group(function () {
         Route::get('/loginUsingLinkedin', [SocialLogin::class, 'redirectToLinkedin']);
         Route::any('/callback', [SocialLogin::class, 'handleLinkedinCallback']);
     });
-
-    Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])->name('webhook.paystack');
-    Route::any('/subscriptions/verify', [PaystackSubscriptionController::class, 'verify'])->name('subscription.verify');
-    Route::any('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
-    Route::any('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
-    Route::get('/merchant/paystack/callback', [PaystackSubaccountController::class, 'callback'])->name('paystack.callback');
 });
-
-
-
-
-

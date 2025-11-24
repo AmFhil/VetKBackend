@@ -2,12 +2,22 @@
 
 namespace App\Http\Controllers\Payments;
 
+use App\Events\DirectMessageSent;
 use App\Http\Controllers\Controller;
+use App\Models\DirectMessage;
 use App\Models\MerchantPayout;
+use App\Models\Order;
+use App\Models\OrderConfirmation;
+use App\Models\OrderItem;
+use App\Models\Payment;
+use App\Models\Products;
+use App\Models\User;
 use App\Services\AdsPromotionService;
 use App\Services\OrderService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -65,7 +75,7 @@ class PaystackWebhookController extends Controller
                     } elseif (($metadata['type'] ?? null) === 'ads_promotion') {
                         $this->handleAdsPromotionPayment($data);
                     } elseif (($data['metadata']['type'] ?? null) === 'order') {
-                        $this->orderService->createOrderFromPayment($data);
+                        $this->handleProductPaymentSuccess($data);
                     } else {
                         Log::info('Paystack charge.success ignored — no recognized type', ['metadata' => $metadata]);
                     }
@@ -79,8 +89,8 @@ class PaystackWebhookController extends Controller
                     break;
 
                 /**
-                     * Handle refund or failed charge events later
-                     */
+                 * Handle refund or failed charge events later
+                 */
                 case 'charge.failed':
                     Log::warning('Paystack charge failed', [
                         'reference' => $data['reference'],
@@ -150,7 +160,7 @@ class PaystackWebhookController extends Controller
             return;
         }
 
-        // Normalize amount to USD 
+        // Normalize amount to USD
         $amount = isset($data['amount']) ? $data['amount'] / 100 : 0;
 
         $userId = $metadata['user_id'];
@@ -176,6 +186,126 @@ class PaystackWebhookController extends Controller
             'reference' => $data['reference'],
             'user_id' => $metadata['user_id'],
         ]);
+    }
+
+    /**
+     * Handle product payment success
+     */
+    protected function handleProductPaymentSuccess(array $data): void
+    {
+        $response = Http::withToken(config('services.paystack.secret_key'))
+            ->get("https://api.paystack.co/transaction/verify/{$data['reference']}");
+
+        if (!$response->successful()) {
+            Log::error('Paystack product payment verification failed', [
+                'reference' => $data['reference'],
+                'response' => $response->body()
+            ]);
+            return;
+        }
+
+        DB::transaction(function () use ($data) {
+            $metadata = $data['metadata'];
+            $product = Products::findOrFail($metadata['product_id']);
+            $quantity = $metadata['quantity'];
+            $totalAmount = $data['amount'] / 100;
+            $buyer_user = $metadata['buyer_user_id'];
+            $buyerUser = User::findOrFail($buyer_user);
+            $merchant_user = $metadata['merchant_user_id'];
+            $transaction_id = $data['transaction_id'] ?? $data['id'];
+            $reference = $data['reference'];
+
+            Log::info('OrderService: Creating order from payment', [
+                'transaction_id' => $transaction_id,
+                'reference' => $reference,
+                'buyer_user_id' => $buyer_user,
+                'merchant_user_id' => $merchant_user,
+                'product_id' => $product->id,
+            ]);
+
+            // idempotency check
+            $existingPayment = Payment::where('transaction_id', $transaction_id)->first();
+            if ($existingPayment) {
+                return $existingPayment->order;
+            }
+
+            // Create order
+            $order = Order::create([
+                'merchant_user_id' => $metadata['merchant_user_id'],
+                'buyer_user_id' => $metadata['buyer_user_id'],
+                'product_id' => $product->id,
+                'tracking_number' => strtoupper(uniqid('TRK')),
+                'payment_method' => 'paystack',
+                'payment_status' => 'paid',
+                'status' => 'active',
+                'total_amount' => $totalAmount,
+                'price' => $metadata['price'],
+                'quantity' => $quantity,
+                'timeline' => [
+                    'created_at' => now()->toDateTimeString(),
+                    'events' => ['Order created after payment'],
+                ],
+            ]);
+
+            // Create order item
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'product_name' => $product->product_name,
+                'price' => $metadata['price'],
+                'quantity' => $quantity,
+                'subtotal' => $totalAmount,
+                'product_snapshot' => $product->toArray(),
+            ]);
+
+            // Confirmation record
+            OrderConfirmation::create(['order_id' => $order->id]);
+
+            // Reduce stock
+            $product->decrement('available_unit', $quantity);
+
+            // payment record
+            Payment::create([
+                'order_id' => $order->id,
+                'method' => 'paystack',
+                'amount' => $totalAmount,
+                'status' => 'successful',
+                'transaction_id' => $transaction_id,
+                'reference_number' => $reference,
+                'meta' => $metadata,
+                'gateway_response' => $data
+            ]);
+
+            // Notify merchant
+            $message = DirectMessage::create([
+                'sender_id' => $metadata['buyer_user_id'],
+                'receiver_id' => $metadata['merchant_user_id'],
+                'type' => 'order',
+                'content' => "{$buyerUser->first_name} {$buyerUser->last_name} just made an order for {$product->product_name}",
+                'meta' => [
+                    'order_id' => $order->id,
+                    'product_images' => $product->images,
+                    'view_url'       => route('order.show', $order->id),
+                    'cancel_url'     => route('order.cancel', $order->id),
+                ]
+            ]);
+
+            event(new DirectMessageSent($message));
+
+            $buyerUser->logActivity('order_created', 'You placed an order', "Order #{$order->tracking_number} for {$product->product_name}");
+            $order->merchant->sendNotification(
+                'order_created',
+                'New Order Received',
+                "{$buyerUser->first_name} {$buyerUser->last_name} just placed an order for {$product->product_name}.",
+                ['order_id' => $order->id]
+            );
+
+            Log::info('OrderService: Order created successfully from payment', [
+                'order_id' => $order->id,
+                'transaction_id' => $transaction_id,
+                'reference' => $reference,
+            ]);
+        });
     }
 
     /**
