@@ -31,13 +31,23 @@ class DirectMessage extends Model
         'meta' => 'array'
     ];
 
-    protected $appends = ['image_urls'];
+    protected $appends = ['image_urls', 'product_image_urls'];
 
     // Accessor: return full URLs for images
     public function getImageUrlsAttribute()
     {
         if (!$this->image) return [];
         return array_map(fn($img) => Storage::url($img), $this->image);
+    }
+
+    // get product images urls
+    public function getProductImageUrlsAttribute()
+    {
+        if (!isset($this->meta['product_images']) || !$this->meta['product_images']){
+            return [];
+        }
+
+        return array_map(fn($img) => Storage::url($img), $this->meta['product_images']);
     }
 
     protected static function booted()

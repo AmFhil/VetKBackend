@@ -133,7 +133,7 @@ class OrderController extends Controller
 
         $orders = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user) {
             return Order::where('buyer_user_id', $user->id)
-                ->with('items', 'confirmation', 'complaints')
+                ->with('items', 'confirmation', 'complaints', 'buyer:id,first_name,last_name,active_role_id', 'merchant:id,first_name,last_name,active_role_id')
                 ->latest()
                 ->paginate(10);
         });
@@ -150,7 +150,7 @@ class OrderController extends Controller
 
         $orders = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user) {
             return Order::where('merchant_user_id', $user->id)
-                ->with('items', 'confirmation', 'complaints')
+                ->with('items', 'confirmation', 'complaints', 'buyer:id,first_name,last_name,active_role_id', 'merchant:id,first_name,last_name,active_role_id')
                 ->latest()
                 ->paginate(10);
         });
@@ -257,9 +257,10 @@ class OrderController extends Controller
             ->where('id', $orderId)
             ->where('buyer_user_id', $user->id)
             ->where('status', 'completed')
-            ->first();
+            ->orWhere('status', 'cancelled')
+            ->get();
 
-        if (!$order) {
+        if ($order) {
             return response()->json(['message' => 'Order not found or cannot be cancelled.'], 404);
         }
 
@@ -355,7 +356,7 @@ class OrderController extends Controller
         $cacheKey = "order_details_{$orderId}";
 
         $order = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($user, $orderId) {
-            return Order::with(['items', 'confirmation', 'complaints'])
+            return Order::with('items', 'confirmation', 'complaints', 'buyer:id,first_name,last_name,active_role_id', 'merchant:id,first_name,last_name,active_role_id')
                 ->where(function ($query) use ($user) {
                     $query->where('merchant_user_id', $user->id)
                         ->orWhere('buyer_user_id', $user->id);
