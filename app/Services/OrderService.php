@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Events\DirectMessageSent;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class OrderService
@@ -104,6 +105,12 @@ class OrderService
                 "{$buyerUser->first_name} {$buyerUser->last_name} just placed an order for {$product->product_name}.",
                 ['order_id' => $order->id]
             );
+
+            Cache::forget("product_{$product->id}");
+            Cache::forget("product_not_on_store");
+            Cache::forget("merchant_products_{$merchant_user}");
+            Cache::forget("buyer_orders_{$buyer_user}");
+            Cache::forget("order_details_{$order->id}");
 
             return $order;
         });

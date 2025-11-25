@@ -8,6 +8,7 @@ use App\Services\OrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redirect;
 
 class PaystackOrderController extends Controller
 {
@@ -94,10 +95,12 @@ class PaystackOrderController extends Controller
         // Delegate order creation
         $order = $orderServices->createOrderFromPayment($payment);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Order created successfully after payment',
-            'order' => $order->load('items', 'payment')
-        ], 200);
+        $url = env('TEXT_url');
+        return Redirect::to($url . "/dashboard/orders");
+        // return response()->json([
+        //     'success' => true,
+        //     'message' => 'Order created successfully after payment',
+        //     'order' => $order->load('items', 'payment')
+        // ], 200);
     }
 }
