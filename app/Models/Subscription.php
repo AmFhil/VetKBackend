@@ -29,6 +29,10 @@ class Subscription extends Model
         'customer_support',
     ];
 
+    protected $casts = [
+        'duration' => 'integer',
+    ];
+
     protected static function boot()
     {
         parent::boot();

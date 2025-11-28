@@ -9,6 +9,7 @@ use App\Services\AdsPromotionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redirect;
 
 class PaystackAdsPromotionController extends Controller
 {
@@ -78,7 +79,7 @@ class PaystackAdsPromotionController extends Controller
 
     public function verify(Request $request, AdsPromotionService $service)
     {
-        $references = $request->query('references');
+        $references = $request->query('reference');
 
         if (!$references) {
             return response()->json([
@@ -127,10 +128,12 @@ class PaystackAdsPromotionController extends Controller
 
         $adsPromotion = $service->activatePromotion($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Ad promotion activated successfully',
-            'ads_promotion' => $adsPromotion->load('product', 'receipts')
-        ]);
+        $url = env('TEXT_url');
+        return Redirect::to($url . "/dashboard/ad-promotion");
+        // return response()->json([
+        //     'success' => true,
+        //     'message' => 'Ad promotion activated successfully',
+        //     'ads_promotion' => $adsPromotion->load('product', 'receipts')
+        // ]);
     }
 }

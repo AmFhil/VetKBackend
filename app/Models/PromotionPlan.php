@@ -22,6 +22,10 @@ class PromotionPlan extends Model
         'status',
     ];
 
+    protected $casts = [
+        'duration' => 'integer',
+    ];
+
     public function adsPromotion()
     {
         return $this->hasMany(AdsPromotion::class, 'promotion_plan_id');
@@ -37,5 +41,5 @@ class PromotionPlan extends Model
         return $query->where('status', 'inactive');
     }
 
-    
+
 }
