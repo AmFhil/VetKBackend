@@ -92,13 +92,11 @@ class OrderController extends Controller
                     'type' => 'order',
                     'content' => "{$user->first_name} {$user->last_name} just made an order for {$product->product_name}",
                     'meta' => [
-                        // 'order_id' => $order->id,
                         'product_images' => $product->images,
                         'quantity' => $request->quantity,
                         'price' => $price,
                         'total_amount' => $totalAmount,
-                        // 'view_url'       => route('order.show', $product->id),
-                        // 'cancel_url'     => route('order.cancel', $product->id),
+                        'view_url'       => route('product.show', $product->id),
                     ]
                 ]);
 
@@ -168,14 +166,29 @@ class OrderController extends Controller
 
         $confirmation = $order->confirmation;
 
-        $isMerchant = $user->id === $order->merchant_user_id;
-        $isBuyer = $user->id === $order->buyer_user_id;
+        Log::info([
+            "userId" => $user->id,
+            "OrderMerchantUserId" => $order->merchant_user_id,
+            "OrderBuyerUserId" => $order->buyer_user_id
+        ]);
 
-        if (!$isMerchant || !$isBuyer) {
+        $isMerchant = ((int) $user->id) === ((int) $order->merchant_user_id);
+        $isBuyer = ((int) $user->id) === ((int) $order->buyer_user_id);
+
+        Log::info([
+            "isMerchant" => $isMerchant ,
+            "isBuyer" => $isBuyer,
+        ]);
+
+        if (!($isMerchant || $isBuyer)) {
             return response()->json(['message' => 'You are not authorized for this order.'], 403);
         }
 
         if ($isMerchant) {
+            Log::info([
+                "userId" => $user->id,
+                "OrderMerchantUserId" => $order->merchant_user_id,
+            ]);
             $confirmation->update([
                 'merchant_confirmed' => true,
                 'merchant_confirmed_at' => now(),
@@ -256,12 +269,14 @@ class OrderController extends Controller
         $order = Order::with('payment', 'merchant')
             ->where('id', $orderId)
             ->where('buyer_user_id', $user->id)
-            ->where('status', 'completed')
-            ->orWhere('status', 'cancelled')
-            ->get();
+            ->first();
 
-        if ($order) {
-            return response()->json(['message' => 'Order not found or cannot be cancelled.'], 404);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        if ($order->status === "completed" || $order->status === "cancelled") {
+            return response()->json(['message' => 'Order cannot be cancelled'], 401);
         }
 
         // Check time limit (24 hours)
@@ -286,14 +301,14 @@ class OrderController extends Controller
                 $refundData = $refundResponse->json();
 
                 if (!$refundResponse->successful() || !($refundData['status'] ?? false)) {
-                    return response()->json([
-                        'message' => 'Order cancellation failed. Refund could not be processed.',
-                        'error' => $refundData['message']
-                    ], 400);
                     Log::info([
                         'message' => 'Order cancellation failed. Refund could not be processed.',
                         'paystack_response' => $refundData
                     ]);
+                    return response()->json([
+                        'message' => 'Order cancellation failed. Refund could not be processed.',
+                        'error' => $refundData['message']
+                    ], 400);
                 }
 
                 // Update payment record

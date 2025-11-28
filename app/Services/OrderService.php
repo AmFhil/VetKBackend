@@ -86,7 +86,7 @@ class OrderService
             $message = DirectMessage::create([
                 'sender_id' => $metadata['buyer_user_id'],
                 'receiver_id' => $metadata['merchant_user_id'],
-                'type' => 'order',
+                'type' => 'order.paystack',
                 'content' => "{$buyerUser->first_name} {$buyerUser->last_name} just made an order for {$product->product_name}",
                 'meta' => [
                     'order_id' => $order->id,
