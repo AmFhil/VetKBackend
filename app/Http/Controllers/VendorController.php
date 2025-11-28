@@ -11,60 +11,79 @@ class VendorController extends Controller
 {
     //
     public function addVendor()
-    {
-        $user = auth('user')->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
+{
+    $user = auth('user')->user();
+    if (!$user) {
+        return response()->json(['message' => 'Unauthorized.'], 403);
+    }
 
-        DB::beginTransaction();
+    DB::beginTransaction();
+
+    try {
+
+        // already a vendor AND active
         if ($user->activeRole && $user->activeRole->name === 'vendor') {
-            return response()->json(['message' => 'You already have a vendor role.'], 400);
+            DB::rollBack();
+            return response()->json(['message' => 'You are already using the vendor role.'], 400);
         }
 
-        if ($user->activeRole->name !== 'vendor' && $user->hasRole('vendor')) {
-            $activeRole = Role::where('name', 'vendor')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
-            $user->update([
-                'active_role_id' => $activeRole->id
-            ]);
-            return response()->json(['message' => 'Your active role has been changed to vendor.'], 200);
+        $vendorRole = Role::where('name', 'vendor')->first();
+        if (!$vendorRole) {
+            DB::rollBack();
+            return response()->json(['message' => 'Vendor role not found.'], 404);
         }
 
+        // If user already has vendor role → just switch active role
+        if ($user->hasRole('vendor')) {
 
-        try {
-            $vendor = Vendor::create([
-                'user_id' => $user->id,
-                'role' => 'Vendor',
-            ]);
-
-            $activeRole = Role::where('name', 'vendor')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
-            $user->update(['active_role_id' => $activeRole->id]);
+            $user->update(['active_role_id' => $vendorRole->id]);
 
             DB::commit();
-            $user->logActivity(
-                action: 'create_vendor',
-                title: 'Created Vendor Profile',
-                detail: "User {$user->first_name} {$user->last_name} created a vendor profile",
-                meta: ['vendor_id' => $vendor->id]
-            );
+
+            // refresh so activeRole reflects new value
+            $user->refresh();
 
             return response()->json([
-                'message' => 'Vendor role activated successfully.',
-                'vendor' => $vendor,
-            ], 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+                'message' => 'Your active role has been changed to vendor.',
+                'active_role' => $user->activeRole->name
+            ], 200);
         }
+
+        // If user does NOT have vendor profile → create it
+        $vendor = Vendor::create([
+            'user_id' => $user->id,
+            'role' => 'vendor',
+        ]);
+
+        // attach vendor role
+        $user->roles()->attach($vendorRole->id);
+
+        // update active role
+        $user->update(['active_role_id' => $vendorRole->id]);
+
+        DB::commit();
+
+        $user->refresh();
+
+        $user->logActivity(
+            action: 'create_vendor',
+            title: 'Created Vendor Profile',
+            detail: "User {$user->first_name} {$user->last_name} created a vendor profile",
+            meta: ['vendor_id' => $vendor->id]
+        );
+
+        return response()->json([
+            'message' => 'Vendor role activated successfully.',
+            'vendor' => $vendor,
+            'active_role' => $user->activeRole->name
+        ], 201);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
     }
+}
+
 
     // get veterinary clinic by id
     public function getVendorById($id)

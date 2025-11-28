@@ -25,18 +25,24 @@ class VeterinaryClinicController extends Controller
         DB::beginTransaction();
 
         if ($user->activeRole && $user->activeRole->name === 'veterinary_clinic') {
+            DB::rollBack();
             return response()->json(['message' => 'You already have a veterinary clinic role.'], 400);
         }
 
-        if ($user->activeRole->name !== 'veterinary_clinic' && $user->hasRole('veterinary_clinic')) {
-            $activeRole = Role::where('name', 'veterinary_clinic')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+        $veterinaryClinicRole = Role::where('name', 'veterinary_clinic')->first();
+        if (!$veterinaryClinicRole) {
+            DB::rollBack();
+            return response()->json(['message' => 'Role not found.'], 404);
+        }
+
+        if ($user->hasRole('veterinary_clinic')) {
             $user->update([
-                'active_role_id' => $activeRole->id
+                'active_role_id' => $veterinaryClinicRole->id
             ]);
+
+            DB::commit();
+
+            $user->refresh();
             return response()->json(['message' => 'Your active role has been changed to veterinary clinic.'], 200);
         }
 
@@ -69,16 +75,14 @@ class VeterinaryClinicController extends Controller
                 'created_at' => Carbon::now(),
             ]);
 
-            $activeRole = Role::where('name', 'veterinary_clinic')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
+
+            $user->roles()->attach($veterinaryClinicRole->id);
             $user->update([
-                'active_role_id' => $activeRole->id,
+                'active_role_id' => $veterinaryClinicRole->id,
             ]);
 
             DB::commit();
+            $user->refresh();
             $user->logActivity(
                 action: 'create_veterinary_clinic',
                 title: 'Created Veterinary Clinic Profile',

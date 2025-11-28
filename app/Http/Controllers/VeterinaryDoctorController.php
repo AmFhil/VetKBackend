@@ -25,18 +25,24 @@ class VeterinaryDoctorController extends Controller
 
         DB::beginTransaction();
         if ($user->activeRole && $user->activeRole->name === 'veterinary_doctor') {
+            DB::rollBack();
             return response()->json(['message' => 'You already have a veterinary doctor role.'], 400);
         }
 
-        if ($user->activeRole->name !== 'veterinary_doctor' && $user->hasRole('veterinary_doctor')) {
-            $activeRole = Role::where('name', 'veterinary_doctor')->first();
-            if (!$activeRole) {
+        $veterinaryDoctorRole = Role::where('name', 'veterinary_doctor')->first();
+            if (!$veterinaryDoctorRole) {
+                DB::rollBack();
                 return response()->json(['message' => 'Role not found.'], 404);
             }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+
+        if ($user->hasRole('veterinary_doctor')) {
             $user->update([
-                'active_role_id' => $activeRole->id
+                'active_role_id' => $veterinaryDoctorRole->id
             ]);
+
+            DB::commit();
+
+            $user->refresh();
             return response()->json(['message' => 'Your active role has been changed to veterinary doctor.'], 200);
         }
 
@@ -65,16 +71,14 @@ class VeterinaryDoctorController extends Controller
                 'created_at' => Carbon::now(),
             ]);
 
-            $activeRole = Role::where('name', 'veterinary_doctor')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
+
+            $user->roles()->attach($veterinaryDoctorRole->id);
             $user->update([
-                'active_role_id' => $activeRole->id,
+                'active_role_id' => $veterinaryDoctorRole->id,
             ]);
 
             DB::commit();
+            $user->refresh();
             // log activity via private helper
             $user->logActivity(
                 action: 'create_veterinary_doctor',

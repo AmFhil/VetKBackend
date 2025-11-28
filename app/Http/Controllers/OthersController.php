@@ -17,39 +17,41 @@ class OthersController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        DB::beginTransaction();
         if ($user->activeRole && $user->activeRole->name === 'others') {
+            DB::rollBack();
             return response()->json(['message' => 'You already have a others role.'], 400);
         }
 
-        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('others')){
+        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('others')) {
+            DB::rollBack();
             return response()->json(['message' => 'forbidden'], 401);
         }
 
-        if ($user->activeRole->name !== 'others' && $user->hasRole('others')) {
-            $activeRole = Role::where('name', 'others')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+        $othersRole = Role::where('name', 'others')->first();
+        if (!$othersRole) {
+            DB::rollBack();
+            return response()->json(['message' => 'Role not found.'], 404);
+        }
+
+        if ($user->hasRole('others')) {
             $user->update([
-                'active_role_id' => $activeRole->id
+                'active_role_id' => $othersRole->id
             ]);
+            DB::commit();
+
+            $user->refresh();
             return response()->json(['message' => 'Your active role has been changed to others.'], 200);
         }
 
-        DB::beginTransaction();
         try {
             $other = Others::create([
                 'user_id' => $user->id,
                 'role' => 'Others',
             ]);
 
-            $activeRole = Role::where('name', 'others')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
-            $user->update(['active_role_id' => $activeRole->id]);
+            $user->roles()->attach($othersRole->id);
+            $user->update(['active_role_id' => $othersRole->id]);
 
             $user->logActivity(
                 action: 'create_others',
@@ -58,6 +60,7 @@ class OthersController extends Controller
                 meta: ['others_id' => $other->id]
             );
             DB::commit();
+            $user->refresh();
             return response()->json([
                 'message' => 'Other role activated successfully.',
                 'other' => $other,

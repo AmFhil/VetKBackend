@@ -20,22 +20,28 @@ class PetOwnerController extends Controller
         DB::beginTransaction();
         // check if already a pet owner
         if ($user->activeRole && $user->activeRole->name === 'pet_owner') {
+            DB::rollBack();
             return response()->json(['message' => 'You already have a pet owner role.'], 400);
         }
 
-        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('pet_owner')){
+        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('pet_owner')) {
+            DB::rollBack();
             return response()->json(['message' => 'forbidden'], 401);
         }
 
-        if ($user->activeRole->name !== 'pet_owner' && $user->hasRole('pet_owner')) {
-            $activeRole = Role::where('name', 'pet_owner')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+        $PetOwnerRole = Role::where('name', 'pet_owner')->first();
+        if (!$PetOwnerRole) {
+            DB::rollBack();
+            return response()->json(['message' => 'Role not found.'], 404);
+        }
+
+        if ($user->hasRole('pet_owner')) {
             $user->update([
-                'active_role_id' => $activeRole->id
+                'active_role_id' => $PetOwnerRole->id
             ]);
+            DB::commit();
+
+            $user->refresh();
             return response()->json(['message' => 'Your active role has been changed to pet owner.'], 200);
         }
 
@@ -47,16 +53,13 @@ class PetOwnerController extends Controller
                 'role' => 'Pet Owner',
             ]);
 
-             $activeRole = Role::where('name', 'pet_owner')->first();
-            if(!$activeRole){
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
+            $user->roles()->attach($PetOwnerRole->id);
             $user->update([
-                'active_role_id' => $activeRole->id,
+                'active_role_id' => $PetOwnerRole->id,
             ]);
 
             DB::commit();
+            $user->refresh();
             $user->logActivity(
                 action: 'create_petOwner',
                 title: 'Created Pet Owner Profile',
@@ -68,17 +71,20 @@ class PetOwnerController extends Controller
                 'message' => 'Pet Owner role activated successfully.',
                 'pet_owner' => $petOwner,
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'An error occurred: ' . $e->getMessage()], 500);
         }
     }
 
-       public function getPetOwnerById($id)
+    public function getPetOwnerById($id)
     {
-        $petOwner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,bio,profile_image,cover_page_image', 'user.roles:name',
-        'user.activeRole:name'])
+        $petOwner = Pet_Owner::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,bio,profile_image,cover_page_image',
+            'user.roles:name',
+            'user.activeRole:name'
+        ])
             ->select('id', 'user_id', 'role')
             ->where('id', $id)
             ->first();
@@ -93,7 +99,7 @@ class PetOwnerController extends Controller
     public function PetOwnerProfile()
     {
         $user = auth()->user();
-        if (!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

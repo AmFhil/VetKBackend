@@ -25,18 +25,23 @@ class VeterinaryParaprofessionalController extends Controller
         DB::beginTransaction();
         // check if user already has paraprofessional role and change to vetrinary paraprofessional
         if ($user->activeRole && $user->activeRole->name === 'veterinary_paraprofessional') {
+            DB::rollBack();
             return response()->json(['message' => 'You already have a veterinary paraprofessional profile.'], 400);
         }
 
-        if ($user->activeRole->name !== 'veterinary_paraprofessional' && $user->hasRole('veterinary_paraprofessional')) {
-            $activeRole = $user->roles()->where('name', 'veterinary_paraprofessional')->first();
-            if (!$activeRole) {
+        $veterinaryParaprofessionalRole = $user->roles()->where('name', 'veterinary_paraprofessional')->first();
+            if (!$veterinaryParaprofessionalRole) {
+                DB::rollBack();
                 return response()->json(['message' => 'Role not found.'], 404);
             }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+
+        if ($user->hasRole('veterinary_paraprofessional')) {
             $user->update([
-                'active_role_id' => $activeRole->id
+                'active_role_id' => $veterinaryParaprofessionalRole->id
             ]);
+            DB::commit();
+
+            $user->refresh();
             return response()->json(['message' => 'Your active role has been changed to veterinary paraprofessional.'], 200);
         }
 
@@ -72,16 +77,13 @@ class VeterinaryParaprofessionalController extends Controller
                 'created_at' => Carbon::now(),
             ]);
 
-            $activeRole = Role::where('name', 'veterinary_paraprofessional')->first();
-            if (!$activeRole) {
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
+            $user->roles()->attach($veterinaryParaprofessionalRole->id);
             $user->update([
-                'active_role_id' => $activeRole->id,
+                'active_role_id' => $veterinaryParaprofessionalRole->id,
             ]);
 
             DB::commit();
+            $user->refresh();
             $user->logActivity(
                 action: 'create_veterinary_paraprofessional',
                 title: 'Created Veterinary Paraprofessional Profile',

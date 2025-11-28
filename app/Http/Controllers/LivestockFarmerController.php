@@ -17,27 +17,33 @@ class LivestockFarmerController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        DB::beginTransaction();
         if ($user->activeRole && $user->activeRole->name === 'livestock_farmer') {
+            DB::rollBack();
             return response()->json(['message' => 'You already have a livestock farmer role.'], 400);
         }
 
         if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('livestock_farmer')){
+            DB::rollBack();
             return response()->json(['message' => 'forbidden'], 401);
         }
 
-        if ($user->activeRole->name !== 'livestock_farmer' && $user->hasRole('livestock_farmer')) {
-            $activeRole = Role::where('name', 'livestock_farmer')->first();
-            if (!$activeRole) {
+        $livestockFarmerRole = Role::where('name', 'livestock_farmer')->first();
+            if (!$livestockFarmerRole) {
                 return response()->json(['message' => 'Role not found.'], 404);
             }
-            $user->roles()->syncWithoutDetaching([$activeRole->id]);
+
+        if ($user->hasRole('livestock_farmer')) {
             $user->update([
-                'active_role_id' => $activeRole->id
+                'active_role_id' => $livestockFarmerRole->id
             ]);
+            DB::commit();
+
+            $user->refresh();
             return response()->json(['message' => 'Your active role has been changed to livestock farmer.'], 200);
         }
 
-        DB::beginTransaction();
+
         try {
             $farmer = Livestock_farmer::create([
                 'user_id' => $user->id,
@@ -45,12 +51,8 @@ class LivestockFarmerController extends Controller
             ]);
 
             // update user's active role
-            $activeRole = Role::where('name', 'livestock_farmer')->first();
-            if(!$activeRole){
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
-            $user->roles()->attach($activeRole->id);
-            $user->update(['active_role_id' => $activeRole->id]);
+            $user->roles()->attach($livestockFarmerRole->id);
+            $user->update(['active_role_id' => $livestockFarmerRole->id]);
 
             $user->logActivity(
                 action: 'create_livestock_farmer',
@@ -60,6 +62,7 @@ class LivestockFarmerController extends Controller
             );
 
             DB::commit();
+            $user->refresh();
             return response()->json([
                 'message' => 'Livestock Farmer role activated successfully.',
                 'livestock_farmer' => $farmer,
