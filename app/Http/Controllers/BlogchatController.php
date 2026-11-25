@@ -26,7 +26,7 @@ class BlogChatController extends Controller
 
         $request->validate([
             'title'    => 'required|string|max:50',
-            'content'  => 'required|string|max:1000',
+            'content'  => 'required|string',
             'category' => 'required|string|max:50',
             'section'  => 'required|string|in:hot news,normal post',
             'picture'  => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:5120',

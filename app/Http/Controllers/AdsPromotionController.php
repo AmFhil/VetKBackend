@@ -58,23 +58,23 @@ class AdsPromotionController extends Controller
                 ->get();
         });
 
-
         return response()->json($promotions, 200);
     }
 
     // get all ads product
-    public function getAllAdsProducts(){
+    public function getAllAdsProducts()
+    {
         $user = Auth::user();
 
         if (!$user) return response()->json(['message' => "Unauthorized"], 403);
 
         $product = Cache::remember("ads_product", now()->addMinutes(30), function () {
             $ads = AdsPromotion::with('product', 'product.ratings', 'product.tags')
-            ->latest()
-            ->paginate(10);
+                ->latest()
+                ->paginate(10);
 
-            $ads->getCollection()->transform(function ($a){
-                $a->average_rating = $a->product->averageRating();
+            $ads->getCollection()->transform(function ($a) {
+                $a->average_rating = $a->product->ratings->averageRating();
                 return $a;
             });
 

@@ -34,7 +34,7 @@ class SubscriptionService
             $transactionId = $paymentData['transaction_id'] ?? null;
             $reference = $paymentData['reference_number'] ?? null;
 
-            // Idempotency check — prevent duplicate receipts
+            // Idempotency check prevent duplicate receipts
             $existingReceipt = SubscriptionReceipt::where('transaction_id', $transactionId)
                 ->orWhere('reference_number', $reference)
                 ->first();
@@ -62,9 +62,9 @@ class SubscriptionService
             };
 
             // Expire existing subscriptions
-            UserSubscriptions::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->update(['status' => 'expired']);
+            // UserSubscriptions::where('user_id', $user->id)
+            //     ->where('status', 'active')
+            //     ->update(['status' => 'expired']);
 
             // Create new active subscription
             $userSub = UserSubscriptions::create([

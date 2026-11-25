@@ -113,7 +113,7 @@ class VeterinaryClinicController extends Controller
     // get all veterinary clinics
     public function getAllVeterinaryClinics()
     {
-        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $clinics = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image', 'user.media:id,user_id,file_path'])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
@@ -168,7 +168,7 @@ class VeterinaryClinicController extends Controller
         $veterinaryClinics = VeterinaryClinic::with([
             'user:id,email,first_name,last_name,phone_num,state,country',
             'user.profile:id,user_id,profile_image,bio,cover_page_image',
-            'ratings:id,rateable_id,rating,comment'
+            'ratings:id,rateable_id,rating,comment',
         ])
             ->nearest($latitude, $longitude)
             ->paginate(10);
@@ -187,7 +187,14 @@ class VeterinaryClinicController extends Controller
     {
         $user = auth()->user();
 
-        $clinic = VeterinaryClinic::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image', 'user.media:id,user_id,file_path'])
+        $clinic = VeterinaryClinic::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'ratings:id,user_id,rateable_id,rating,comment',
+            'user.profile:id,user_id,bio,profile_image,cover_page_image',
+            'user.media:id,user_id,file_path',
+            'ratings.user:id,first_name,last_name,active_role_id',
+            'ratings.user.profile:id,user_id,profile_image'
+        ])
             ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability', 'is_approved')
             ->where('id', $id)
             ->first();

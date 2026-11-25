@@ -79,7 +79,7 @@ class DirectMessageController extends Controller
             ->where('sender_id', $user->id)
             ->firstOrFail();
 
-        if ($message->type = 'appointment' || $message->type = 'order') {
+        if ($message->type !== 'text') {
             return response()->json(['message' => 'unauthorized'], 400);
         }
 
@@ -116,7 +116,7 @@ class DirectMessageController extends Controller
             ->where('sender_id', $user->id)
             ->firstOrFail();
 
-        if ($message->type = 'appointment' || $message->type = 'order') {
+        if ($message->type !== 'text') {
             return response()->json(['message' => 'unauthorized'], 400);
         }
 
@@ -204,7 +204,12 @@ class DirectMessageController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        return response()->json($messages);
+        $messages->map(function ($msg) use ($user) {
+            $msg->formatted_time = Carbon::parse($msg->created_at)->diffForHumans(null, true);
+            return $msg;
+        });
+
+        return response()->json($messages, 201);
     }
 
     // Sent Messages (cached)
@@ -267,11 +272,17 @@ class DirectMessageController extends Controller
 
             $partner = $msg->sender_id === $user->id ? $msg->receiver : $msg->sender;
 
+            // skip if partner is authenticated user
+            if ($partner->id === $user->id) continue;
+
             // count unread messages
             $unreadCount = DirectMessage::where('sender_id', $partnerId)
                 ->where('receiver_id', $user->id)
                 ->where('is_read', false)
                 ->count();
+
+            // get total unread count
+            $totalUnreadCount = $conversations->sum($unreadCount);
 
             // format the time
             $formattedTime = Carbon::parse($msg->created_at)->diffForHumans(null, true);
@@ -282,7 +293,7 @@ class DirectMessageController extends Controller
                     'name' => trim("{$partner->first_name} {$partner->last_name}"),
                     'email' => $partner->email,
                     'location' => trim("{$partner->country} {$partner->state}"),
-                    'profile_image' => $partner->profile->profile_picture ?? null,
+                    'profile_image' => $partner->profile->profile_image_url ?? null,
                     'role' => $partner->activeRole?->name
 
                 ],
@@ -290,7 +301,8 @@ class DirectMessageController extends Controller
                 'last_message_images' => $msg->image_urls ?? [],
                 'last_message_time' => $msg->created_at,
                 'last_message_display_time' => $formattedTime,
-                'unread_count' => $unreadCount
+                'unread_count' => $unreadCount,
+                'total_unread_count' => $totalUnreadCount,
             ]);
         }
 

@@ -41,6 +41,11 @@ class AdsPromotion extends Model
         static::deleted(function ($adsPromotion) {
             self::clearCaches($adsPromotion);
         });
+
+        // check and update status to expired if end_date has passed
+        static::retrieved(function ($adsPromotion) {
+            $adsPromotion->checkAndUpdateStatus();
+        });
     }
 
     /** Relationships */
@@ -86,5 +91,12 @@ class AdsPromotion extends Model
     public function isExpired(): bool
     {
         return $this->end_date < Carbon::now() || $this->status === 'expired';
+    }
+
+    // auto update status to expired if end_date has passed
+    public function checkAndUpdateStatus(): void
+    {
+        if ($this->status !== 'cancelled' && $this->end_date < Carbon::now())
+            $this->update(['status' => 'expired']);
     }
 }

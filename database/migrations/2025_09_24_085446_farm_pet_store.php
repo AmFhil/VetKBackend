@@ -11,38 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        
+        if (!Schema::hasColumn('farm', 'user_id')) {
+            Schema::table('farm', function (Blueprint $table) {
+                $table->unsignedBigInteger('user_id')->after('id');
+                $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
+            });
+        }
 
-        Schema::table('farm', function (Blueprint $table) {
-            // Add the new user_id column and foreign key constraint
-            $table->unsignedBigInteger('user_id')->after('id');
-            $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
-        });
+        if (!Schema::hasColumn('pet', 'user_id')) {
+            Schema::table('pet', function (Blueprint $table) {
+                $table->unsignedBigInteger('user_id')->after('id');
+                $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
+            });
+        }
+        if (!Schema::hasColumn('pet', 'location')) {
+            Schema::table('pet', function (Blueprint $table) {
+                $table->string('location')->nullable()->after('picture');
+            });
+        }
 
-        // Update the 'pet' table
-        Schema::table('pet', function (Blueprint $table) {
-            // Drop the old user_id column if it exists
-            $table->dropColumn('user_id');
-        });
-
-        Schema::table('pet', function (Blueprint $table) {
-            // Add the new user_id column, foreign key, and location column
-            $table->unsignedBigInteger('user_id')->after('id');
-            $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
-            $table->string('location')->nullable()->after('picture');
-        });
-
-        // Update the 'store' table
-        Schema::table('store', function (Blueprint $table) {
-            // Drop the old user_id column if it exists
-            $table->dropColumn('user_id');
-        });
-
-        Schema::table('store', function (Blueprint $table) {
-            // Add the new user_id column and foreign key constraint
-            $table->unsignedBigInteger('user_id')->after('id');
-            $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
-        });
+        if (!Schema::hasColumn('store', 'user_id')) {
+            Schema::table('store', function (Blueprint $table) {
+                $table->unsignedBigInteger('user_id')->after('id');
+                $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
+            });
+        }
     }
 
     /**

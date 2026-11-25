@@ -25,7 +25,7 @@ class StoreController extends Controller
 
         // validate the request
         $request->validate([
-            'role' => 'required|string|in:vendor,pet_owner,others,livestock_owner,veterinary_doctor,veterinary_clinic,veterinary_paraprofessional',
+            'role' => 'required|string|in:vendor,pet_owner,others,livestock_farmer,veterinary_doctor,veterinary_clinic,veterinary_paraprofessional',
             'store_name' => 'required|string|unique:store,store_name|max:100',
             'email' => 'required|email|unique:store,email|max:100',
             'phone_number' => 'required|string',
@@ -34,7 +34,7 @@ class StoreController extends Controller
             'availability' => 'required|boolean',
             'longitude' => 'required|string|max:50',
             'latitude' => 'required|string|max:50',
-        ],[
+        ], [
             'role.in' => 'The selected role is invalid. Valid roles are: vendor, pet owner, other, livestock owner, veterinary doctor, veterinary clinic, veterinary paraprofessional.'
         ]);
 
@@ -98,6 +98,8 @@ class StoreController extends Controller
             return response()->json(['message' => 'Forbidden: not your store.'], 403);
         }
 
+        if($store->disabled) return response()->json(['message' => "cannot update a disabled store."], 403);
+
         // Replace picture if uploaded
         if ($request->hasFile('picture')) {
             if ($store->picture) {
@@ -156,7 +158,7 @@ class StoreController extends Controller
 
     public function getAllStores()
     {
-       // check if user is authenticated
+        // check if user is authenticated
         $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -179,7 +181,7 @@ class StoreController extends Controller
 
     public function getMyStore()
     {
-          // check if user is authenticated
+        // check if user is authenticated
         $user = auth('user')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -215,7 +217,11 @@ class StoreController extends Controller
         };
 
         //get store
-        $store = Store::with('ratings:id,rating,comment,rateable_id')
+        $store = Store::with(
+            'ratings:id,rating,comment,rateable_id',
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image,bio,cover_page_image',
+        )
             ->where('user_id', $user_id)
             ->where('disabled', false)
             ->paginate(10);
@@ -245,7 +251,7 @@ class StoreController extends Controller
         };
 
         //get store
-        $store = Store::with('ratings:id,rating,comment,rateable_id')
+        $store = Store::with('ratings:id,user_id,rating,comment,rateable_id', 'ratings.user:id,first_name,last_name,active_role_id', 'ratings.user.profile:id,user_id,profile_image')
             ->where('id', $id)
             ->first();
 
@@ -297,6 +303,8 @@ class StoreController extends Controller
         if ((int) $store->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden: not your store.'], 403);
         }
+
+        if($store->disabled) return response()->json(['message' => "cannot delete a disabled store."], 403);
 
         // Delete store picture
         if ($store->picture) {
@@ -367,5 +375,43 @@ class StoreController extends Controller
         );
 
         return response()->json(['message' => 'Store disabled successfully.'], 200);
+    }
+
+    public function enableStore($id){
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized.'], 403);
+
+        $store = Store::findOrFail($id);
+        $user  = User::find($store->user_id);
+
+        if ($user) {
+            $store->disabled = false;
+            $store->save();
+
+            // Notify user
+            $user->sendNotification(
+                'store_enabled',
+                'Store Enabled',
+                "Your store '{$store->store_name}' has been enabled by an administrator.",
+                ['store_id' => $store->id, 'user_name' => $user->first_name . '' . $user->last_name]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Store Enabled by Administrator',
+                'Dear ' . $user->first_name . ', your store "' . $store->store_name .
+                    '" has been enabled by an administrator. You can now access and manage your store.'
+            ));
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'store_enabled',
+            'STORE',
+            "Admin {$admin->name} enabled {$user->first_name}'s store '{$store->store_name}' (ID: {$store->id}).",
+            ['store_id' => $store->id, 'user_id' => $store->user_id, 'staff_id' => $admin->staff_id]
+        );
+
+        return response()->json(['message' => 'Store enabled successfully.'], 200);
     }
 }

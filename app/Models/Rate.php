@@ -16,15 +16,17 @@ class Rate extends Model
         'user_id',
         'rateable_id',
         'rateable_type',
-        'user_role',
-        'type',
         'rating',
         'comment',
     ];
 
+    protected $hidden = [
+        'rateable_type'
+    ];
+
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id')->with('profile');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
 

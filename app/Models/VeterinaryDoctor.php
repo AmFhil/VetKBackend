@@ -47,6 +47,14 @@ class VeterinaryDoctor extends Model
 
     public function scopeNearest($query, float $latitude, float $longitude)
     {
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            $lat = (float) $latitude;
+            $lon = (float) $longitude;
+            return $query->select('veterinary_doctor.*')
+                ->selectRaw("((CAST(latitude AS FLOAT) - $lat)*(CAST(latitude AS FLOAT) - $lat) + (CAST(longitude AS FLOAT) - $lon)*(CAST(longitude AS FLOAT) - $lon)) as distance")
+                ->orderBy('distance', 'asc');
+        }
+
         $haversine = "(6371 * acos(cos(radians(?)) 
                     * cos(radians(latitude)) 
                     * cos(radians(longitude) - radians(?)) 

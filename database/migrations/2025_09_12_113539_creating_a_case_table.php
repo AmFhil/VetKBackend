@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::drop('cases');
+        Schema::dropIfExists('cases');
         Schema::create('cases', function (Blueprint $table) {
             $table->id();
 

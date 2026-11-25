@@ -95,7 +95,7 @@ class PaystackOrderController extends Controller
         // Delegate order creation
         $order = $orderServices->createOrderFromPayment($payment);
 
-        $url = env('TEXT_url');
+        $url = env('FRONTEND_URL');
         return Redirect::to($url . "/dashboard/orders");
         // return response()->json([
         //     'success' => true,

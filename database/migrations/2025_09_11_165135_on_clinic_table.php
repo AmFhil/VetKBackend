@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('clinic', 'longitude')) {
+            return;
+        }
+
         //
         Schema::table('clinic', function (Blueprint $table) {
             //

@@ -30,10 +30,10 @@ class VeterinaryDoctorController extends Controller
         }
 
         $veterinaryDoctorRole = Role::where('name', 'veterinary_doctor')->first();
-            if (!$veterinaryDoctorRole) {
-                DB::rollBack();
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
+        if (!$veterinaryDoctorRole) {
+            DB::rollBack();
+            return response()->json(['message' => 'Role not found.'], 404);
+        }
 
         if ($user->hasRole('veterinary_doctor')) {
             $user->update([
@@ -110,13 +110,18 @@ class VeterinaryDoctorController extends Controller
     // get all veterinary doctors
     public function getAllVeterinaryDoctors()
     {
-        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $veterinaryDoctors = VeterinaryDoctor::with([
+            'user:id,email,first_name,last_name,phone_num,state,country,active_role_id',
+            'ratings:id,rateable_id,rating,comment',
+            'user.profile:id,user_id,profile_image'
+        ])
+            ->where('is_approved', 1)
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'created_at', 'is_approved')
             ->paginate(10);
 
         // add average rating to each veterinary doctor
         $veterinaryDoctors->getCollection()->transform(function ($doctor) {
-            $doctor->average_rating = $doctor->averageRating();
+            $doctor->average_rating = $doctor->ratings ? round($doctor->ratings->avg('rating') ?? 0, 1) : 0;
             return $doctor;
         });
 
@@ -131,18 +136,24 @@ class VeterinaryDoctorController extends Controller
             return response()->json(['veterinary_doctors' => []], 200);
         }
 
-        $veterinaryDoctors = VeterinaryDoctor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $veterinaryDoctors = VeterinaryDoctor::join('users_registration as u', 'veterinary_doctor.user_id', '=', 'u.id')
+            ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+            ->where('veterinary_doctor.is_approved', 1)
             ->when($query, function ($q) use ($query) {
-                $q->where('specialty', 'like', "%$query%")
-                    ->orWhere('list_them', 'like', "%$query%")
-                    ->orWhere('address', 'like', "%$query%");
+                $q->where('veterinary_doctor.specialty', 'like', "%$query%")
+                    ->orWhere('veterinary_doctor.list_them', 'like', "%$query%")
+                    ->orWhere('veterinary_doctor.address', 'like', "%$query%")
+                    ->orWhere('u.first_name', 'like', "%$query%")
+                    ->orWhere('u.last_name', 'like', "%$query%")
+                    ->orWhere('u.email', 'like', "%$query%");
             })
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved')
+            ->select('veterinary_doctor.id', 'veterinary_doctor.user_id', 'veterinary_doctor.specialty', 'veterinary_doctor.list_them', 'veterinary_doctor.address', 'veterinary_doctor.longitude', 'veterinary_doctor.latitude', 'veterinary_doctor.role', 'veterinary_doctor.availability', 'veterinary_doctor.is_approved')
+            ->distinct()
             ->paginate(10);
 
         // add average rating to each veterinary doctor
         $veterinaryDoctors->getCollection()->transform(function ($doctor) {
-            $doctor->average_rating = $doctor->averageRating();
+            $doctor->average_rating = $doctor->ratings ? round($doctor->ratings->avg('rating') ?? 0, 1) : 0;
             return $doctor;
         });
 
@@ -169,7 +180,7 @@ class VeterinaryDoctorController extends Controller
 
         // attach average rating
         $doctors->transform(function ($doctor) {
-            $doctor->average_rating = $doctor->averageRating();
+            $doctor->average_rating = $doctor->ratings ? round($doctor->ratings->avg('rating') ?? 0, 1) : 0;
             return $doctor;
         });
 
@@ -184,9 +195,11 @@ class VeterinaryDoctorController extends Controller
 
         $veterinaryDoctor = VeterinaryDoctor::with([
             'user:id,email,first_name,last_name,phone_num,state,country',
-            'ratings:id,rateable_id,rating,comment',
+            'ratings:id,user_id,rateable_id,rating,comment',
             'user.profile:id,user_id,bio,profile_image,cover_page_image',
-            'user.media:id,user_id,file_path'
+            'user.media:id,user_id,file_path',
+            'ratings.user:id,first_name,last_name,active_role_id',
+            'ratings.user.profile:id,user_id,profile_image'
         ])
             ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'availability', 'is_approved', 'role', 'view', 'created_at')
             ->where('id', $id)

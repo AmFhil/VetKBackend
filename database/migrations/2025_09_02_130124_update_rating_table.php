@@ -9,6 +9,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('rating')) {
+            Schema::create('rating', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id');
+                $table->unsignedBigInteger('rated_user_id')->nullable();
+                $table->integer('rating')->default(5);
+                $table->string('comment')->nullable();
+                $table->timestamps();
+                $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
+            });
+            return;
+        }
+
         Schema::table('rating', function (Blueprint $table) {
             // truncate exiting data
             DB::table('rating')->truncate();

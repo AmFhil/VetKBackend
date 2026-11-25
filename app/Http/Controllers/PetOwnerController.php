@@ -24,11 +24,6 @@ class PetOwnerController extends Controller
             return response()->json(['message' => 'You already have a pet owner role.'], 400);
         }
 
-        if ($user->activeRole === 'veterinary_doctor' || $user->activeRole === 'vendor' || $user->activeRole === 'veterinary_paraprofessional' && !$user->hasRole('pet_owner')) {
-            DB::rollBack();
-            return response()->json(['message' => 'forbidden'], 401);
-        }
-
         $PetOwnerRole = Role::where('name', 'pet_owner')->first();
         if (!$PetOwnerRole) {
             DB::rollBack();

@@ -8,30 +8,12 @@ use Illuminate\Support\Facades\Log;
 
 class DiseasePredictorController extends Controller
 {
-    //
-    public function diseasePredictor(Request $request)
+    /**
+     * Knowledge base mapping categories to common veterinary conditions and their symptoms.
+     */
+    protected function getDiseaseDatabase(): array
     {
-        $request->validate([
-            'livestock_category' => 'required|string',
-            'symptom' => 'required|array|min:1',
-            'symptom.*' => 'string',
-            'image' => 'nullable|image|max:2048' // max 2MB
-        ]);
-
-        $category = strtolower(trim($request->livestock_category));
-        $symptoms = array_map('strtolower', $request->symptom);
-        Log::info('Disease prediction requested', [
-            'category' => $category,
-            'symptoms' => $symptoms
-        ]);
-
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('disease_images', 'public');
-        }
-
-        // Disease knowledge base (expand anytime)
-        $diseaseDatabase = [
+        return [
             'dog' => [
                 [
                     'name' => 'Parasitic Infections',
@@ -51,7 +33,7 @@ class DiseasePredictorController extends Controller
             ],
             'cat' => [
                 [
-                    'name' => 'Diabetes',
+                    'name' => 'Diabetes Mellitus',
                     'description' => 'A metabolic disorder where the body cannot properly regulate blood sugar levels, leading to increased thirst and urination.',
                     'symptoms' => ['excessive thirst', 'frequent urination', 'weight loss', 'loss of appetite', 'lethargy']
                 ],
@@ -70,18 +52,23 @@ class DiseasePredictorController extends Controller
                 [
                     'name' => 'Coccidiosis',
                     'description' => 'A parasitic infection in the intestines causing bloody droppings, weakness, and loss of appetite.',
-                    'symptoms' => ['diarrhea', 'lethargy', 'ruffled feathers', 'loss of appetite']
+                    'symptoms' => ['diarrhea', 'lethargy', 'ruffled feathers', 'loss of appetite', 'weight loss']
                 ],
                 [
                     'name' => 'Newcastle Disease',
-                    'description' => 'A viral disease that causes sneezing, coughing, green droppings, and nervous symptoms in birds.',
-                    'symptoms' => ['coughing', 'difficulty breathing', 'diarrhea', 'loss of appetite']
+                    'description' => 'A contagious viral disease that causes sneezing, coughing, green droppings, and nervous symptoms in birds.',
+                    'symptoms' => ['coughing', 'difficulty breathing', 'diarrhea', 'loss of appetite', 'abnormal posture']
+                ],
+                [
+                    'name' => 'Fowl Pox',
+                    'description' => 'A viral infection causing wart-like lesions on non-feathered parts of the bird or lesions in the mouth/throat.',
+                    'symptoms' => ['rashes', 'loss of appetite', 'difficulty breathing', 'lethargy']
                 ]
             ],
             'swine' => [
                 [
                     'name' => 'African Swine Fever',
-                    'description' => 'A highly contagious viral disease affecting pigs, leading to high mortality rates with no vaccine available.',
+                    'description' => 'A highly contagious viral disease affecting pigs, leading to high mortality rates.',
                     'symptoms' => ['fever', 'loss of appetite', 'lethargy', 'diarrhea', 'vomiting', 'difficulty breathing']
                 ],
                 [
@@ -91,18 +78,18 @@ class DiseasePredictorController extends Controller
                 ],
                 [
                     'name' => 'Porcine Reproductive and Respiratory Syndrome (PRRS)',
-                    'description' => 'A viral disease affecting reproduction and respiratory systems in pigs, causing abortions and respiratory issues.',
+                    'description' => 'A viral disease affecting reproduction and respiratory systems in pigs.',
                     'symptoms' => ['fever', 'coughing', 'difficulty breathing', 'loss of appetite', 'lethargy']
                 ]
             ],
             'goat' => [
                 [
-                    'name' => 'Parasitic Infections',
+                    'name' => 'Parasitic Gastroenteritis',
                     'description' => 'Worm infestations leading to weight loss, diarrhea, and rough hair coat.',
                     'symptoms' => ['diarrhea', 'weight loss', 'hair loss', 'loss of appetite']
                 ],
                 [
-                    'name' => 'Pneumonia',
+                    'name' => 'Caprine Pneumonia',
                     'description' => 'A bacterial or viral infection causing coughing, nasal discharge, fever, and weakness.',
                     'symptoms' => ['coughing', 'discharge from eyes/nose', 'fever', 'loss of appetite']
                 ]
@@ -110,7 +97,7 @@ class DiseasePredictorController extends Controller
             'cattle' => [
                 [
                     'name' => 'Bovine Respiratory Disease (BRD)',
-                    'description' => 'A complex of respiratory infections caused by viruses and bacteria, common in stressed cattle like those in feedlots.',
+                    'description' => 'A complex of respiratory infections caused by viruses and bacteria, common in stressed cattle.',
                     'symptoms' => ['coughing', 'difficulty breathing', 'fever', 'discharge from eyes/nose', 'loss of appetite', 'lethargy']
                 ],
                 [
@@ -120,23 +107,54 @@ class DiseasePredictorController extends Controller
                 ],
                 [
                     'name' => 'Bovine Viral Diarrhea (BVD)',
-                    'description' => 'A viral infection that can cause respiratory issues, diarrhea, and immunosuppression in cattle.',
+                    'description' => 'A viral infection that causes respiratory issues, diarrhea, and immunosuppression.',
                     'symptoms' => ['diarrhea', 'fever', 'loss of appetite', 'weight loss', 'discharge from eyes/nose']
                 ]
             ]
-            // add grasscutter, etc.
         ];
+    }
 
-        // Validate livestock type
-        if (!isset($diseaseDatabase[$category])) {
+    /**
+     * Predict disease from symptoms and livestock category.
+     */
+    public function diseasePredictor(Request $request)
+    {
+        // Support either 'category'/'symptom' or 'livestock_category'/'diseases'/'symptoms'
+        $categoryInput = $request->input('livestock_category') ?? $request->input('category');
+        $symptomsInput = $request->input('symptoms') ?? $request->input('diseases') ?? $request->input('symptom');
+
+        if (!$categoryInput || empty($symptomsInput)) {
             return response()->json([
-                'message' => 'Invalid or unsupported livestock category provided.'
+                'status' => 'error',
+                'message' => 'Animal species and symptoms are required.'
+            ], 422);
+        }
+
+        if (is_string($symptomsInput)) {
+            $symptomsInput = explode(',', $symptomsInput);
+        }
+
+        $category = strtolower(trim($categoryInput));
+        $symptoms = array_map(fn($s) => strtolower(trim($s)), (array) $symptomsInput);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('disease_images', 'public');
+        }
+
+        $database = $this->getDiseaseDatabase();
+
+        if (!isset($database[$category])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Unsupported animal category: '{$category}'. Available categories: dog, cat, poultry, swine, goat, cattle."
             ], 400);
         }
 
-        $diseases = $diseaseDatabase[$category];
+        $diseases = $database[$category];
         $bestMatch = null;
         $bestScore = 0;
+        $matchedSymptomsList = [];
 
         foreach ($diseases as $disease) {
             $matches = array_intersect($symptoms, $disease['symptoms']);
@@ -145,29 +163,65 @@ class DiseasePredictorController extends Controller
             if ($score > $bestScore) {
                 $bestMatch = $disease;
                 $bestScore = $score;
+                $matchedSymptomsList = $matches;
             }
         }
 
-        if (!$bestMatch) {
-            return response()->json(['message' =>  "No known disease matches the provided symptoms for this animal. Please consult a veterinarian."], 404);
+        if (!$bestMatch || $bestScore === 0) {
+            return response()->json([
+                'status' => 'success',
+                'predicted_disease' => 'Unspecified Condition / General Concern',
+                'description' => 'The provided symptoms do not decisively match a single known condition in our system. We advise scheduling a physical consultation with a verified veterinarian.',
+                'matched_symptoms' => implode(', ', $symptoms),
+                'confidence' => 'Low',
+                'image_url' => $imagePath ? asset('storage/' . $imagePath) : null
+            ], 200);
         }
 
-        // Format readable output
-        $animal = ucfirst($category);
-        $formattedSymptoms = ucfirst(implode(', ', $request->symptoms));
-
-        DiseasePredictor::create([
-            'specie' => $animal,
-            'symptoms' => $request->symptoms,
-            'description' => $bestMatch['description'],
-            'image' => $imagePath
-        ]);
+        // Save prediction record safely
+        try {
+            DiseasePredictor::create([
+                'specie' => ucfirst($category),
+                'symptoms' => implode(', ', $symptoms),
+                'description' => $bestMatch['description'],
+                'image' => $imagePath
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Could not persist disease prediction: ' . $e->getMessage());
+        }
 
         return response()->json([
+            'status' => 'success',
             'predicted_disease' => $bestMatch['name'],
             'description' => $bestMatch['description'],
-            'matched_symptoms' => $formattedSymptoms,
+            'matched_symptoms' => implode(', ', array_map('ucwords', $matchedSymptomsList)),
+            'confidence' => ($bestScore >= 2 ? 'High' : 'Moderate'),
             'image_url' => $imagePath ? asset('storage/' . $imagePath) : null
         ], 200);
+    }
+
+    /**
+     * Retrieve all symptoms or diseases for a category.
+     */
+    public function getLivestockDiseases(Request $request)
+    {
+        $category = strtolower(trim($request->input('livestock') ?? $request->input('category') ?? ''));
+        $database = $this->getDiseaseDatabase();
+
+        if (empty($category) || !isset($database[$category])) {
+            return response()->json([
+                'categories' => array_keys($database)
+            ]);
+        }
+
+        $symptoms = [];
+        foreach ($database[$category] as $condition) {
+            $symptoms = array_merge($symptoms, $condition['symptoms']);
+        }
+
+        return response()->json([
+            'category' => $category,
+            'symptoms' => array_values(array_unique($symptoms))
+        ]);
     }
 }

@@ -23,7 +23,7 @@ class OrderConfirmation extends Model
     {
         static::saved(function ($confirmation) {
             if ($confirmation->merchant_confirmed && $confirmation->buyer_confirmed) {
-                $confirmation->order->update(['status' => 'completed']);
+                $confirmation->order->update(['status' => 'completed', 'tracking_status' => 'Delivery_Confirmed']);
 
                 try {
                     app(MerchantPayoutScheduler::class)->schedule($confirmation->order);

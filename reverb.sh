@@ -1,5 +1,5 @@
 #!/bin/sh
-APP_DIR="/home/vetkonec/vetkonect.text.dev/vetkonect"
+APP_DIR="/home/vetkonec/vetkonect.vetkonect.vetkonect.com/vetkonect"
 LOG_FILE="$APP_DIR/storage/logs/reverb.log"
 PHP_BIN="/usr/local/bin/php"
 

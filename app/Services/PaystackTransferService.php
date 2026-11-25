@@ -19,36 +19,28 @@ class PaystackTransferService
 
     public function transferToMerchant(MerchantPayout $payout): array
     {
-        $subaccountCode = $payout->metadata['paystack_subaccount'] ?? null;
-        if (! $subaccountCode) {
-            throw new \Exception('Missing subaccount code for merchant payout');
+        $recipientCode = $payout->merchant->paystack_recipient_code; // from dedicated account
+
+        if (!$recipientCode) {
+            throw new \Exception('Merchant has not completed Paystack setup');
         }
 
-        $reference = 'mpayout_' . $payout->id . '_' . time();
-
-        $payload = [
-            'source' => 'balance',
-            'amount' => intval($payout->amount * 100), // convert to cents
-            'currency' => $payout->currency ?? 'USD',
-            'recipient' => $subaccountCode, // Paystack subaccount code
-            'reason' => 'Payout for Order #' . $payout->order_id,
-            'reference' => $reference,
-        ];
+        $reference = 'vetkonect_payout_' . $payout->id . '_' . now()->timestamp;
 
         $response = Http::withToken($this->secret)
-            ->post('https://api.paystack.co/transfer', $payload);
-
-        if (!$response->successful()) {
-            Log::error('Paystack transfer failed', [
-                'payout_id' => $payout->id,
-                'response' => $response->json(),
+            ->post('https://api.paystack.co/transfer', [
+                'source' => 'balance',
+                'amount' => intval($payout->amount * 100), // kobo
+                'recipient' => $recipientCode,
+                'reason' => "Payout for Order #{$payout->order_id}, Name: {$payout->merchant->first_name} {$payout->merchant->last_name}",
+                'reference' => $reference,
             ]);
-            throw new \Exception('Failed to initiate Paystack transfer');
+
+        if ($response->failed()) {
+            Log::error('Payout failed', $response->json());
+            throw new \Exception('Transfer failed: ' . ($response->json('message') ?? 'Unknown error'));
         }
 
-        return [
-            'reference' => $reference,
-            'response' => $response->json(),
-        ];
+        return $response->json();
     }
 }

@@ -55,10 +55,11 @@ class User extends Authenticatable
         ];
     }
 
-    protected $appends = ['activeRoleName'];
+    protected $appends = [];
 
     public function getActiveRoleNameAttribute()
     {
+        // Only compute when explicitly needed (not auto-appended to avoid N+1 on vet queries)
         return $this->activeRole?->name;
     }
 

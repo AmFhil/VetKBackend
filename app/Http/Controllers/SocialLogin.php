@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -50,8 +51,9 @@ class SocialLogin extends AuthController
                 // }
 
                 // social user exists, login
-                $token = $this->issueToken($exitingUser);
 
+                // delete old tokens
+                $exitingUser->tokens()->delete();
                 $token = $this->issueToken($exitingUser);
                 $url = env('FRONTEND_URL');
 
@@ -67,13 +69,20 @@ class SocialLogin extends AuthController
                 'password' => null,
             ]);
 
+            $defaultRole = Role::where('name', 'basic_user')->first();
+            if ($defaultRole) {
+                $newUser->roles()->attach($defaultRole->id);
+                $newUser->active_role_id = $defaultRole->id;
+                $newUser->save();
+            }
+
             $newUser->logActivity(
                 action: 'social_signup',
                 title: 'User Registered via Google',
                 detail: "User {$newUser->email} registered using Google social login.",
                 meta: [],
             );
-            
+
             $this->emailVerified($newUser);
 
             $token = $this->issueToken($newUser);
@@ -109,6 +118,7 @@ class SocialLogin extends AuthController
                 // }
 
                 // social user exists, login
+                $exitingUser->tokens()->delete();
                 $token = $this->issueToken($exitingUser);
                 $url = env('FRONTEND_URL');
 
@@ -124,6 +134,13 @@ class SocialLogin extends AuthController
             ]);
 
             $this->emailVerified($newUser);
+
+            $defaultRole = Role::where('name', 'basic_user')->first();
+            if ($defaultRole) {
+                $newUser->roles()->attach($defaultRole->id);
+                $newUser->active_role_id = $defaultRole->id;
+                $newUser->save();
+            }
 
             $token = $this->issueToken($newUser);
             $url = env('FRONTEND_URL');

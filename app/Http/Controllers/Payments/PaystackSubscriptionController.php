@@ -8,6 +8,7 @@ use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redirect;
 
 class PaystackSubscriptionController extends Controller
 {
@@ -35,7 +36,7 @@ class PaystackSubscriptionController extends Controller
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $user->email,
                 'amount' => $amount,
-                'currency' => config('services.paystack.currency', 'USD'),
+                'currency' => config('services.paystack.currency', 'NGN'),
                 'callback_url' => config('services.paystack.callback_subscription_url'),
                 'metadata' => [
                     'type' => 'subscription',
@@ -118,10 +119,12 @@ class PaystackSubscriptionController extends Controller
             ]
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription payment verified and activated',
-            'subscription' => $subscription->load(['subscription', 'receipts']),
-        ]);
+        $url = env('FRONTEND_URL');
+        //return Redirect::to($url . "/dashboard/orders");
+        // return response()->json([
+        //     'success' => true,
+        //     'message' => 'Subscription payment verified and activated',
+        //     'subscription' => $subscription->load(['subscription', 'receipts']),
+        // ]);
     }
 }

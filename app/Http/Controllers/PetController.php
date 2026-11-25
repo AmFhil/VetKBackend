@@ -114,6 +114,10 @@ class PetController extends Controller
             return response()->json(['message' => 'You are not authorized to update this pet.'], 403);
         }
 
+        if($pet->disabled){
+                return response()->json(['message' => "cannot update a disabled pet, contact admin."], 403);
+            }
+
         $pet->picture = $this->handleImageUpload($request, $pet);
         $pet->fill($request->only(['pet_name', 'specie', 'breed', 'sex', 'age', 'location']));
         $pet->updated_at = Carbon::now();
@@ -191,6 +195,10 @@ class PetController extends Controller
                 return response()->json(['message' => 'You are not authorized to delete this pet.'], 403);
             }
 
+            if($pet->disabled){
+                return response()->json(['message' => "cannot delete a disabled pet, contact admin."], 403);
+            }
+
             if ($pet->picture) {
                 Storage::disk('public')->delete($pet->picture);
             }
@@ -256,5 +264,45 @@ class PetController extends Controller
         Cache::forget("pet_{$id}");
 
         return response()->json(['message' => 'Pet disabled'], 200);
+    }
+
+    public function enablePet($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $pet = Pet::findOrFail($id);
+        $user = User::where('user_id', $pet->user_id)->exist();
+
+        if ($user) {
+            $pet->disabled = false;
+            $pet->save();
+            // Notify the user
+            $user->sendNotification(
+                'pet',
+                'Pet Enabled',
+                "Your pet <strong>{$pet->pet_name}</strong> (ID: {$pet->pet_id}) has been enabled by an administrator.",
+                ['pet_id' => $pet->pet_id, 'user_id' => $user->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Pet Enabled by Administrator',
+                'Dear ' . $user->first_name . ', we are pleased to inform you that your pet "' . $pet->pet_name . '" (ID: ' . $pet->pet_id . ') has been enabled by an administrator.'
+            ));
+        }
+
+        // Admin-facing
+        $this->createAdminActivity(
+            $admin->id,
+            'pet_enabled',
+            'Pet Enabled',
+            "Admin {$admin->name} enabled pet '{$pet->pet_name}' (ID: {$pet->pet_id}) belonging to {$user->first_name}.",
+            ['pet_id' => $pet->pet_id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+        );
+
+        Cache::forget("user_pets_{$user->id}");
+        Cache::forget("pet_{$id}");
+
+        return response()->json(['message' => 'Pet enabled'], 200);
     }
 }

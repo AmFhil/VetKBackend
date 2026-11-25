@@ -64,7 +64,7 @@ class UpdateProfileService
         DB::transaction(function () use ($user, $data) {
             $this->handlePassword($user, $data);
             $this->handleEmail($user, $data);
-            $user->update(Arr::only($data, ['first_name', 'last_name', 'phone_num']));
+            $user->update(Arr::only($data, ['first_name', 'last_name', 'phone_num', 'state', 'country']));
 
             $profile = Profiles::updateOrCreate(['user_id' => $user->id], Arr::only($data, ['bio']));
             $this->handleImages($user, $profile, $data);
@@ -72,6 +72,12 @@ class UpdateProfileService
             if ($status = Arr::get($data, 'status')) {
                 $this->handleRole($user, $status, $data);
             }
+
+            if (array_key_exists('availability', $data)){
+                $this->updateAvailability($user, $data['availability']);
+            }
+
+            $this->updateVetDetails($user, $status ?? '', $data);
 
             // Handles notifications/logging in listener
             $user->logActivity('update', 'Profile Updated', 'User updated their profile');
@@ -81,7 +87,7 @@ class UpdateProfileService
 
     private function handlePassword($user, array &$data): void
     {
-        if (!Arr::has($data, ['current_password', 'password']) || $user->provider) {
+        if (!Arr::has($data, ['current_password', 'password'])) {
             return;
         }
 
@@ -154,6 +160,46 @@ class UpdateProfileService
             'role_changed',
             'Role has been changed',
             "Your Role has been changed to {$user->activeRole?->name}"
+        );
+    }
+
+    // update availability status for vet, vet_clinic, vet_paraprofessional
+    private function updateAvailability($user, bool $availability): void
+    {
+        $activeRole = $user->activeRole?->name;
+        if (!$activeRole) Return;
+
+        // use match
+        match($activeRole) {
+            'veterinary_doctor' => VeterinaryDoctor::where('user_id', $user->id)->update(['availability' => $availability]),
+            'veterinary_clinic' => VeterinaryClinic::where('user_id', $user->id)->update(['availability' => $availability]),
+            'veterinary_paraprofessional' => VeterinaryParaprofessional::where('user_id', $user->id)->update(['availability' => $availability]),
+            default => null,
+        };
+
+        $user->logActivity(
+            action: 'update_availability',
+            title: 'Availability Status Updated',
+            detail: "User {$user->first_name} {$user->last_name} updated their availability status to " . ($availability ? 'available' : 'unavailable'),
+            meta: ['availability' => $availability]
+        );
+    }
+
+    // update vet roles details
+    private function updateVetDetails($user, string $status, array $data): void{
+        if (!array_key_exists($status, $this->roleMap)) return;
+
+        $config = $this->roleMap[$status];
+        $model = $config['model']::where('user_id', $user->id)->first();
+        if ($model) {
+            $model->update(Arr::only($data, $config['fields']));
+        }
+
+        $user->logActivity(
+            'update_vet_details',
+            'Veterinary Details Updated',
+            "Your Veterinary Details have been updated.",
+            ['details' => Arr::only($data, $config['fields'])]
         );
     }
 }

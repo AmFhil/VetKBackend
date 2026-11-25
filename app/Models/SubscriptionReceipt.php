@@ -32,6 +32,10 @@ class SubscriptionReceipt extends Model
         'paid_at' => 'datetime',
     ];
 
+    protected $hidden = [
+        'metadata'
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AdminPromotionController extends Controller
 {
@@ -29,9 +30,23 @@ class AdminPromotionController extends Controller
         $cacheKey = "admin_user_promotions_page_{$page}";
 
         $promotions = Cache::remember($cacheKey, now()->addMinutes(5), function () {
-            return AdsPromotion::with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
+            $promo = AdsPromotion::with(['user', 'user.profile', 'promotionPlan', 'product', 'receipts'])
                 ->orderByDesc('created_at')
                 ->paginate(20);
+
+            // auto update status to expired if end_date has passed
+            $promo->getCollection()->transform(function ($item) {
+                $item->checkAndUpdateStatus();
+                return $item;
+            });
+
+            return $promo;
+        });
+
+        // compute data status (active / expired)
+        $promotions->getCollection()->transform(function ($item) {
+            $item->computed_status = ($item->end_date && Carbon::parse($item->end_date)->isFuture()) ? 'active' : 'expired';
+            return $item;
         });
 
         return response()->json([$promotions, 'message' => 'User promotions retrieved successfully'], 200);
@@ -45,7 +60,7 @@ class AdminPromotionController extends Controller
         $admin = auth('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $plan = AdsPromotion::with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
+        $plan = AdsPromotion::with(['user', 'user.profile', 'promotionPlan', 'product' . 'receipts'])
             ->findOrFail($id);
 
         return response()->json([$plan, 'message' => 'User promotion plan retrieved successfully'], 200);
@@ -99,7 +114,7 @@ class AdminPromotionController extends Controller
         $cacheKey = "admin_promotion_approvals_page_{$page}";
 
         $paginator = Cache::remember($cacheKey, now()->addMinutes(5), function () {
-            return AdsPromotion::with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
+            return AdsPromotion::with(['user', 'user.profile', 'promotionPlan', 'product', 'receipts'])
                 ->latest()
                 ->paginate(10);
         });
@@ -126,10 +141,9 @@ class AdminPromotionController extends Controller
 
         $plans = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($title) {
             return AdsPromotion::whereHas('promotionPlan', function ($q) use ($title) {
-                // PromotionPlan uses 'title' (per your schema)
                 $q->where('title', $title);
             })
-                ->with(['user', 'user.profile', 'user.activeRole', 'promotionPlan', 'products'])
+                ->with(['user', 'user.profile', 'promotionPlan', 'product', 'receipts'])
                 ->get();
         });
 
@@ -173,8 +187,10 @@ class AdminPromotionController extends Controller
 
         try {
             $query = AdsPromotion::where('user_id', $userId);
-            if ($role !== null) $query->where('role', $role);
+            if ($role !== null) $query->where('active_role', $role);
 
+            // only activate promotions that are not expired and not already active
+            $query->where('end_date', '>=', now())->where('status', '!=', 'active')->orWhere('status', '!=', 'expired');
             $updated = $query->update(['status' => 'active']);
 
             if ($updated) {
@@ -211,6 +227,9 @@ class AdminPromotionController extends Controller
 
             return response()->json(['code' => 400, 'detail' => 'No ads updated.'], 400);
         } catch (\Throwable $th) {
+            Log::error("Error activating promotion for user_id {$userId}: " . $th->getMessage());
+            Log::info($th->getTraceAsString());
+            Log::info("Full error: ", (array) $th);
             return response()->json(['code' => 500, 'detail' => $th->getMessage()], 500);
         }
     }
@@ -233,8 +252,10 @@ class AdminPromotionController extends Controller
 
         try {
             $query = AdsPromotion::where('user_id', $userId);
-            if ($role !== null) $query->where('role', $role);
+            if ($role !== null) $query->where('active_role', $role);
 
+            // only deactivate promotions that are currently active
+            $query->where('status', 'active');
             $updated = $query->update(['status' => 'cancelled']);
 
             if ($updated) {
@@ -270,6 +291,7 @@ class AdminPromotionController extends Controller
             return response()->json(['code' => 400, 'detail' => 'No ads updated.'], 400);
         } catch (\Throwable $th) {
             return response()->json(['code' => 500, 'detail' => $th->getMessage()], 500);
+            Log::error("Error deactivate promotion for user_id {$userId}: " . $th->getMessage());
         }
     }
 }

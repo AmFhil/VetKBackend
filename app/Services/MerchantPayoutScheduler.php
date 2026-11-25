@@ -42,8 +42,8 @@ class MerchantPayoutScheduler
         // $merchantProfile = $this->PaystackSubaccountService->ensureMerchantSubaccount($merchant);
         $merchantProfile = MerchantProfile::where('user_id', $merchant->id)->first();
 
-        if (! $merchantProfile || ! $merchantProfile->paystack_subaccount_code) {
-            Log::warning("Payout skipped — merchant has no Paystack subaccount", [
+        if (! $merchantProfile || ! $merchantProfile->paystack_recipient_code) {
+            Log::warning("Payout skipped — merchant has no Paystack code", [
                 'merchant_id' => $merchant->id,
                 'order_id' => $order->id,
             ]);
@@ -74,7 +74,7 @@ class MerchantPayoutScheduler
                 'status' => 'pending',
                 'scheduled_for' => Carbon::now()->addWeekdays(3), // after 3 working days
                 'metadata' => [
-                    'paystack_subaccount' => $merchantProfile->paystack_subaccount_code,
+                    'paystack_recipient_code' => $merchantProfile->paystack_recipient_code,
                     'created_by' => 'auto_confirmation',
                 ],
             ]);

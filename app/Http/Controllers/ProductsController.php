@@ -172,6 +172,8 @@ class ProductsController extends Controller
                 return response()->json(['message' => 'You are not authorized to update this product.'], 403);
             }
 
+            if($product->disabled) return response()->json(['message' => "cannot update a disabled product, contact admin."], 403);
+
             // Handle images: delete old ones if replaced, keep if not
             $images = $this->handleImageUpload($request, $product);
 
@@ -238,6 +240,8 @@ class ProductsController extends Controller
                 return response()->json(['message' => 'You are not authorized to delete this product.'], 403);
             }
 
+            if($product->disabled) return response()->json(['message' => "cannot delete a disabled product, contact admin."], 403);
+
             // Delete stored images (all paths from array)
             foreach ($product->images ?? [] as $path) {
                 Storage::disk('public')->delete($path);
@@ -283,6 +287,7 @@ class ProductsController extends Controller
 
             $products = Cache::remember("products_by_store_{$store_id}", now()->addMinutes(15), function () use ($store_id) {
                 $products = Products::where('store_id', $store_id)
+                    ->where('disabled', false)
                     ->with('ratings:id,rating,comment,rateable_id', 'tags')
                     ->paginate(10);
 
@@ -453,7 +458,12 @@ class ProductsController extends Controller
                     });
                 }
 
-                return $query->limit(10)->get();
+                $product = $query->limit(10)->get();
+                // get average rating
+                $product->transform(function ($p) {
+                    $p->average_rating = $p->averageRating();
+                    return $p;
+                });
             });
 
             return response()->json([
@@ -507,6 +517,48 @@ class ProductsController extends Controller
         return response()->json(['message' => 'Product disabled'], 200);
     }
 
+    public function enableProduct($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $product = Products::findOrFail($id);
+        $user = User::find($product->user_id);
+
+        if ($user) {
+            $product->disabled = false;
+            $product->save();
+            // Notify the user
+            $user->sendNotification(
+                'product',
+                'Product Enabled',
+                "Your product <strong>{$product->product_name}</strong> (ID: {$product->product_id}) has been enabled by an administrator.",
+                ['product_id' => $product->product_id, 'user_id' => $user->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Product Enabled by Administrator',
+                'Dear ' . $user->first_name . ', we are pleased to inform you that your product "' . $product->product_name . '" (ID: ' . $product->product_id . ') has been enabled by an administrator.'
+            ));
+        }
+
+        // Admin-facing
+        $this->createAdminActivity(
+            $admin->id,
+            'product_enabled',
+            'Product Enabled',
+            "Admin {$admin->name} enabled product '{$product->product_name}' (ID: {$product->product_id}) belonging to {$user->first_name}.",
+            ['product_id' => $product->id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+        );
+
+        Cache::forget("product_{$product->id}");
+        Cache::forget("products_by_user_{$user->id}");
+        Cache::forget("products_by_store_{$product->store_id}");
+        Cache::forget("related_products_{$product->id}");
+
+        return response()->json(['message' => 'Product enabled'], 200);
+    }
+
     public function getProductById($id)
     {
         try {
@@ -517,7 +569,7 @@ class ProductsController extends Controller
 
             $product = Cache::remember("product_{$id}", now()->addMinutes(15), function () use ($id) {
                 $product = Products::where('id', $id)
-                    ->with('ratings:id,rating,comment,rateable_id', 'tags')
+                    ->with('ratings:id,user_id,rating,comment,rateable_id', 'tags', 'ratings.user:id,first_name,last_name,active_role_id', 'ratings.user.profile:id,user_id,profile_image', 'store')
                     ->first();
 
                 if ($product) {

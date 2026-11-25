@@ -131,6 +131,8 @@ class ClinicController extends Controller
             return response()->json(['message' => 'You are not authorized to update this clinic.'], 403);
         }
 
+        if($clinic->disabled) return response()->json(['message' => "cannot delete a disabled clinic."], 403);
+
         if ($request->hasFile('picture')) {
             if ($clinic->picture) {
                 Storage::disk('public')->delete($clinic->picture);
@@ -177,6 +179,8 @@ class ClinicController extends Controller
             if (!$clinic) {
                 return response()->json(['message' => 'Clinic not found.'], 404);
             }
+
+            if($clinic->disabled) return response()->json(['message' => "cannot delete a disabled clinic."], 403);
 
             if ($clinic->user_id !== $user->id) {
                 return response()->json(['message' => 'You are not authorized to delete this clinic.'], 403);
@@ -255,6 +259,7 @@ class ClinicController extends Controller
         $clinics = Clinic::where('clinic_name', 'like', "%$query%")
             ->orWhereJsonContains('clinic_speciality', $query)
             ->orWhere('location', 'like', "%$query%")
+            ->where('disabled', false)
             ->paginate(10);
 
         return response()->json(['clinics' => $clinics], 200);
@@ -343,5 +348,45 @@ class ClinicController extends Controller
 
 
         return response()->json(['message' => 'Clinic disabled'], 200);
+    }
+
+    public function enableClinic($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $clinic = Clinic::findOrFail($id);
+        $user = User::find($clinic->user_id);
+
+        if ($user) {
+            $clinic->disabled = false;
+            $clinic->save();
+            // Notify the user
+            $user->sendNotification(
+                'clinic',
+                'Clinic Enabled',
+                "Your clinic <strong>{$clinic->clinic_name}</strong> (ID: {$clinic->id}) has been enabled by an administrator and is now visible on the platform.",
+                ['clinic_id' => $clinic->id, 'user_id' => $user->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Clinic Enabled by Administrator',
+                'Dear ' . $user->first_name . ', we are pleased to inform you that your clinic "' . $clinic->clinic_name . '" (ID: ' . $clinic->id . ') has been enabled by an administrator and is now visible on our platform.'
+            ));
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'clinic_enabled',
+            'Clinic Enabled',
+            "Admin {$admin->name} enabled clinic '{$clinic->clinic_name}' (ID: {$clinic->id}) belonging to {$user->first_name}.",
+            ['clinic_id' => $clinic->id, 'user_id' => $clinic->user_id, 'staff_id' => $admin->staff_id]
+        );
+
+        Cache::forget("user_clinics_{$user->id}");
+        Cache::forget("clinic_{$id}");
+
+        return response()->json(['message' => 'Clinic enabled'], 200);
     }
 }

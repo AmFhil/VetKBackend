@@ -11,36 +11,36 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('clinic', function (Blueprint $table) {
-            // Drop the old user_id column if it exists
-            $table->dropColumn('user_id');
-        });
-
-        Schema::table('clinic', function (Blueprint $table) {
-            //
-            $table->unsignedBigInteger('user_id')->after('id');
-            $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
-            $table->boolean('disabled')->default(false)->after('latitude');
-        });
+        if (!Schema::hasColumn('clinic', 'user_id')) {
+            Schema::table('clinic', function (Blueprint $table) {
+                $table->unsignedBigInteger('user_id')->after('id');
+                $table->foreign('user_id')->references('id')->on('users_registration')->onDelete('cascade');
+            });
+        }
+        if (!Schema::hasColumn('clinic', 'disabled')) {
+            Schema::table('clinic', function (Blueprint $table) {
+                $table->boolean('disabled')->default(false);
+            });
+        }
 
         Schema::table('farm', function (Blueprint $table) {
-           $table->boolean('disabled')->default(false)->after('description');
+           $table->boolean('disabled')->default(false);
         });
 
         Schema::table('cases', function (Blueprint $table) {
-           $table->boolean('disabled')->default(false)->after('picture');
+           $table->boolean('disabled')->default(false);
         });
 
         Schema::table('pet', function (Blueprint $table) {
-           $table->boolean('disabled')->default(false)->after('location');
+           $table->boolean('disabled')->default(false);
         });
 
         Schema::table('products', function (Blueprint $table) {
-           $table->boolean('disabled')->default(false)->after('is_verified');
+           $table->boolean('disabled')->default(false);
         });
 
         Schema::table('store', function (Blueprint $table) {
-            $table->boolean('disabled')->default(false)->after('latitude');
+            $table->boolean('disabled')->default(false);
         });
     }
 

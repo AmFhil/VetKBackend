@@ -21,10 +21,10 @@ class ForgotPasswordController extends Controller
 
         // check if the user email exits
         $user = User::where('email', $request->email)->first();
-        if(!$user){
+        if (!$user) {
             return response()->json(['error' => 'Email does not seem to exist on our platform'], 404);
-        }elseif($user->provider !== null){
-            return response()->json(['error' => 'Request Failed. Email is already been used for social login', 404]);
+        } elseif ($user->deleted_at !== null) {
+            return response()->json(['error' => 'Request Failed. Account associated with this email has been deleted'], 404);
         }
 
         // generate reset token
@@ -33,7 +33,7 @@ class ForgotPasswordController extends Controller
         // delete any exiting reset tokens for the user
         DB::table('password_reset_tokens')
             ->where('email', $user->email)
-            ->orWhere('created_at', '<', Carbon::now()->subMinutes(60))
+            ->orWhere('created_at', '<', Carbon::now()->subMinutes(10))
             ->delete();
 
         // store the reset token
@@ -46,14 +46,14 @@ class ForgotPasswordController extends Controller
         );
 
         // generate reset link
-        $resetUrl = env('FRONTEND_URL') . '/reset-password/forgot-password?token=' .$token . '&email=' . urlencode($request->email);
+        $resetUrl = env('FRONTEND_URL') . '/reset-password/forgot-password?token=' . $token . '&email=' . urlencode($request->email);
         // generate for texting
         // $textUrl = env('TEXT_url') . '/reset-password/forgot-password?token=' .$token . '&email=' . urlencode($request->email);
 
         // dispatch the mail job to send the reset link
         try {
             $user->notify(new ResetPasswordLink($resetUrl, $user->name, $user->email));
-        }catch (\Exception $e) {
+        } catch (\Exception $e) {
             //  fallback to notification route
             Notification::route('mail', $user->email)->notifyNow(new ResetPasswordLink($resetUrl, $user->name, $user->email));
         }
@@ -78,19 +78,31 @@ class ForgotPasswordController extends Controller
             ->where('token', $request->token)
             ->first();
 
-        if(!$tokenData){
+        if (!$tokenData) {
             return response()->json(['error' => 'Invalid Token'], 400);
         }
 
         // check if the token is expired
-        if(Carbon::parse($tokenData->created_at)->addMinutes(10)->isPast()) {
+        if (Carbon::parse($tokenData->created_at)->addMinutes(10)->isPast()) {
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
             return response()->json(['error' => 'Token has expired'], 400);
         }
 
+        //dont allow reuse of old password
+        $user = User::where('email', $request->email)->first();
+
+        if (strlen($user->password) === 40 || $user->password_algorithm === 'sha1' || $user->password_algorithm === null) {
+            if (sha1($request->password) === $user->password) {
+                return response()->json(['message' => "New password cannot be the same as the old password"], 400);
+            }
+        } else {
+            if (password_verify($request->password, $user->password)) {
+                return response()->json(['message' => "New password cannot be the same as the old password"], 400);
+            }
+        }
+
         // update the user password
-        User::where('email', $request->email)
-            ->update(['password' => bcrypt($request->password), 'password_algorithm' => 'bcrypt']);
+        $user->update(['password' => bcrypt($request->password), 'password_algorithm' => 'bcrypt']);
 
         // delete the token
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
@@ -98,5 +110,4 @@ class ForgotPasswordController extends Controller
         // return a response
         return response()->json(['message' => 'Password reset successfully'], 200);
     }
-
 }

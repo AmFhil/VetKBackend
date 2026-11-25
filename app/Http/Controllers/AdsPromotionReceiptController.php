@@ -20,7 +20,7 @@ class AdsPromotionReceiptController extends Controller
         $cacheKey = "user_{$user->id}_ads_promotion_receipts";
 
         $receipts = Cache::remember($cacheKey, now()->addMinutes(60), function () use ($user, $perPage) {
-            AdsPromotionReceipt::with(['adsPromotionPlan'])
+            AdsPromotionReceipt::with(['adsPromotion'])
                 ->where('user_id', $user->id)
                 ->orderByDesc('paid_at')
                 ->paginate($perPage);

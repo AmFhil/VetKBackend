@@ -31,11 +31,13 @@ class CaseModelController extends Controller
     {
         $request->validate([
             'case_title' => 'required|string|max:255',
+            'client_name' => 'required|string|max:255',
             'client_phone_number' => 'required|string|max:20',
             'pet_or_farm' => 'required|string',
             'pet_name' => 'nullable|string|max:100',
             'specie' => 'nullable|string|max:100',
             'breed' => 'nullable|string|max:100',
+            'pet_number' => 'nullable|string|max:100',
             'farm_name' => 'nullable|string|max:100',
             'type_of_livestock' => 'nullable|string|max:100',
             'number_of_livestock' => 'nullable|numeric|min:0',
@@ -64,9 +66,9 @@ class CaseModelController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 403);
         }
 
-        $isVeterinaryClinic = $user->activeRole && $user->activeRole->role === 'veterinary_clinic';
-        $isVeterinaryDoctor = $user->activeRole && $user->activeRole->role === 'veterinary_doctor';
-        $isVeterinaryParaprofessional = $user->activeRole && $user->activeRole->role === 'veterinary_paraprofessional';
+        $isVeterinaryClinic = $user->activeRole && $user->activeRole->name === 'veterinary_clinic';
+        $isVeterinaryDoctor = $user->activeRole && $user->activeRole->name === 'veterinary_doctor';
+        $isVeterinaryParaprofessional = $user->activeRole && $user->activeRole->name === 'veterinary_paraprofessional';
 
         if (!($isVeterinaryClinic || $isVeterinaryDoctor || $isVeterinaryParaprofessional)) {
             return response()->json(['message' => 'You are not authorized to create a case'], 403);
@@ -120,7 +122,7 @@ class CaseModelController extends Controller
             'case_created',
             'Case Created',
             "A new case \"{$case->case_title}\" (ID: {$case->case_id}) was created.",
-            ['case_id' => $case->id]
+            ['case_id' => $case->case_id]
         );
 
         return response()->json(['message' => 'Case created successfully', 'case' => $case], 200);
@@ -130,11 +132,13 @@ class CaseModelController extends Controller
     {
         $request->validate([
             'case_title' => 'sometimes|string|max:255',
+            'client_name' => 'sometimes|string|max:255',
             'client_phone_number' => 'sometimes|string|max:20',
             'pet_or_farm' => 'sometimes|string',
             'pet_name' => 'sometimes|string|max:100',
             'specie' => 'sometimes|string|max:100',
             'breed' => 'sometimes|string|max:100',
+            'pet_number' => 'sometimes|string|max:100',
             'farm_name' => 'sometimes|string|max:100',
             'type_of_livestock' => 'sometimes|string|max:100',
             'number_of_livestock' => 'sometimes|numeric|min:0',
@@ -160,11 +164,17 @@ class CaseModelController extends Controller
 
         $case = CaseModel::findOrFail($id);
 
-        $user = Auth::user();
+        $user = auth('user')->user();
 
-        if (!$user || $user->id !== $case->user_id) {
+        if (!$user) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        if((int) $user->id !== (int) $case->user_id){
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($case->disabled) return response()->json(['message' => "cannot update a disabled case, contact admin"], 403);
 
         if ($request->hasFile('picture')) {
             if ($case->picture) {
@@ -225,10 +235,12 @@ class CaseModelController extends Controller
     {
         $case = CaseModel::findOrFail($id);
 
-         $user = Auth::user();
-        if ($user->id !== $case->user_id) {
+        $user = Auth::user();
+        if ((int) $user->id !== (int) $case->user_id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        if ($case->disabled) return response()->json(['message' => "cannot delete a disabled case."], 403);
 
         if ($case->picture) {
             Storage::disk('public')->delete($case->picture);
@@ -265,7 +277,11 @@ class CaseModelController extends Controller
             'to' => 'required|date|after_or_equal:from',
         ]);
 
-        $cases = CaseModel::whereBetween('date_occurred', [$request->from, $request->to])
+        $from = \Carbon\Carbon::parse($request->from)->format('Y-m-d');
+        $to   = \Carbon\Carbon::parse($request->to)->format('Y-m-d');
+
+        $cases = CaseModel::whereDate('date_occurred', '>=', $from)
+            ->whereDate('date_occurred', '<=', $to)
             ->with(['user:id,email,first_name,last_name', 'user.profile:id,user_id,profile_image'])
             ->orderBy('date_occurred', 'asc')
             ->get();
@@ -285,8 +301,13 @@ class CaseModelController extends Controller
             'to'   => 'required|date|after_or_equal:from',
         ]);
 
+        // Normalize date format
+        $from = \Carbon\Carbon::parse($request->from)->format('Y-m-d');
+        $to   = \Carbon\Carbon::parse($request->to)->format('Y-m-d');
+
         $cases = CaseModel::where('user_id', $user->id)
-            ->whereBetween('date_occurred', [$request->from, $request->to])
+            ->whereDate('date_occurred', '>=', $from)
+            ->whereDate('date_occurred', '<=', $to)
             ->with([
                 'user:id,email,first_name,last_name',
                 'user.profile:id,user_id,profile_image'
@@ -300,6 +321,7 @@ class CaseModelController extends Controller
 
         return response()->json(['cases' => $cases], 200);
     }
+
 
 
     public function getUserCase()
@@ -342,7 +364,8 @@ class CaseModelController extends Controller
             return response()->json(['message' => "Unauthorize"], 403);
         }
 
-        $case = Cache::remember("cases_{$id}", now()->addMinutes(10), fn() => CaseModel::with(['user:id,email,first_name,last_name', 'user.profile:id,user_id,profile_image'])->find($id));
+        $case = Cache::remember("cases_{$id}", now()->addMinutes(10), fn() => CaseModel::with(['user:id,email,first_name,last_name', 'user.profile:id,user_id,profile_image'])
+            ->find($id));
 
         if (!$case) {
             return response()->json(['message' => 'Case not found'], 404);
@@ -389,5 +412,45 @@ class CaseModelController extends Controller
         Cache::forget("cases_{$id}");
 
         return response()->json(['message' => 'Case disabled'], 200);
+    }
+
+    public function enableCase($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $case = CaseModel::findOrFail($id);
+        $user = User::find($case->user_id);
+
+        if ($user) {
+            $case->disabled = false;
+            $case->save();
+            // Notify the user
+            $user->sendNotification(
+                'case_enabled',
+                'Case Enabled',
+                "Your case titled \"{$case->case_title}\" (ID: {$case->case_id}) has been enabled by an administrator.",
+                ['case_id' => $case->case_id, 'user_id' => $user->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Case Enabled by Administrator',
+                'Dear ' . $user->first_name . ', we are pleased to inform you that your case "' . $case->case_title . '" (Case ID: ' . $case->case_id . ') has been enabled by an administrator. You can now access and manage your case as usual.'
+            ));
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'case_enabled',
+            'CASE',
+            "Admin {$admin->name} enabled {$user->first_name} case (ID: {$case->id}).",
+            ['case_id' => $case->case_id, 'user_id' => $case->user_id, 'staff_id' => $admin->staff_id]
+        );
+
+        Cache::forget("user_cases_{$user->id}");
+        Cache::forget("cases_{$id}");
+
+        return response()->json(['message' => 'Case enabled'], 200);
     }
 }

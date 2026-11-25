@@ -18,6 +18,7 @@ class PaystackAdsPromotionController extends Controller
         $request->validate([
             'promotion_plan_id' => 'required|exists:promotion_plan,id',
             'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1'
         ]);
 
         $user = Auth::user();
@@ -36,12 +37,15 @@ class PaystackAdsPromotionController extends Controller
         }
 
         $plan = PromotionPlan::active()->findOrFail($request->promotion_plan_id);
+        $quantity = (int) $request->quantity;
 
         $amountUSD = $plan->price;
 
         // add vat
         $vat = ($plan->vat / 100) * $amountUSD;
-        $totalAmount = $amountUSD + $vat;
+        $Amount = $amountUSD + $vat;
+        $totalAmount = $Amount * $quantity;
+
         $amountCents = intval($totalAmount * 100);
 
         $response = Http::withToken(config('services.paystack.secret_key'))
@@ -57,7 +61,8 @@ class PaystackAdsPromotionController extends Controller
                     'promotion_title' => $plan->title,
                     'product_id' => $request->product_id,
                     'price' => $plan->price,
-                    'vat' => $plan->vat
+                    'vat' => $plan->vat,
+                    'quantity' => $quantity
                 ],
             ]);
 
@@ -123,12 +128,13 @@ class PaystackAdsPromotionController extends Controller
             'reference_number' => $payment['reference'], // public ref
             'amount' => $payment['amount'] / 100,
             'currency' => $payment['currency'],
+            'quantity' => $payment['metadata']['quantity'],
             'raw_response' => $payment
         ];
 
         $adsPromotion = $service->activatePromotion($data);
 
-        $url = env('TEXT_url');
+        $url = env('FRONTEND_URL');
         return Redirect::to($url . "/dashboard/ad-promotion");
         // return response()->json([
         //     'success' => true,

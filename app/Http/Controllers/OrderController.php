@@ -90,7 +90,7 @@ class OrderController extends Controller
                     'sender_id' => $user->id,
                     'receiver_id' => $request->merchant_user_id,
                     'type' => 'order',
-                    'content' => "{$user->first_name} {$user->last_name} just made an order for {$product->product_name}",
+                    'content' => "{$user->first_name} {$user->last_name} just made an order for {$product->product_name} from your store {$product->store->store_name}",
                     'meta' => [
                         'product_images' => $product->images,
                         'quantity' => $request->quantity,
@@ -166,29 +166,19 @@ class OrderController extends Controller
 
         $confirmation = $order->confirmation;
 
-        Log::info([
-            "userId" => $user->id,
-            "OrderMerchantUserId" => $order->merchant_user_id,
-            "OrderBuyerUserId" => $order->buyer_user_id
-        ]);
-
         $isMerchant = ((int) $user->id) === ((int) $order->merchant_user_id);
         $isBuyer = ((int) $user->id) === ((int) $order->buyer_user_id);
-
-        Log::info([
-            "isMerchant" => $isMerchant ,
-            "isBuyer" => $isBuyer,
-        ]);
 
         if (!($isMerchant || $isBuyer)) {
             return response()->json(['message' => 'You are not authorized for this order.'], 403);
         }
 
         if ($isMerchant) {
-            Log::info([
-                "userId" => $user->id,
-                "OrderMerchantUserId" => $order->merchant_user_id,
-            ]);
+            // check if tracking status is Delivered
+            if($order->tracking_status !== 'Delivered'){
+                return response()->json(['message' => 'Cannot confirm delivery before marking order as Delivered.'], 400);
+            }
+
             $confirmation->update([
                 'merchant_confirmed' => true,
                 'merchant_confirmed_at' => now(),
@@ -202,6 +192,11 @@ class OrderController extends Controller
                 ['order_id' => $order->id]
             );
         } else {
+            //check if merchant has confirmed first
+            if (!$confirmation->merchant_confirmed) {
+                return response()->json(['message' => 'Merchant has not confirmed delivery yet.'], 400);
+            }
+
             $confirmation->update([
                 'buyer_confirmed' => true,
                 'buyer_confirmed_at' => now(),
@@ -382,5 +377,49 @@ class OrderController extends Controller
         if (!$order) return response()->json(['message' => 'Order not found.'], 404);
 
         return response()->json(['order' => $order], 200);
+    }
+
+    // to track order status
+    public function trackOrder(Request $request, $orderId)
+    {
+        $user = auth('user')->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $request->validate([
+            'tracking_status' => 'required|in:Pending_Confirmation,Processing_Product(s),In_Transit,Delivered',
+        ]);
+
+        $order = Order::where('merchant_user_id', $user->id)
+            ->where('id', $orderId)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        $order->update([
+            'tracking_status' => $request->tracking_status,
+        ]);
+
+
+        // log activity
+        $user->logActivity(
+            'Order_Tracking_Updated',
+            'Order tracking status updated',
+            "You updated the tracking status for order #{$order->tracking_number} to {$request->tracking_status}"
+        );
+
+        // send notification to buyer
+        $order->buyer->sendNotification(
+            'Order_Tracking_Updated',
+            'Order Tracking Update',
+            "The tracking status for your order #{$order->tracking_number} has been updated to {$request->tracking_status}.",
+            ['order_id' => $order->id]
+        );
+
+        return response()->json([
+            'message' => 'Order tracking status updated successfully.',
+            'order' => $order->load('items', 'confirmation', 'complaints', 'buyer:id,first_name,last_name,active_role_id', 'merchant:id,first_name,last_name,active_role_id'),
+        ]);
     }
 }

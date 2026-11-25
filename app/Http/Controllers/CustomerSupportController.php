@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerSupport;
+use App\Notifications\CustomerSupportNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 
 class CustomerSupportController extends Controller
 {
@@ -23,6 +25,11 @@ class CustomerSupportController extends Controller
             'category' => $request->category,
             'complain' => $request->complain
         ]);
+
+        $vetkonectSupportEmail = env('Vetkonect_email');
+        // send notification
+        Notification::route('mail', $vetkonectSupportEmail)
+            ->notify(new CustomerSupportNotification($user->first_name, $user->last_name, $user->email, $request->category, $request->complain));
 
         return response()->json(['message' => 'complain received, will get back to you shortly.'], 200);
     }

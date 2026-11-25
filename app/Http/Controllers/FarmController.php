@@ -111,6 +111,8 @@ class FarmController extends Controller
             return response()->json(['message' => 'You are not authorized to update this farm.'], 403);
         }
 
+        if($farm->disabled) return response()->json(['message' => "cannot update a disabled farm."], 403);
+
         if ($request->hasFile('picture')) {
             if ($farm->picture) {
                 Storage::disk('public')->delete($farm->picture);
@@ -201,6 +203,8 @@ class FarmController extends Controller
                 return response()->json(['message' => 'You are not authorized to delete this farm.'], 403);
             }
 
+            if($farm->disabled) return response()->json(['message' => "cannot delete a disabled farm."], 403);
+
             if ($farm->picture) {
                 Storage::disk('public')->delete($farm->picture);
             }
@@ -271,5 +275,41 @@ class FarmController extends Controller
 
 
         return response()->json(['message' => 'Farm disabled'], 200);
+    }
+
+    public function enableFarm($id)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+        $farm = Farm::findOrFail($id);
+        $user = User::find($farm->user_id);
+
+        if ($user) {
+            $farm->disabled = false;
+            $farm->save();
+
+            // Notify the user
+            $user->sendNotification(
+                'farm',
+                'Farm Enabled',
+                "Your farm <strong>{$farm->farm_name}</strong> (ID: {$farm->farm_id}) has been enabled by an administrator.",
+                ['farm_id' => $farm->farm_id, 'user_id' => $user->id]
+            );
+
+            $user->notify(new \App\Notifications\AdminActionNotification(
+                'Farm Enabled by Administrator',
+                'Dear ' . $user->first_name . ', we are pleased to inform you that your farm "' . $farm->farm_name . '" (ID: ' . $farm->farm_id . ') has been enabled by an administrator. You can now access all features associated with your farm.'
+            ));
+        }
+
+        // Log admin activity
+        $this->createAdminActivity(
+            $admin->id,
+            'farm_enabled',
+            'Farm Enabled',
+            "Admin {$admin->name} enabled farm '{$farm->farm_name}' (ID: {$farm->farm_id}) belonging to {$user->first_name}.",
+            ['farm_id' => $farm->farm_id, 'user_id' => $user->id, 'staff_id' => $admin->staff_id]
+        );
     }
 }

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::drop('user_promotion_plan');
+        Schema::dropIfExists('user_promotion_plan');
         Schema::create('user_promotion_plan', function (Blueprint $table) {
             $table->id();
 

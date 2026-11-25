@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ class userRegistrationSeeder extends Seeder
     public function run(): void
     {
         // Reset auto-increment and clear table before seeding
-        DB::table('users_registration')->truncate();
+        //DB::table('users_registration')->truncate();
 
         // Get all records from animal_owner and filter unique emails (case-insensitive)
         $animalOwners = collect(DB::table('animal_owner')
@@ -43,6 +44,8 @@ class userRegistrationSeeder extends Seeder
                 'old_id' => $user->old_id,
                 'old_table' => $user->old_table,
                 'password_algorithm' => $user->password_algorithm,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
             ]);
         }
     }

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         //
         Schema::create('profile', function (Blueprint $table){
+            $table->id();
             $table->unsignedBigInteger('user_id')->unique()->foreign()->references('id')->on('users_registration')->onDelete('cascade');
             $table->longText('bio')->nullable();
             $table->string('profile_image')->nullable();

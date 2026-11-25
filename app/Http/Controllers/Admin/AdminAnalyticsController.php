@@ -70,6 +70,55 @@ class AdminAnalyticsController extends Controller
         return $this->adminGetUserCount();
     }
 
+    // get total count across all tables base on country search
+    public function adminGetUserCountByCountry(Request $request)
+{
+    $admin = auth('admin')->user();
+    if (!$admin) return response()->json(['message' => 'Unauthorized'], 403);
+
+    $request->validate([
+        'country' => 'required|string|max:255',
+    ]);
+
+    $country = $request->input('country');
+
+    $counts = [
+        'veterinaryDoctor' => VeterinaryDoctor::where('address', 'LIKE', "%$country%")->count(),
+        'veterinaryClinic' => VeterinaryClinic::where('address', 'LIKE', "%$country%")->count(),
+        'veterinaryParaprofessional' => VeterinaryParaprofessional::where('address', 'LIKE', "%$country%")->count(),
+
+        // count by joining with USERS table
+        'pet_owner' => Pet_Owner::whereHas('user', function ($q) use ($country) {
+            $q->where('country', 'LIKE', "%$country%");
+        })->count(),
+
+        'vendor' => Vendor::whereHas('user', function ($q) use ($country) {
+            $q->where('country', 'LIKE', "%$country%");
+        })->count(),
+
+        'livestock_farmer' => livestock_farmer::whereHas('user', function ($q) use ($country) {
+            $q->where('country', 'LIKE', "%$country%");
+        })->count(),
+
+        'others' => Others::whereHas('user', function ($q) use ($country) {
+            $q->where('country', 'LIKE', "%$country%");
+        })->count(),
+
+        // users table (general)
+        'users' => User::where('country', 'LIKE', "%$country%")->count(),
+
+        // location-based tables
+        'pets' => Pet::where('location', 'LIKE', "%$country%")->count(),
+        'farms' => Farm::where('location', 'LIKE', "%$country%")->count(),
+        'clinics' => Clinic::where('location', 'LIKE', "%$country%")->count(),
+        'stores' => Store::where('location', 'LIKE', "%$country%")->count(),
+        'products' => Products::where('location', 'LIKE', "%$country%")->count(),
+    ];
+
+    return response()->json($counts);
+}
+
+
 
 
 

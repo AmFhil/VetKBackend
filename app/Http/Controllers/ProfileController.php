@@ -16,6 +16,15 @@ class ProfileController extends Controller
 
         $roleRelation = $user->activeRoleModel();
 
+        // fetch profile for basic_user role
+        if($user->activeRole->name === 'basic_user'){
+            $roleRelation = $user;
+            return response()->json([
+                'role' => $user->activeRole->name,
+                'profile' => $roleRelation->load('profile')
+            ], 200);
+        }
+
         if (!$roleRelation) {
             return response()->json(['message' => 'No active role found'], 401);
         }

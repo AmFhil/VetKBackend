@@ -26,6 +26,9 @@ class PaystackSubaccountController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 403);
 
+        // user active role must be vendor
+        if ($user->activeRole->name !== 'vendor') return response()->json(['message' => 'Only merchants can connect account'], 403);
+
         $merchant = MerchantProfile::firstOrCreate(
             ['user_id' => $user->id]
         );
@@ -61,6 +64,7 @@ class PaystackSubaccountController extends Controller
         $merchant->update(['paystack_subaccount_code' => $subaccountCode]);
 
         // need user url settings
-        return redirect()->away(config('app.frontend_url') . '/merchant/settings?connected=paystack');
+        $url = env('FRONTEND_URL');
+        return redirect()->away($url . '/merchant/settings?connected=paystack');
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Admin;
 use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -49,7 +50,7 @@ class AdminAuthController extends Controller
             $admin->tokens()->delete();
 
             // Generate the token and return a successful response.
-           $expiration = Carbon::now()->addMinutes(30);
+            $expiration = Carbon::now()->addMinutes(30);
             $token = $admin->createToken('admin_token', ['*'], $expiration)->plainTextToken;
 
             return response()->json([
@@ -57,7 +58,6 @@ class AdminAuthController extends Controller
                 'admin' => $admin,
                 'token' => $token
             ], 200);
-
         } catch (\Throwable $th) {
             // A more specific error handling is recommended for production.
             return response()->json([
@@ -100,7 +100,7 @@ class AdminAuthController extends Controller
 
         if ($request->hasFile('profile_picture')) {
             $imagePath = $request->file('profile_picture')->store('admin_pic', 'public');
-            $validated['profile_picture'] = basename($imagePath);
+            $validated['profile_picture'] = $imagePath;
         }
 
         $admin->update($validated);
@@ -109,6 +109,8 @@ class AdminAuthController extends Controller
             'Profile Update',
             'Hi ' . $request->first_name . ',<br>This is to notify you that your profile was updated successfully.'
         ));
+
+        Cache::forget("admin_details_{$admin->id}");
 
         $this->createAdminActivity(
             $admin->id,
@@ -119,5 +121,20 @@ class AdminAuthController extends Controller
         );
 
         return response()->json(['message' => 'Admin details updated successfully', 'data' => $admin]);
+    }
+
+    // get admin details
+    public function getAdminDetails(Request $request)
+    {
+        $admin = auth('admin')->user();
+        if (!$admin) return response()->json(['message' => "Unauthorized"], 403);
+
+        // cache admin details
+        $adminDetails = Cache::remember("admin_details_{$admin->id}", 60, function () use ($admin) {
+            $admin->refresh();
+            return $admin;
+        });
+
+        return response()->json(['data' => $adminDetails]);
     }
 }

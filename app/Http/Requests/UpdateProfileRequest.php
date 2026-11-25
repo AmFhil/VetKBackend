@@ -30,6 +30,8 @@ class UpdateProfileRequest extends FormRequest
             'first_name' => 'sometimes|string|max:50|min:3',
             'last_name' => 'sometimes|string|max:50|min:3',
             'phone_num' => 'sometimes|string|max:15',
+            'state' => 'sometimes|string|max:100',
+            'country' => 'sometimes|string|max:100',
             'contact_num' => 'sometimes|string|max:15',
             'address' => 'sometimes|string|max:500',
             'practice_license_num' => 'sometimes|string|max:255',
@@ -44,7 +46,8 @@ class UpdateProfileRequest extends FormRequest
             'status' => 'sometimes|string|in:vet,vet_clinic,vet_paraprofessional',
             'bio' => 'sometimes|string|max:150',
             'profile_image' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:1048',
-            'cover_page_image' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:1048'
+            'cover_page_image' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:1048',
+            'availability' => 'sometimes|boolean',
         ];
     }
 }

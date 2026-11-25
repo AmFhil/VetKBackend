@@ -44,6 +44,7 @@ class OrderService
                 'payment_method' => 'paystack',
                 'payment_status' => 'paid',
                 'status' => 'active',
+                'tracking_status' => 'Payment_Initiated',
                 'total_amount' => $totalAmount,
                 'price' => $metadata['price'],
                 'quantity' => $quantity,
@@ -54,7 +55,7 @@ class OrderService
             ]);
 
             // Create order item
-            OrderItem::create([
+            $orderItem = OrderItem::create([
                 'order_id' => $order->id,
                 'product_id' => $product->id,
                 'product_name' => $product->product_name,
@@ -87,7 +88,7 @@ class OrderService
                 'sender_id' => $metadata['buyer_user_id'],
                 'receiver_id' => $metadata['merchant_user_id'],
                 'type' => 'order.paystack',
-                'content' => "{$buyerUser->first_name} {$buyerUser->last_name} just made an order for {$product->product_name}",
+                'content' => "{$buyerUser->first_name} {$buyerUser->last_name} just made an order for {$product->product_name} fom your store {$orderItem->product->store->store_name}",
                 'meta' => [
                     'order_id' => $order->id,
                     'product_images' => $product->images,

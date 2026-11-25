@@ -35,22 +35,26 @@ class AdsPromotionService
 
             $product = Products::findOrFail($data['product_id']);
 
-
+            $quantity = isset($data['quantity']) ? max(1, intval($data['quantity'])) : 1;
 
             // Create new ad promotion
             $startDate = Carbon::now();
-            $endDate = match (strtolower($plan->date_option)) {
-                'days' => $startDate->copy()->addDays($plan->duration),
-                'weeks' => $startDate->copy()->addWeeks($plan->duration),
-                'months' => $startDate->copy()->addMonths($plan->duration),
-                default => $startDate->copy()->addDays($plan->duration),
+            $duration  = intval($plan->duration);
+
+            // multiply duration by quantity
+            $endDate = match(strtolower($plan->date_option)){
+                'days' => $startDate->copy()->addDays($duration * $quantity),
+                'weeks' => $startDate->copy()->addWeeks($duration * $quantity),
+                'months' => $startDate->copy()->addMonths($duration * $quantity),
+                'years' => $startDate->copy()->addYears($duration * $quantity),
+              default => $startDate->copy()->addDays($duration * $quantity),
             };
 
             $promotion = AdsPromotion::create([
                 'user_id' => $user->id,
                 'product_id' => $data['product_id'],
                 'promotion_plan_id' => $plan->id,
-                'active_role' => optional($user->activeRole())->name,
+                'active_role' => $user->activeRole->name,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'status' => 'active',

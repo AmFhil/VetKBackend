@@ -6,6 +6,7 @@ use App\Events\DirectMessageSent;
 use App\Http\Controllers\Controller;
 use App\Models\DirectMessage;
 use App\Models\MerchantPayout;
+use App\Models\MerchantProfile;
 use App\Models\Order;
 use App\Models\OrderConfirmation;
 use App\Models\OrderItem;
@@ -86,6 +87,10 @@ class PaystackWebhookController extends Controller
 
                 case 'transfer.failed':
                     $this->handleMerchantTransferFailed($data);
+                    break;
+
+                case 'dedicatedaccount.assigned':
+                    $this->handleDedicatedAccountAssigned($data);
                     break;
 
                 /**
@@ -372,6 +377,47 @@ class PaystackWebhookController extends Controller
             'Withdrawal Failed',
             'Your payout could not be processed. Please verify your Paystack details.',
             ['order_id' => $payout->order_id, 'reference' => $reference]
+        );
+    }
+
+    protected function handleDedicatedAccountAssigned(array $data): void
+    {
+        $metadata = $data['metadata'] ?? [];
+        if (!isset($metadata['merchant_id'])) {
+            Log::warning('Paystack webhook missing metadata for dedicated account assignment', ['data' => $data]);
+            return;
+        }
+
+        $merchantId = $metadata['merchant_id'];
+        $merchant = MerchantProfile::where('user_id', $merchantId)->first();
+        if (!$merchant) {
+            Log::warning('MerchantProfile not found for dedicated account assignment', ['merchant_id' => $merchantId]);
+            return;
+        }
+
+        $accountId = $data['dedicated_account_id'] ?? null;
+        if (!$accountId) {
+            Log::warning('Paystack webhook missing dedicated_account_id', ['data' => $data]);
+            return;
+        }
+
+        $merchant = MerchantProfile::where('paystack_dedicated_account_id', $accountId)->first();
+        if (!$merchant) {
+            Log::warning('MerchantProfile not found for dedicated account assignment by account ID', ['account_id' => $accountId]);
+            return;
+        }
+
+        $merchant->update([
+            'paystack_recipient_code' => $data['recipient_code'],
+            'paystack_connected' => true,
+        ]);
+
+        // send notification to merchant
+        $merchant->user->sendNotification(
+            'dedicated_account_connected',
+            'Paystack Dedicated Account Connected',
+            'Your Paystack dedicated account has been successfully connected.',
+            []
         );
     }
 }

@@ -59,6 +59,9 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 // 'useTLS' => false,
             ],
+            'client_options' => [
+                'guard' => 'sanctum', 
+            ],
         ],
 
         'ably' => [

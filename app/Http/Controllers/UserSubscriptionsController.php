@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\Subscription;
 use App\Models\UserSubscriptions;
 use App\Traits\BroadcastsAdminEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class UserSubscriptionsController extends Controller
 {
@@ -112,5 +114,15 @@ class UserSubscriptionsController extends Controller
             'success' => true,
             'subscriptions' => $history,
         ]);
+    }
+
+    // get all subscription to show to user
+    public function getAllSubscriptions()
+    {
+        $subscriptions = Cache::remember('all_subscriptions', now()->addMinutes(30), function () {
+            return Subscription::latest()->paginate(10);
+        });
+
+        return response()->json(['message' => "success", 'subscriptions' => $subscriptions], 200);
     }
 }

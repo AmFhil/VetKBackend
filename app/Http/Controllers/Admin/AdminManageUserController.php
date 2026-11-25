@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Auth;
 class AdminManageUserController extends Controller
 {
     //
-     // require admin for management endpoints
+    // require admin for management endpoints
     protected function guardAdmin()
     {
         $admin = auth('admin')->user();
@@ -42,11 +42,11 @@ class AdminManageUserController extends Controller
         $this->guardAdmin();
 
         $veterinaryParaprofessionals = VeterinaryParaprofessional::with([
-                'user:id,email,first_name,last_name,phone_num,state,country',
-                'ratings:id,rateable_id,rating,comment',
-                'user.profile:id,user_id,profile_image'
-            ])
-            ->select('id','user_id','name_of_institution','specialty','list_them','contact_num','address','longitude','latitude','role','availability','created_at')
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'ratings:id,rateable_id,rating,comment',
+            'user.profile:id,user_id,profile_image'
+        ])
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'availability', 'created_at')
             ->latest()
             ->paginate(10);
 
@@ -63,11 +63,11 @@ class AdminManageUserController extends Controller
         $this->guardAdmin();
 
         $veterinaryDoctors = VeterinaryDoctor::with([
-                'user:id,email,first_name,last_name,phone_num,state,country',
-                'ratings:id,rateable_id,rating,comment',
-                'user.profile:id,user_id,profile_image'
-            ])
-            ->select('id','user_id','specialty','list_them','address','longitude','latitude','role','availability','created_at')
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'ratings:id,rateable_id,rating,comment',
+            'user.profile:id,user_id,profile_image',
+        ])
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved', 'created_at')
             ->latest()
             ->paginate(10);
 
@@ -84,11 +84,11 @@ class AdminManageUserController extends Controller
         $this->guardAdmin();
 
         $clinics = VeterinaryClinic::with([
-                'user:id,email,first_name,last_name,phone_num,state,country',
-                'ratings:id,rateable_id,rating,comment',
-                'user.profile:id,user_id,profile_image'
-            ])
-            ->select('id','user_id','name_of_clinic','specialty','list_them','contact_num','address','longitude','latitude','role','availability','created_at')
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'ratings:id,rateable_id,rating,comment',
+            'user.profile:id,user_id,profile_image',
+        ])
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'availability', 'created_at')
             ->inRandomOrder()
             ->paginate(10);
 
@@ -116,7 +116,7 @@ class AdminManageUserController extends Controller
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
             ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'availability')
             ->paginate(10);
 
         // add average rating to each veterinary paraprofessional
@@ -142,7 +142,7 @@ class AdminManageUserController extends Controller
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
             ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'specialty', 'list_them', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'availability')
             ->paginate(10);
 
         // add average rating to each veterinary doctor
@@ -170,7 +170,7 @@ class AdminManageUserController extends Controller
             ->orWhere('list_them', 'like', "%$query%")
             ->orWhere('address', 'like', "%$query%")
             ->with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
-            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability')
+            ->select('id', 'user_id', 'name_of_clinic', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'is_approved', 'availability')
             ->paginate(10);
 
         // add average rating to each veterinary clinic
@@ -185,8 +185,8 @@ class AdminManageUserController extends Controller
     public function getVendor()
     {
         $this->guardAdmin();
-        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country','user.profile:id,user_id,profile_image'])
-            ->select('id','user_id','role','created_at')
+        $vendor = Vendor::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role', 'created_at')
             ->paginate(20);
 
         return response()->json($vendor, 200);
@@ -195,8 +195,8 @@ class AdminManageUserController extends Controller
     public function getOther()
     {
         $this->guardAdmin();
-        $other = Others::with(['user:id,email,first_name,last_name,phone_num,state,country','user.profile:id,user_id,profile_image'])
-            ->select('id','user_id','role','created_at')
+        $other = Others::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role', 'created_at')
             ->paginate(20);
 
         return response()->json($other, 200);
@@ -205,8 +205,8 @@ class AdminManageUserController extends Controller
     public function getPetOwner()
     {
         $this->guardAdmin();
-        $pet_owner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country','user.profile:id,user_id,profile_image'])
-            ->select('id','user_id','role','created_at')
+        $pet_owner = Pet_Owner::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role', 'created_at')
             ->paginate(20);
 
         return response()->json($pet_owner, 200);
@@ -215,8 +215,8 @@ class AdminManageUserController extends Controller
     public function getLifeStockFarmer()
     {
         $this->guardAdmin();
-        $lifeStock = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country','user.profile:id,user_id,profile_image'])
-            ->select('id','user_id','role','created_at')
+        $lifeStock = livestock_farmer::with(['user:id,email,first_name,last_name,phone_num,state,country', 'user.profile:id,user_id,profile_image'])
+            ->select('id', 'user_id', 'role', 'created_at')
             ->paginate(20);
 
         return response()->json($lifeStock, 200);
@@ -225,7 +225,11 @@ class AdminManageUserController extends Controller
     public function getStores()
     {
         $this->guardAdmin();
-        $stores = Store::with('ratings:id,rating,comment,rateable_id')->paginate(10);
+        $stores = Store::with(
+            'ratings:id,rating,comment,rateable_id',
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user.profile:id,user_id,profile_image',
+        )->paginate(10);
 
         $stores->getCollection()->transform(function ($store) {
             $store->average_rating = method_exists($store, 'averageRating') ? $store->averageRating() : null;
@@ -241,9 +245,13 @@ class AdminManageUserController extends Controller
         $query = $request->input('query');
         if (!$query) return response()->json(['stores' => []], 200);
 
-        $stores = Store::where('store_name','like',"%$query%")
-            ->orWhere('location','like',"%$query%")
-            ->with('ratings:id,rating,comment,rateable_id')
+        $stores = Store::where('store_name', 'like', "%$query%")
+            ->orWhere('location', 'like', "%$query%")
+            ->with(
+                'ratings:id,rating,comment,rateable_id',
+                'user:id,email,first_name,last_name,phone_num,state,country,active_role_id',
+                'user.profile:id,user_id,profile_image',
+            )
             ->paginate(10);
 
         $stores->getCollection()->transform(function ($store) {
@@ -257,7 +265,7 @@ class AdminManageUserController extends Controller
     public function getProducts()
     {
         $this->guardAdmin();
-        $products = Products::with('ratings:id,rating,comment,rateable_id','tags','user','user.profile','user.activeRoleData')
+        $products = Products::with('ratings:id,rating,comment,rateable_id', 'tags', 'user:id,first_name,last_name,active_role_id', 'user.profile', 'ratings.user:id,first_name,last_name,active_role_id', 'ratings.user.profile:id,user_id,profile_image', 'store',)
             ->latest()
             ->paginate(10);
 
@@ -277,16 +285,16 @@ class AdminManageUserController extends Controller
 
         if (!$keyword && !$category) return response()->json(['products' => []], 200);
 
-        $query = Products::with('ratings:id,rating,comment,rateable_id','tags');
+        $query = Products::with('ratings:id,rating,comment,rateable_id', 'tags');
 
         if ($category) {
-            $query->where('category','like',"%{$category}%");
+            $query->where('category', 'like', "%{$category}%");
         }
 
         if ($keyword) {
             $query->where(function ($q) use ($keyword) {
-                $q->where('description','like',"%{$keyword}%")
-                  ->orWhere('product_name','like',"%{$keyword}%");
+                $q->where('description', 'like', "%{$keyword}%")
+                    ->orWhere('product_name', 'like', "%{$keyword}%");
             });
         }
 
@@ -303,18 +311,18 @@ class AdminManageUserController extends Controller
     public function getFarms()
     {
         $this->guardAdmin();
-        $farms = Farm::with('user')->latest()->paginate(10);
+        $farms = Farm::with('user:id,email,first_name,last_name,phone_num,state,country,active_role_id', 'user.profile')->latest()->paginate(10);
         return response()->json($farms);
     }
 
     public function getPets()
     {
         $this->guardAdmin();
-        $pets = Pet::with('user')->latest()->paginate(10);
+        $pets = Pet::with('user:id,email,first_name,last_name,phone_num,state,country,active_role_id', 'user.profile')->latest()->paginate(10);
         return response()->json($pets);
     }
 
-     // search clinic
+    // search clinic
     public function searchClinics(Request $request)
     {
         $admin = auth('admin')->user();
@@ -331,13 +339,14 @@ class AdminManageUserController extends Controller
         $clinics = Clinic::where('clinic_name', 'like', "%$query%")
             ->orWhereJsonContains('clinic_speciality', $query)
             ->orWhere('location', 'like', "%$query%")
+            ->with('user:id,email,first_name,last_name,phone_num,state,country,active_role_id', 'user.profile')
             ->paginate(10);
 
         return response()->json(['clinics' => $clinics], 200);
     }
 
     // get clinic
-    public function getClinic()
+    public function getClinics()
     {
         // check if user is authenticated
         $admin = auth('admin')->user();
@@ -346,7 +355,8 @@ class AdminManageUserController extends Controller
         };
 
         //get clinic
-        $clinics = Clinic::latest()
+        $clinics = Clinic::with('user:id,email,first_name,last_name,phone_num,state,country,active_role_id', 'user.profile')
+            ->latest()
             ->paginate(10);
 
         return response()->json(['clinics' => $clinics], 200);
@@ -357,7 +367,7 @@ class AdminManageUserController extends Controller
     {
         $this->guardAdmin();
 
-        $cases = CaseModel::with('user', 'user.activeRole', 'user.profile', 'comment.replies', 'comment')
+        $cases = CaseModel::with('user', 'user.profile', 'comment.replies', 'comment')
             ->latest()
             ->paginate(10);
 
@@ -369,7 +379,7 @@ class AdminManageUserController extends Controller
     {
         $this->guardAdmin();
 
-        $promotions = AdsPromotion::with('user','promotionPlan','user.profile','user.activeRole','user.activeRoleData','product.ratings', 'product')
+        $promotions = AdsPromotion::with('user', 'promotionPlan', 'user.profile', 'product.ratings', 'product', 'product.ratings.user')
             ->latest()
             ->paginate(10);
 
@@ -385,7 +395,7 @@ class AdminManageUserController extends Controller
     {
         $this->guardAdmin();
 
-        $subscriptions = UserSubscriptions::with('user','subscription','user.profile','user.activeRole','user.activeRoleData','ratings')
+        $subscriptions = UserSubscriptions::with('user', 'subscription', 'user.profile', 'ratings')
             ->latest()
             ->paginate(10);
 

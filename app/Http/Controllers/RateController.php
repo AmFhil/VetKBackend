@@ -20,6 +20,8 @@ class RateController extends Controller
                 'rateable_type' => 'required|string|in:App\Models\VeterinaryDoctor,App\Models\VeterinaryParaprofessional,App\Models\VeterinaryClinic,App\Models\Store,App\Models\Products',
                 'rating' => 'required|integer|min:1|max:5',
                 'comment' => 'nullable|string|max:1000',
+            ],[
+                'rateable_type.in' => 'The selected rateable type is invalid.'
             ]);
 
             // Find the rateable entity
@@ -29,7 +31,7 @@ class RateController extends Controller
             }
 
             // Prevent self-rating
-            if (isset($rateable->user_id) && $rateable->user_id === $user->id) {
+            if (isset($rateable->user_id) && (int) $rateable->user_id === (int) $user->id) {
                 return response()->json(['message' => 'You cannot rate yourself.'], 400);
             }
 

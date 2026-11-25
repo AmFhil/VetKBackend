@@ -3,13 +3,28 @@
 
 .env
 .env.*
+!.env.example
 
 .git
 .gitignore
-README.md
 .dockerignore
 
 npm-debug.log
 yarn-error.log
 
-/database/database.sqlite
+*.log
+error_log
+*/error_log
+*/*/error_log
+
+*.sqlite
+*.sqlite-journal
+*.sqlite3
+/database/*.sqlite*
+
+*.bak
+tests
+.phpunit.cache
+.phpunit.result.cache
+.vscode
+.idea

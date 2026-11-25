@@ -12,7 +12,7 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 # -------------------------
 # 2) Build frontend assets (npm)
 # -------------------------
-FROM node:20 AS node_builder
+FROM node:20-alpine AS node_builder
 WORKDIR /app
 
 COPY package*.json ./
@@ -29,14 +29,14 @@ FROM php:8.2-fpm AS production
 ENV APP_ENV=production
 WORKDIR /var/www/html
 
-# Install system deps and PHP extensions
+# Install system dependencies and PHP extensions
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     git curl ca-certificates unzip zip libzip-dev \
     libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
-    libonig-dev libicu-dev nginx \
+    libonig-dev libicu-dev sqlite3 libsqlite3-dev nginx \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j"$(nproc)" gd pdo pdo_mysql mbstring bcmath intl zip opcache \
+ && docker-php-ext-install -j"$(nproc)" gd pdo pdo_mysql pdo_sqlite mbstring bcmath intl zip opcache \
  && pecl install redis || true \
  && docker-php-ext-enable redis || true \
  && rm -rf /var/lib/apt/lists/*
@@ -44,13 +44,13 @@ RUN apt-get update \
 # Copy application code
 COPY . .
 
-# Copy built vendor files
+# Copy built vendor files from composer stage
 COPY --from=vendor /app/vendor ./vendor
 
-# Copy built frontend assets
+# Copy built frontend assets from node stage
 COPY --from=node_builder /app/public ./public
 
-# Copy config files
+# Copy Docker configuration files
 COPY docker/nginx.conf /etc/nginx/sites-enabled/default
 COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
 
@@ -58,5 +58,12 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 80
-CMD ["/entrypoint.sh"]
+# Ensure storage and bootstrap directories exist with proper permissions
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache \
+ && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+ && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Render injects $PORT (default 10000) or standard HTTP (80)
+EXPOSE 80 10000
+
+ENTRYPOINT ["/entrypoint.sh"]

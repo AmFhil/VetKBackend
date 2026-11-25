@@ -50,7 +50,7 @@ class UserSubscriptions extends Model
     }
 
     /**
-     * 🔧 Clears subscription-related caches
+     * Clears subscription-related caches
      */
     private static function clearCaches(): void
     {
@@ -69,7 +69,7 @@ class UserSubscriptions extends Model
             }
         }
 
-        // ⚠️ optional: if that’s too heavy, you can drop Cache::flush() here
+        // optional: drop Cache::flush() here
         // Cache::flush();
     }
 
@@ -79,7 +79,7 @@ class UserSubscriptions extends Model
         $ttl = $ttl ?? now()->addMinutes(30);
         $cacheKey = "user_subscriptions_page_{$page}_per_{$perPage}";
         return Cache::remember($cacheKey, $ttl, function () use ($perPage) {
-            return self::with(['user', 'subscription', 'user.profile', 'user.activeRole'])
+            return self::with(['user', 'subscription', 'user.profile', 'user.activeRole', 'receipts'])
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
         });
@@ -90,7 +90,7 @@ class UserSubscriptions extends Model
         $ttl = $ttl ?? now()->addMinutes(30);
         $cacheKey = "subscription_approvals_page_{$page}_per_{$perPage}";
         return Cache::remember($cacheKey, $ttl, function () use ($perPage) {
-            return self::with(['user', 'subscription', 'user.profile', 'user.activeRole'])
+            return self::with(['user', 'subscription', 'user.profile', 'user.activeRole', 'receipts'])
                 ->latest()
                 ->paginate($perPage);
         });

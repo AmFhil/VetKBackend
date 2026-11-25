@@ -201,7 +201,7 @@ class UserController extends Controller
         }
 
         $doctors = VeterinaryDoctor::with([
-            'user:id,email,first_name,last_name,phone_num,state,country',
+            'user:id,email,first_name,last_name,phone_num,state,country,active_role_id',
             'user.profile:id,user_id,profile_image,bio,cover_page_image',
             'ratings:id,rateable_id,rating,comment'
         ])
@@ -210,7 +210,7 @@ class UserController extends Controller
             ->paginate(5);
 
         $doctors->getCollection()->transform(function ($doctor) {
-            $doctor->average_rating = $doctor->averageRating();
+            $doctor->average_rating = $doctor->ratings ? round($doctor->ratings->avg('rating') ?? 0, 1) : 0;
             return $doctor;
         });
 
@@ -567,12 +567,12 @@ class UserController extends Controller
         $user = Auth::user();
 
         $userActivity = UserActivity::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc');
-            // ->paginate(10);
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
-            // get count of total activity
-            $totalActivity = $userActivity->count();
-            $userActivity = $userActivity->paginate(10);
+        // get count of total activity
+        $totalActivity = $userActivity->count();
+
 
         return response()->json(['userActivity' => $userActivity, 'totalActivity' => $totalActivity], 200);
     }
@@ -583,16 +583,18 @@ class UserController extends Controller
         $user = Auth::user();
 
         $userNotification = UserNotification::where('user_id', $user->id)
-            ->latest();
+            ->latest()
+            ->paginate(10);
 
-            $totalNotification = $userNotification->where('is_read', false)->count();
-            $userNotification = $userNotification->paginate(10);
+        // get count of total unread notification
+        $totalNotification = $userNotification->where('is_read', false)->count();
 
         return response()->json(['totalNotification' => $totalNotification, 'userNotification' => $userNotification], 200);
     }
 
     // mark notification as read
-    public function markNotification($id){
+    public function markNotification($id)
+    {
         $user = auth('user')->user();
 
         $notification = UserNotification::where('user_id', $user->id)
@@ -616,7 +618,8 @@ class UserController extends Controller
     }
 
     // activity by id
-    public function getActivity($id){
+    public function getActivity($id)
+    {
         $user = Auth::user();
 
         $activity = UserActivity::where('user_id', $user->id)

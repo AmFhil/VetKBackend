@@ -10,6 +10,7 @@ use App\Traits\BroadcastsAdminEvents;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class VeterinaryParaprofessionalController extends Controller
 {
@@ -29,11 +30,16 @@ class VeterinaryParaprofessionalController extends Controller
             return response()->json(['message' => 'You already have a veterinary paraprofessional profile.'], 400);
         }
 
-        $veterinaryParaprofessionalRole = $user->roles()->where('name', 'veterinary_paraprofessional')->first();
-            if (!$veterinaryParaprofessionalRole) {
-                DB::rollBack();
-                return response()->json(['message' => 'Role not found.'], 404);
-            }
+        $veterinaryParaprofessionalRole = Role::where('name', 'veterinary_paraprofessional')->first();
+        if (!$veterinaryParaprofessionalRole) {
+            DB::rollBack();
+            return response()->json(['message' => 'Role not found.'], 404);
+        }
+
+        if ($user->hasRole('veterinary_doctor') && !$user->hasRole('veterinary_paraprofessional')) {
+            DB::rollBack();
+            return response()->json(['message' => 'You are not allowed to switch to this role'], 400);
+        }
 
         if ($user->hasRole('veterinary_paraprofessional')) {
             $user->update([
@@ -113,7 +119,7 @@ class VeterinaryParaprofessionalController extends Controller
     // get all veterinary paraprofessionals
     public function getAllVeterinaryParaprofessionals()
     {
-        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image'])
+        $veterinaryParaprofessionals = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,profile_image', 'user.media:id,user_id,file_path'])
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'availability', 'is_approved', 'created_at')
             ->paginate(10);
 
@@ -183,7 +189,14 @@ class VeterinaryParaprofessionalController extends Controller
     {
         $user = auth()->user();
 
-        $veterinaryParaprofessional = VeterinaryParaprofessional::with(['user:id,email,first_name,last_name,phone_num,state,country', 'ratings:id,rateable_id,rating,comment', 'user.profile:id,user_id,bio,profile_image,cover_page_image', 'user.media:id,user_id,file_path'])
+        $veterinaryParaprofessional = VeterinaryParaprofessional::with([
+            'user:id,email,first_name,last_name,phone_num,state,country',
+            'ratings:id,user_id,rateable_id,rating,comment',
+            'user.profile:id,user_id,bio,profile_image,cover_page_image',
+            'user.media:id,user_id,file_path',
+            'ratings.user:id,first_name,last_name,active_role_id',
+            'ratings.user.profile:id,user_id,profile_image'
+        ])
             ->select('id', 'user_id', 'name_of_institution', 'specialty', 'list_them', 'contact_num', 'address', 'longitude', 'latitude', 'role', 'view', 'availability', 'is_approved')
             ->where('id', $id)
             ->first();

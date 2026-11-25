@@ -11,6 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('pet')) {
+            Schema::create('pet', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->nullable();
+                $table->string('pet_name')->nullable();
+                $table->string('pet_id')->nullable();
+                $table->string('specie')->nullable();
+                $table->string('breed')->nullable();
+                $table->string('sex')->nullable();
+                $table->string('age')->nullable();
+                $table->string('picture')->nullable();
+                $table->string('location')->nullable();
+                $table->timestamps();
+            });
+            return;
+        }
+
         Schema::table('pet', function (Blueprint $table) {
             //
             $table->dropColumn('date');

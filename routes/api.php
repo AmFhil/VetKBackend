@@ -30,10 +30,12 @@ use App\Http\Controllers\ForumChatCommentController;
 use App\Http\Controllers\ForumChatController;
 use App\Http\Controllers\ForumChatLikeController;
 use App\Http\Controllers\LivestockFarmerController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OthersController;
 use App\Http\Controllers\Payments\PaystackAdsPromotionController;
+use App\Http\Controllers\Payments\PaystackDedicatedAccountController;
 use App\Http\Controllers\Payments\PaystackOrderController;
 use App\Http\Controllers\Payments\PaystackSubaccountController;
 use App\Http\Controllers\Payments\PaystackSubscriptionController;
@@ -94,6 +96,26 @@ Route::prefix('v3')->group(function () {
         Route::any('/ads-promotion/verify', [PaystackAdsPromotionController::class, 'verify'])->name('ads.promotion.verify');
         Route::any('/orders/verify', [PaystackOrderController::class, 'verify'])->name('order.verify');
         Route::get('/merchant/paystack/callback', [PaystackSubaccountController::class, 'callback'])->name('paystack.callback');
+
+        // Publicly accessible tools and directory
+        Route::post('/feed-calculator', [FeedCalculatorController::class, 'feedCalculator']);
+        Route::post('/disease-predictor', [DiseasePredictorController::class, 'diseasePredictor']);
+
+        Route::get('/get-all-veterinary-doctors', [VeterinaryDoctorController::class, 'getAllVeterinaryDoctors']);
+        Route::get('/get-all-veterinary-clinics', [VeterinaryClinicController::class, 'getAllVeterinaryClinics']);
+        Route::get('/get-all-veterinary-paraprofessionals', [VeterinaryParaprofessionalController::class, 'getAllVeterinaryParaprofessionals']);
+
+        Route::get('/search-veterinary-doctors', [VeterinaryDoctorController::class, 'searchVeterinaryDoctors']);
+        Route::get('/search-veterinary-clinics', [VeterinaryClinicController::class, 'searchVeterinaryClinics']);
+        Route::get('/search-veterinary-paraprofessionals', [VeterinaryParaprofessionalController::class, 'searchVeterinaryParaprofessionals']);
+
+        Route::post('/get-veterinary-doctor-by-location', [VeterinaryDoctorController::class, 'getVeterinaryDoctorsByLocation']);
+        Route::post('/get-veterinary-clinic-by-location', [VeterinaryClinicController::class, 'getNearbyVeterinaryClinics']);
+        Route::post('/get-veterinary-paraprofessional-by-location', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalsByLocation']);
+
+        Route::get('/get-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'getVeterinaryDoctorById']);
+        Route::get('/get-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'getVeterinaryClinicById']);
+        Route::get('/get-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalById']);
     });
 
 
@@ -117,26 +139,6 @@ Route::prefix('v3')->group(function () {
         Route::post('/add-veterinary-doctor', [VeterinaryDoctorController::class, 'addVeterinaryDoctor']);
         Route::post('/add-veterinary-paraprofessional', [VeterinaryParaprofessionalController::class, 'addVeterinaryParaprofessional']);
 
-        Route::post('/feed-calculator', [FeedCalculatorController::class, 'feedCalculator']);
-        Route::post('/disease-predictor', [DiseasePredictorController::class, 'diseasePredictor']);
-        // Route::get('/get-livestock-disease', [UserController::class, 'getLivestockDisease']);
-
-        Route::get('/get-all-veterinary-doctors', [VeterinaryDoctorController::class, 'getAllVeterinaryDoctors']);
-        Route::get('/get-all-veterinary-clinics', [VeterinaryClinicController::class, 'getAllVeterinaryClinics']);
-        Route::get('/get-all-veterinary-paraprofessionals', [VeterinaryParaprofessionalController::class, 'getAllVeterinaryParaprofessionals']);
-
-        Route::get('/search-veterinary-doctors', [VeterinaryDoctorController::class, 'searchVeterinaryDoctors']);
-        Route::get('/search-veterinary-clinics', [VeterinaryClinicController::class, 'searchVeterinaryClinics']);
-        Route::get('/search-veterinary-paraprofessionals', [VeterinaryParaprofessionalController::class, 'searchVeterinaryParaprofessionals']);
-
-        Route::post('/get-veterinary-doctor-by-location', [VeterinaryDoctorController::class, 'getVeterinaryDoctorsByLocation']);
-        Route::post('/get-veterinary-clinic-by-location', [VeterinaryClinicController::class, 'getNearbyVeterinaryClinics']);
-        Route::post('/get-veterinary-paraprofessional-by-location', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalsByLocation']);
-
-        Route::get('/get-veterinary-doctor/{id}/doctor', [VeterinaryDoctorController::class, 'getVeterinaryDoctorById']);
-        Route::get('/get-veterinary-clinic/{id}/clinic', [VeterinaryClinicController::class, 'getVeterinaryClinicById']);
-        Route::get('/get-veterinary-paraprofessional/{id}/paraprofessional', [VeterinaryParaprofessionalController::class, 'getVeterinaryParaprofessionalById']);
-
         Route::post('/rate-entity', [RateController::class, 'rateUser']);
 
         Route::post('/add-new-store', [StoreController::class, 'addNewStore']);
@@ -158,7 +160,7 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-product-by-store-for-customer/{id}/product', [ProductsController::class, 'getProductsByStoreForCustomers']);
         Route::get('/get-related-product/{id}/related', [ProductsController::class, 'getRelatedProducts']);
         Route::post('/search-product', [ProductsController::class, 'searchProducts']);
-        Route::get('/get-product-by-id/{id}/product', [ProductsController::class, 'getProductById']);
+        Route::get('/get-product-by-id/{id}/product', [ProductsController::class, 'getProductById'])->name('product.show');
 
         Route::post('/update-profile', [UserController::class, 'updateProfile']);
 
@@ -270,6 +272,7 @@ Route::prefix('v3')->group(function () {
         Route::post('/orders/{id}/confirm', [OrderController::class, 'confirmOrder']);
         Route::post('/orders/{id}/complaint', [OrderController::class, 'fileComplaint']);
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('order.cancel');
+        Route::post('/orders/{id}/track', [OrderController::class, 'trackOrder']);
         Route::post('/order/initialize', [PaystackOrderController::class, 'initialize']);
 
         Route::get('/get-categories', [CategoryController::class, 'index']);
@@ -279,10 +282,15 @@ Route::prefix('v3')->group(function () {
         Route::get('/subscriptions/history', [UserSubscriptionsController::class, 'history']);
         Route::get('/subscription-receipts', [SubscriptionReceiptController::class, 'index']);
         Route::post('/subscriptions/initialize', [PaystackSubscriptionController::class, 'initialize']);
+        Route::get('/get-all-subscription-for-user', [UserSubscriptionsController::class, 'getAllSubscriptions']);
 
-        Route::post('/merchant/paystack/connect', [PaystackSubaccountController::class, 'connect'])->name('paystack.connect');
+        Route::post('/merchant/paystack/connect', [PaystackDedicatedAccountController::class, 'connect'])->name('paystack.connect');
 
         Route::post('/drop-complain', [CustomerSupportController::class, 'DropAComplain']);
+
+        Route::post('/add-media', [MediaController::class, 'addMedia']);
+        Route::get('/get-media', [MediaController::class, 'getMedia']);
+        Route::delete('/delete-media/{id}/media', [MediaController::class, 'deleteMedia']);
     });
 
     // User must have an active subscription
@@ -331,8 +339,9 @@ Route::prefix('v3')->group(function () {
         Route::get('/get-user-case', [CaseModelController::class, 'adminSeeAllCases']);
 
         Route::post('/subscriptions', [AdminSubscriptionController::class, 'addSubscription']);
-        Route::get('/subscriptions', [AdminSubscriptionController::class, 'listSubscriptions']);
+        Route::get('/subscriptions', [AdminSubscriptionController::class, 'listUserSubscriptions']);
         Route::get('/subscriptions/{id}/view', [AdminSubscriptionController::class, 'viewSubscription']);
+        Route::get('/get-all-subscription', [AdminSubscriptionController::class, 'getAllSubscriptions']);
         Route::put('/subscriptions/{id}/update', [AdminSubscriptionController::class, 'updateSubscription']);
         Route::delete('/subscriptions/{id}/delete', [AdminSubscriptionController::class, 'deleteSubscription']);
         Route::put('/deactivate-subscription/{id}', [AdminSubscriptionController::class, 'deactivateSubscription']);
@@ -360,7 +369,7 @@ Route::prefix('v3')->group(function () {
             Route::put('/comments/{id}/flag', [ForumChatCommentController::class, 'updateFlag']); // Admin flag
             Route::post('/approve', [AdminForumController::class, 'approveForumChat']); // Approve forum
             Route::post('/reject', [AdminForumController::class, 'rejectForumChat']); // Reject forum
-            Route::get('/search', [ForumChatController::class, 'searchForumChats']); // Search forums
+            Route::get('/search', [AdminForumController::class, 'searchForumChats']); // Search forums
             Route::get('/forum-approvals', [AdminForumController::class, 'getForumApprovals']); // pending forums
             Route::delete('/{id}/delete', [AdminForumController::class, 'destroy']);
         });
@@ -372,11 +381,20 @@ Route::prefix('v3')->group(function () {
         Route::patch('/disable/{id}/product', [ProductsController::class, 'disableProduct']);
         Route::patch('/disable/{id}/pet', [PetController::class, 'disablePet']);
 
+        Route::patch('/enable/{id}/store', [StoreController::class, 'enableStore']);
+        Route::patch('/enable/{id}/case', [CaseModelController::class, 'enableCase']);
+        Route::patch('/enable/{id}/clinic', [ClinicController::class, 'enableClinic']);
+        Route::patch('/enable/{id}/farm', [FarmController::class, 'enableFarm']);
+        Route::patch('/enable/{id}/product', [ProductsController::class, 'enableProduct']);
+        Route::patch('/enable/{id}/pet', [PetController::class, 'enablePet']);
+
         Route::get('/logout', [AdminAuthController::class, 'adminLogout']);
         Route::match(['post', 'patch'], '/update-details', [AdminAuthController::class, 'updateAdminDetails']);
+        Route::get('/profile', [AdminAuthController::class, 'getAdminDetails']);
 
         Route::get('/get-count', [AdminAnalyticsController::class, 'adminGetUserCount']);
         Route::get('/refresh-count-cache', [AdminAnalyticsController::class, 'refreshCountsCache']);
+        Route::get('/get-count-by-country', [AdminAnalyticsController::class, 'adminGetUserCountByCountry']);
 
         Route::get('/admin-activity', [AdminActivityController::class, 'getAdminActivity']);
         Route::get('/search-admin-activity', [AdminActivityController::class, "searchAdminActivity"]);

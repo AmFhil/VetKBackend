@@ -21,9 +21,11 @@ class AdminSubscriptionController extends Controller
     public function addSubscription(Request $request)
     {
         $admin = auth('admin')->user();
-        if (!$admin || $admin->permission_level !== 1) {
+        if (!$admin) {
             return response()->json(['message' => "Unauthorized"], 403);
         }
+
+        if((int) $admin->permission_level !== 1) return response()->json(['message' => "Unauthorized"], 403);
 
         $validated = $request->validate([
             'subscription_title' => 'required|string|max:50',
@@ -69,7 +71,7 @@ class AdminSubscriptionController extends Controller
         $perPage = 20;
 
 
-        $subscriptions =  UserSubscriptions::getUsersBySubscription($page, $perPage);
+        $subscriptions =  UserSubscriptions::getUserSubscriptionsCached($page, $perPage);
 
 
         return response()->json($subscriptions);
@@ -120,9 +122,11 @@ class AdminSubscriptionController extends Controller
     public function updateSubscription(Request $request, $id)
     {
         $admin = auth('admin')->user();
-        if (!$admin || $admin->permission_level !== 1) {
+        if (!$admin) {
             return response()->json(['message' => "Unauthorized"], 403);
         }
+
+        if((int) $admin->permission_level !== 1) return response()->json(['message' => "Unauthorized"], 403);
 
         $subscription = Subscription::findOrFail($id);
 
@@ -213,7 +217,7 @@ class AdminSubscriptionController extends Controller
     }
 
     /**
-     * 🟢 Get users by subscription type (title)
+     * Get users by subscription type (title)
      */
     public function getUsersBySubscription($type)
     {
@@ -239,5 +243,15 @@ class AdminSubscriptionController extends Controller
             'count' => $users->count(),
             'users' => $users
         ]);
+    }
+
+    // get all subscription
+    public function getAllSubscriptions()
+    {
+        $subscriptions = Cache::remember('all_subscriptions', now()->addMinutes(30), function () {
+            return Subscription::latest()->paginate(10);
+        });
+
+        return response()->json(['message' => "success", 'subscriptions' => $subscriptions], 200);
     }
 }
